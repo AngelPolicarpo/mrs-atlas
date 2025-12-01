@@ -198,30 +198,30 @@ function Configuracoes() {
 
       {error && <div className="alert alert-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
 
-      <div className="config-section">
-        <div className="config-header">
-          <h2>{currentTab?.label}</h2>
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">{currentTab?.label}</h2>
           {!isCreating && !editingId && (
-            <button onClick={startCreating} className="btn btn-primary btn-sm">
+            <button onClick={startCreating} className="btn btn-primary">
               + Adicionar
             </button>
           )}
         </div>
 
         {isCreating && (
-          <div className="config-form card">
-            <h4>Novo Item</h4>
+          <div className="config-form" style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--background)', borderRadius: '0.5rem' }}>
+            <h4 style={{ marginBottom: '1rem', fontSize: '0.9375rem', fontWeight: '600' }}>Novo Item</h4>
             <div className="form-row">
               {currentTab?.fields.map(field => (
                 <div key={field} className="form-group">
-                  <label>{field === 'codigo_iso' ? 'Código ISO' : field === 'pais' ? 'País' : field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <label className="form-label">{field === 'codigo_iso' ? 'Código ISO' : field === 'pais' ? 'País' : field.charAt(0).toUpperCase() + field.slice(1)}</label>
                   {renderField(field)}
                 </div>
               ))}
             </div>
-            <div className="form-actions">
-              <button onClick={cancelEdit} className="btn btn-secondary btn-sm">Cancelar</button>
-              <button onClick={handleSave} className="btn btn-primary btn-sm">Salvar</button>
+            <div className="form-actions" style={{ marginTop: '1rem' }}>
+              <button onClick={cancelEdit} className="btn btn-secondary">Cancelar</button>
+              <button onClick={handleSave} className="btn btn-primary">Salvar</button>
             </div>
           </div>
         )}
@@ -294,9 +294,9 @@ function Configuracoes() {
                             <div className="btn-group">
                               <button
                                 onClick={() => startEditing(item)}
-                                className="btn btn-sm btn-secondary"
+                                className="btn btn-sm btn-outline"
                               >
-                                ✏️
+                                ✏️ Editar
                               </button>
                               <button
                                 onClick={() => handleDelete(item.id, item.nome || item.pais)}

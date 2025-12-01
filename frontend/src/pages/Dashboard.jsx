@@ -188,9 +188,9 @@ function Dashboard() {
   }
   
   return (
-    <div>
+    <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
+        <h1 className="page-title">📊 Dashboard</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <input
             type="file"
@@ -233,12 +233,12 @@ function Dashboard() {
         </div>
         
         {titularesExpirando.length === 0 ? (
-          <p style={{ color: 'var(--text-light)' }}>
-            Nenhum vínculo expirando nos próximos 90 dias.
-          </p>
+          <div className="empty-state">
+            <p>Nenhum vínculo expirando nos próximos 90 dias.</p>
+          </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="table">
               <thead>
                 <tr>
                   <th>Urgência</th>
@@ -252,12 +252,7 @@ function Dashboard() {
                 {titularesExpirando.map(vinculo => (
                   <tr key={vinculo.id} style={{ backgroundColor: vinculo.urgencia?.bgColor }}>
                     <td>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
+                      <span className={`badge`} style={{
                         color: '#fff',
                         backgroundColor: vinculo.urgencia?.color
                       }}>
@@ -265,19 +260,23 @@ function Dashboard() {
                       </span>
                     </td>
                     <td>
-                      <Link to={`/titulares/${vinculo.titular}`}>
-                        {vinculo.titular_nome || 'Titular'}
-                      </Link>
+                      <strong>
+                        <Link to={`/titulares/${vinculo.titular}`}>
+                          {vinculo.titular_nome || 'Titular'}
+                        </Link>
+                      </strong>
                     </td>
                     <td>{vinculo.empresa_nome || '-'}</td>
                     <td>{formatDate(vinculo.data_fim_vinculo)}</td>
-                    <td style={{ 
-                      fontWeight: 'bold', 
-                      color: vinculo.urgencia?.color 
-                    }}>
-                      {vinculo.diasRestantes <= 0 
-                        ? `Vencido há ${Math.abs(vinculo.diasRestantes)} dia(s)` 
-                        : `${vinculo.diasRestantes} dia(s)`}
+                    <td>
+                      <span style={{ 
+                        fontWeight: 'bold', 
+                        color: vinculo.urgencia?.color 
+                      }}>
+                        {vinculo.diasRestantes <= 0 
+                          ? `Vencido há ${Math.abs(vinculo.diasRestantes)} dia(s)` 
+                          : `${vinculo.diasRestantes} dia(s)`}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -289,18 +288,18 @@ function Dashboard() {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Titulares Recentes</h2>
+          <h2 className="card-title">📋 Titulares Recentes</h2>
           <Link to="/titulares" className="btn btn-outline">Ver todos</Link>
         </div>
         
         {stats.recentTitulares.length === 0 ? (
-          <p style={{ color: 'var(--text-light)' }}>
-            Nenhum titular cadastrado ainda.{' '}
-            <Link to="/titulares/new">Cadastre o primeiro!</Link>
-          </p>
+          <div className="empty-state">
+            <p>Nenhum titular cadastrado ainda.</p>
+            <Link to="/titulares/new" className="btn btn-primary">Cadastre o primeiro!</Link>
+          </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="table">
               <thead>
                 <tr>
                   <th>Nome</th>
@@ -313,9 +312,11 @@ function Dashboard() {
                 {stats.recentTitulares.map(titular => (
                   <tr key={titular.id}>
                     <td>
-                      <Link to={`/titulares/${titular.id}`}>{titular.nome}</Link>
+                      <strong>
+                        <Link to={`/titulares/${titular.id}`}>{titular.nome}</Link>
+                      </strong>
                     </td>
-                    <td>{titular.rnm}</td>
+                    <td>{titular.rnm || '-'}</td>
                     <td>{titular.nacionalidade_nome || '-'}</td>
                     <td>{titular.email || '-'}</td>
                   </tr>

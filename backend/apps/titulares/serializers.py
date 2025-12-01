@@ -70,16 +70,29 @@ class TitularSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por']
 
 
+class VinculoSimplificadoSerializer(serializers.ModelSerializer):
+    """Serializer simplificado de vínculo para listagem de titulares."""
+    tipo_vinculo_display = serializers.CharField(source='get_tipo_vinculo_display', read_only=True)
+    empresa_nome = serializers.CharField(source='empresa.nome', read_only=True)
+    amparo_nome = serializers.CharField(source='amparo.nome', read_only=True)
+    
+    class Meta:
+        model = VinculoTitular
+        fields = ['id', 'tipo_vinculo', 'tipo_vinculo_display', 'empresa_nome', 
+                  'amparo_nome', 'data_entrada_pais', 'data_fim_vinculo', 'status']
+
+
 class TitularListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listagens."""
     nacionalidade_nome = serializers.CharField(source='nacionalidade.nome', read_only=True)
     vinculos_count = serializers.SerializerMethodField()
     dependentes_count = serializers.SerializerMethodField()
+    vinculos = VinculoSimplificadoSerializer(many=True, read_only=True)
     
     class Meta:
         model = Titular
-        fields = ['id', 'nome', 'rnm', 'cpf', 'nacionalidade_nome', 'email', 
-                  'pai', 'mae', 'data_nascimento', 'vinculos_count', 'dependentes_count']
+        fields = ['id', 'nome', 'rnm', 'cpf', 'passaporte', 'nacionalidade_nome', 'email', 'telefone',
+                  'pai', 'mae', 'data_nascimento', 'vinculos_count', 'dependentes_count', 'vinculos']
     
     def get_vinculos_count(self, obj):
         return obj.vinculos.filter(status=True).count()

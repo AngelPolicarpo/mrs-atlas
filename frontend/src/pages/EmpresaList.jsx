@@ -43,7 +43,7 @@ function EmpresaList() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Empresas</h1>
+        <h1>🏢 Empresas</h1>
         <Link to="/empresas/new" className="btn btn-primary">
           + Nova Empresa
         </Link>
@@ -55,7 +55,7 @@ function EmpresaList() {
           placeholder="Buscar por nome ou CNPJ..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="form-control"
+          className="form-input"
         />
       </div>
 
@@ -64,54 +64,56 @@ function EmpresaList() {
       {loading ? (
         <div className="loading">Carregando...</div>
       ) : (
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>CNPJ</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {empresas.length === 0 ? (
+        <div className="card">
+          <div className="table-container">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan="4" className="text-center">
-                    Nenhuma empresa encontrada
-                  </td>
+                  <th>Nome</th>
+                  <th>CNPJ</th>
+                  <th>Status</th>
+                  <th>Ações</th>
                 </tr>
-              ) : (
-                empresas.map((empresa) => (
-                  <tr key={empresa.id}>
-                    <td>{empresa.nome}</td>
-                    <td>{empresa.cnpj}</td>
-                    <td>
-                      <span className={`badge ${empresa.status ? 'badge-success' : 'badge-danger'}`}>
-                        {empresa.status ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="btn-group">
-                        <Link
-                          to={`/empresas/${empresa.id}`}
-                          className="btn btn-sm btn-secondary"
-                        >
-                          ✏️
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(empresa.id, empresa.nome)}
-                          className="btn btn-sm btn-danger"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+              </thead>
+              <tbody>
+                {empresas.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="text-center">
+                      Nenhuma empresa encontrada
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  empresas.map((empresa) => (
+                    <tr key={empresa.id}>
+                      <td><strong>{empresa.nome}</strong></td>
+                      <td>{empresa.cnpj || '-'}</td>
+                      <td>
+                        <span className={`badge ${empresa.status ? 'badge-success' : 'badge-danger'}`}>
+                          {empresa.status ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="btn-group">
+                          <Link
+                            to={`/empresas/${empresa.id}`}
+                            className="btn btn-sm btn-outline"
+                          >
+                            ✏️ Editar
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(empresa.id, empresa.nome)}
+                            className="btn btn-sm btn-danger"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

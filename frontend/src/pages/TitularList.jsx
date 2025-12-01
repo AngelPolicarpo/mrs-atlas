@@ -43,7 +43,7 @@ function TitularList() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Titulares</h1>
+        <h1>📋 Titulares</h1>
         <Link to="/titulares/new" className="btn btn-primary">
           + Novo Titular
         </Link>
@@ -55,7 +55,7 @@ function TitularList() {
           placeholder="Buscar por nome, RNM, CPF..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="form-control"
+          className="form-input"
         />
       </div>
 
@@ -64,71 +64,75 @@ function TitularList() {
       {loading ? (
         <div className="loading">Carregando...</div>
       ) : (
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>RNM</th>
-                <th>CPF</th>
-                <th>Nacionalidade</th>
-                <th>Email</th>
-                <th>Vínculos</th>
-                <th>Dependentes</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {titulares.length === 0 ? (
+        <div className="card">
+          <div className="table-container">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan="8" className="text-center">
-                    Nenhum titular encontrado
-                  </td>
+                  <th>Nome</th>
+                  <th>RNM</th>
+                  <th>CPF</th>
+                  <th>Nacionalidade</th>
+                  <th>Email</th>
+                  <th>Vínculos</th>
+                  <th>Dependentes</th>
+                  <th>Ações</th>
                 </tr>
-              ) : (
-                titulares.map((titular) => (
-                  <tr key={titular.id}>
-                    <td>{titular.nome}</td>
-                    <td>{titular.rnm}</td>
-                    <td>{titular.cpf || '-'}</td>
-                    <td>{titular.nacionalidade_nome}</td>
-                    <td>{titular.email || '-'}</td>
-                    <td>{titular.vinculos_count}</td>
-                    <td>
-                      <Link to={`/dependentes?titular=${titular.id}`} style={{ textDecoration: 'none' }}>
-                        {titular.dependentes_count}
-                      </Link>
-                    </td>
-                    <td>
-                      <div className="btn-group">
-                        <Link
-                          to={`/titulares/${titular.id}`}
-                          className="btn btn-sm btn-secondary"
-                          title="Editar"
-                        >
-                          ✏️
-                        </Link>
-                        <Link
-                          to={`/dependentes/new?titular=${titular.id}`}
-                          className="btn btn-sm btn-secondary"
-                          title="Adicionar Dependente"
-                        >
-                          👨‍👧
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(titular.id, titular.nome)}
-                          className="btn btn-sm btn-danger"
-                          title="Excluir"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+              </thead>
+              <tbody>
+                {titulares.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="text-center">
+                      Nenhum titular encontrado
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  titulares.map((titular) => (
+                    <tr key={titular.id}>
+                      <td><strong>{titular.nome}</strong></td>
+                      <td>{titular.rnm || '-'}</td>
+                      <td>{titular.cpf || '-'}</td>
+                      <td>{titular.nacionalidade_nome || '-'}</td>
+                      <td>{titular.email || '-'}</td>
+                      <td>
+                        <span className="badge badge-info">{titular.vinculos_count || 0}</span>
+                      </td>
+                      <td>
+                        <Link to={`/dependentes?titular=${titular.id}`}>
+                          <span className="badge badge-secondary">{titular.dependentes_count || 0}</span>
+                        </Link>
+                      </td>
+                      <td>
+                        <div className="btn-group">
+                          <Link
+                            to={`/titulares/${titular.id}`}
+                            className="btn btn-sm btn-outline"
+                            title="Editar"
+                          >
+                            ✏️ Editar
+                          </Link>
+                          <Link
+                            to={`/dependentes/new?titular=${titular.id}`}
+                            className="btn btn-sm btn-secondary"
+                            title="Adicionar Dependente"
+                          >
+                            👨‍👧
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(titular.id, titular.nome)}
+                            className="btn btn-sm btn-danger"
+                            title="Excluir"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

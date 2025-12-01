@@ -4,7 +4,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as django_filters
 from django.db import transaction
+from django.db.models import Q
 import openpyxl
 from io import BytesIO
 from .models import Titular, VinculoTitular, Dependente
@@ -15,15 +17,86 @@ from .serializers import (
 from apps.core.models import Nacionalidade, AmparoLegal
 
 
+class TitularFilter(django_filters.FilterSet):
+    """Filtro customizado para Titular."""
+    empresa = django_filters.UUIDFilter(method='filter_by_empresa')
+    tipo_vinculo = django_filters.CharFilter(method='filter_by_tipo_vinculo')
+    vinculo_status = django_filters.BooleanFilter(method='filter_by_vinculo_status')
+    data_fim_vinculo_gte = django_filters.DateFilter(method='filter_data_fim_gte')
+    data_fim_vinculo_lte = django_filters.DateFilter(method='filter_data_fim_lte')
+    data_entrada_gte = django_filters.DateFilter(method='filter_data_entrada_gte')
+    data_entrada_lte = django_filters.DateFilter(method='filter_data_entrada_lte')
+    ultima_atualizacao_gte = django_filters.DateFilter(method='filter_ultima_atualizacao_gte')
+    ultima_atualizacao_lte = django_filters.DateFilter(method='filter_ultima_atualizacao_lte')
+    
+    class Meta:
+        model = Titular
+        fields = ['nacionalidade', 'sexo']
+    
+    def filter_by_empresa(self, queryset, name, value):
+        """Filtra titulares que têm vínculo com a empresa especificada."""
+        if value:
+            return queryset.filter(vinculos__empresa=value).distinct()
+        return queryset
+    
+    def filter_by_tipo_vinculo(self, queryset, name, value):
+        """Filtra titulares pelo tipo de vínculo."""
+        if value:
+            return queryset.filter(vinculos__tipo_vinculo=value).distinct()
+        return queryset
+    
+    def filter_by_vinculo_status(self, queryset, name, value):
+        """Filtra titulares pelo status do vínculo."""
+        if value is not None:
+            return queryset.filter(vinculos__status=value).distinct()
+        return queryset
+    
+    def filter_data_fim_gte(self, queryset, name, value):
+        """Filtra titulares com data fim vínculo >= valor."""
+        if value:
+            return queryset.filter(vinculos__data_fim_vinculo__gte=value).distinct()
+        return queryset
+    
+    def filter_data_fim_lte(self, queryset, name, value):
+        """Filtra titulares com data fim vínculo <= valor."""
+        if value:
+            return queryset.filter(vinculos__data_fim_vinculo__lte=value).distinct()
+        return queryset
+    
+    def filter_data_entrada_gte(self, queryset, name, value):
+        """Filtra titulares com data entrada no país >= valor."""
+        if value:
+            return queryset.filter(vinculos__data_entrada_pais__gte=value).distinct()
+        return queryset
+    
+    def filter_data_entrada_lte(self, queryset, name, value):
+        """Filtra titulares com data entrada no país <= valor."""
+        if value:
+            return queryset.filter(vinculos__data_entrada_pais__lte=value).distinct()
+        return queryset
+    
+    def filter_ultima_atualizacao_gte(self, queryset, name, value):
+        """Filtra titulares com última atualização >= valor."""
+        if value:
+            return queryset.filter(vinculos__ultima_atualizacao__gte=value).distinct()
+        return queryset
+    
+    def filter_ultima_atualizacao_lte(self, queryset, name, value):
+        """Filtra titulares com última atualização <= valor."""
+        if value:
+            return queryset.filter(vinculos__ultima_atualizacao__lte=value).distinct()
+        return queryset
+
+
 class TitularViewSet(viewsets.ModelViewSet):
     """ViewSet para gerenciamento de titulares."""
     
     queryset = Titular.objects.select_related(
         'nacionalidade', 'criado_por', 'atualizado_por'
-    ).prefetch_related('vinculos', 'dependentes')
+    ).prefetch_related('vinculos', 'vinculos__empresa', 'vinculos__amparo', 'dependentes')
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['nacionalidade', 'sexo']
+    filterset_class = TitularFilter
     search_fields = ['nome', 'rnm', 'cpf', 'passaporte', 'email']
     ordering_fields = ['nome', 'rnm', 'data_criacao', 'data_nascimento']
     ordering = ['nome']
@@ -190,7 +263,7 @@ class TitularViewSet(viewsets.ModelViewSet):
                                     VinculoTitular.objects.create(
                                         titular=titular,
                                         amparo=amparo,
-                                        tipo_vinculo='AUTONOMO',
+                                        tipo_vinculo='PARTICULAR',
                                         data_fim_vinculo=data_fim,
                                         status=vinculo_status,
                                         criado_por=request.user,
@@ -221,9 +294,16 @@ class VinculoTitularViewSet(viewsets.ModelViewSet):
     serializer_class = VinculoTitularSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['titular', 'tipo_vinculo', 'status', 'empresa']
+    filterset_fields = {
+        'titular': ['exact'],
+        'tipo_vinculo': ['exact'],
+        'status': ['exact'],
+        'empresa': ['exact'],
+        'data_fim_vinculo': ['exact', 'gte', 'lte', 'gt', 'lt'],
+        'data_entrada_pais': ['exact', 'gte', 'lte', 'gt', 'lt'],
+    }
     search_fields = ['titular__nome', 'titular__rnm', 'empresa__nome', 'observacoes']
-    ordering_fields = ['data_criacao', 'data_entrada_pais', 'data_fim_vinculo']
+    ordering_fields = ['data_criacao', 'data_entrada_pais', 'data_fim_vinculo', 'titular__nome']
     ordering = ['-data_criacao']
     
     def perform_create(self, serializer):

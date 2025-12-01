@@ -69,25 +69,25 @@ function DependenteList() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Dependentes</h1>
+        <h1>👨‍👧 Dependentes</h1>
         <Link to="/dependentes/new" className="btn btn-primary">
           + Novo Dependente
         </Link>
       </div>
 
-      <div className="filters-bar" style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
+      <div className="filters-bar">
         <input
           type="text"
           placeholder="Buscar por nome, passaporte, RNM..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="form-control"
+          className="form-input"
           style={{ flex: 1 }}
         />
         <select
           value={titularFilter}
           onChange={(e) => setTitularFilter(e.target.value)}
-          className="form-control"
+          className="form-select"
           style={{ width: '300px' }}
         >
           <option value="">Todos os titulares</option>
@@ -102,56 +102,60 @@ function DependenteList() {
       {loading ? (
         <div className="loading">Carregando...</div>
       ) : (
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Titular</th>
-                <th>Tipo</th>
-                <th>Nacionalidade</th>
-                <th>RNM</th>
-                <th>Data Nascimento</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dependentes.length === 0 ? (
+        <div className="card">
+          <div className="table-container">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan="7" className="text-center">
-                    Nenhum dependente encontrado
-                  </td>
+                  <th>Nome</th>
+                  <th>Titular</th>
+                  <th>Tipo</th>
+                  <th>Nacionalidade</th>
+                  <th>RNM</th>
+                  <th>Data Nascimento</th>
+                  <th>Ações</th>
                 </tr>
-              ) : (
-                dependentes.map((dep) => (
-                  <tr key={dep.id}>
-                    <td>{dep.nome}</td>
-                    <td>{dep.titular_nome || '-'}</td>
-                    <td>{dep.tipo_dependente_display || '-'}</td>
-                    <td>{dep.nacionalidade_nome || '-'}</td>
-                    <td>{dep.rnm || '-'}</td>
-                    <td>{formatDate(dep.data_nascimento)}</td>
-                    <td>
-                      <div className="btn-group">
-                        <Link
-                          to={`/dependentes/${dep.id}`}
-                          className="btn btn-sm btn-secondary"
-                        >
-                          Editar
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(dep.id, dep.nome)}
-                          className="btn btn-sm btn-danger"
-                        >
-                          Excluir
-                        </button>
-                      </div>
+              </thead>
+              <tbody>
+                {dependentes.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center">
+                      Nenhum dependente encontrado
                     </td>
                   </tr>
+                ) : (
+                  dependentes.map((dep) => (
+                    <tr key={dep.id}>
+                      <td><strong>{dep.nome}</strong></td>
+                      <td>{dep.titular_nome || '-'}</td>
+                      <td>
+                        <span className="badge badge-info">{dep.tipo_dependente_display || '-'}</span>
+                      </td>
+                      <td>{dep.nacionalidade_nome || '-'}</td>
+                      <td>{dep.rnm || '-'}</td>
+                      <td>{formatDate(dep.data_nascimento)}</td>
+                      <td>
+                        <div className="btn-group">
+                          <Link
+                            to={`/dependentes/${dep.id}`}
+                            className="btn btn-sm btn-outline"
+                          >
+                            ✏️ Editar
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(dep.id, dep.nome)}
+                            className="btn btn-sm btn-danger"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                 ))
               )}
             </tbody>
           </table>
+        </div>
         </div>
       )}
     </div>

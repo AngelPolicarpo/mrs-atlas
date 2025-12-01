@@ -23,6 +23,9 @@ function Layout() {
           <NavLink to="/" end>
             📊 Dashboard
           </NavLink>
+          <NavLink to="/pesquisa">
+            🔍 Pesquisa
+          </NavLink>
           <NavLink to="/titulares">
             👤 Titulares
           </NavLink>

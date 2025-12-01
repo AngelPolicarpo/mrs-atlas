@@ -42,9 +42,9 @@ function UserList() {
   }
   
   return (
-    <div>
+    <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Perfis de Usuário</h1>
+        <h1 className="page-title">👤 Perfis de Usuário</h1>
         <Link to="/users/new" className="btn btn-primary">
           + Novo Usuário
         </Link>
@@ -58,19 +58,19 @@ function UserList() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button type="submit" className="btn btn-primary">Buscar</button>
+        <button type="submit" className="btn btn-primary">🔍 Buscar</button>
       </form>
       
       <div className="card">
         {loading ? (
-          <p>Carregando...</p>
+          <div className="loading">Carregando...</div>
         ) : users.length === 0 ? (
-          <p style={{ color: 'var(--text-light)' }}>
-            Nenhum usuário encontrado.
-          </p>
+          <div className="empty-state">
+            <p>Nenhum usuário encontrado.</p>
+          </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="table">
               <thead>
                 <tr>
                   <th>Nome</th>
@@ -85,9 +85,11 @@ function UserList() {
                 {users.map(user => (
                   <tr key={user.id}>
                     <td>
-                      <Link to={`/users/${user.id}`}>
-                        {user.nome || user.email}
-                      </Link>
+                      <strong>
+                        <Link to={`/users/${user.id}`}>
+                          {user.nome || user.email}
+                        </Link>
+                      </strong>
                     </td>
                     <td>{user.email}</td>
                     <td>
@@ -104,12 +106,12 @@ function UserList() {
                       {user.data_criacao ? new Date(user.data_criacao).toLocaleDateString('pt-BR') : '-'}
                     </td>
                     <td>
-                      <div className="actions">
-                        <Link to={`/users/${user.id}`} className="action-btn" title="Editar">
-                          ✏️
+                      <div className="btn-group">
+                        <Link to={`/users/${user.id}`} className="btn btn-sm btn-outline">
+                          ✏️ Editar
                         </Link>
                         <button
-                          className="action-btn"
+                          className="btn btn-sm btn-danger"
                           onClick={() => handleDelete(user.id)}
                           title="Desativar"
                         >

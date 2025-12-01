@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Pesquisa from './pages/Pesquisa'
 import TitularList from './pages/TitularList'
 import TitularForm from './pages/TitularForm'
 import DependenteList from './pages/DependenteList'
@@ -62,6 +63,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<Dashboard />} />
+            <Route path="pesquisa" element={<Pesquisa />} />
             <Route path="titulares" element={<TitularList />} />
             <Route path="titulares/new" element={<TitularForm />} />
             <Route path="titulares/:id" element={<TitularForm />} />
