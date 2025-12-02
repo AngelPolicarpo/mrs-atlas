@@ -1,7 +1,23 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { getDependente, createDependente, updateDependente, getTitulares } from '../services/titulares'
-import { getNacionalidades } from '../services/core'
+import { 
+  getDependente, createDependente, updateDependente, getTitulares,
+  getVinculosDependentes, createVinculoDependente, updateVinculoDependente, deleteVinculoDependente
+} from '../services/titulares'
+import { getNacionalidades, getAmparosLegais, getConsulados, getTiposAtualizacao } from '../services/core'
+
+const emptyVinculo = {
+  id: null,
+  amparo: '',
+  consulado: '',
+  tipo_atualizacao: '',
+  data_entrada: '',
+  data_fim_vinculo: '',
+  observacoes: '',
+  status: true,
+  isNew: true,
+  isDeleted: false,
+}
 
 function DependenteForm() {
   const navigate = useNavigate()
@@ -15,6 +31,9 @@ function DependenteForm() {
   const [error, setError] = useState('')
   const [titulares, setTitulares] = useState([])
   const [nacionalidades, setNacionalidades] = useState([])
+  const [amparosLegais, setAmparosLegais] = useState([])
+  const [consulados, setConsulados] = useState([])
+  const [tiposAtualizacao, setTiposAtualizacao] = useState([])
   
   const [formData, setFormData] = useState({
     titular: titularIdFromUrl || '',
@@ -29,6 +48,8 @@ function DependenteForm() {
     mae: '',
   })
 
+  const [vinculos, setVinculos] = useState([])
+
   useEffect(() => {
     loadDados()
     if (isEditing) {
@@ -38,12 +59,18 @@ function DependenteForm() {
 
   async function loadDados() {
     try {
-      const [titRes, nacRes] = await Promise.all([
+      const [titRes, nacRes, ampRes, consRes, tipoRes] = await Promise.all([
         getTitulares(),
         getNacionalidades({ ativo: true }),
+        getAmparosLegais({ ativo: true }),
+        getConsulados({ ativo: true }),
+        getTiposAtualizacao({ ativo: true }),
       ])
       setTitulares(titRes.data.results || titRes.data)
       setNacionalidades(nacRes.data.results || nacRes.data)
+      setAmparosLegais(ampRes.data.results || ampRes.data)
+      setConsulados(consRes.data.results || consRes.data)
+      setTiposAtualizacao(tipoRes.data.results || tipoRes.data)
     } catch (err) {
       console.error('Erro ao carregar dados:', err)
     }
@@ -66,6 +93,23 @@ function DependenteForm() {
         pai: data.pai || '',
         mae: data.mae || '',
       })
+      
+      // Carregar vínculos do dependente
+      if (data.vinculos && data.vinculos.length > 0) {
+        setVinculos(data.vinculos.map(v => ({
+          id: v.id,
+          amparo: v.amparo || '',
+          consulado: v.consulado || '',
+          tipo_atualizacao: v.tipo_atualizacao || '',
+          data_entrada: v.data_entrada || '',
+          data_fim_vinculo: v.data_fim_vinculo || '',
+          observacoes: v.observacoes || '',
+          status: v.status !== undefined ? v.status : true,
+          isNew: false,
+          isDeleted: false,
+          amparo_nome: v.amparo_nome,
+        })))
+      }
     } catch (err) {
       setError('Erro ao carregar dados do dependente')
       console.error(err)
@@ -79,6 +123,52 @@ function DependenteForm() {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
+  function handleVinculoChange(index, e) {
+    const { name, value, type, checked } = e.target
+    setVinculos(prev => prev.map((v, i) => {
+      if (i !== index) return v
+      return {
+        ...v,
+        [name]: type === 'checkbox' ? checked : value,
+      }
+    }))
+  }
+
+  function addVinculo() {
+    setVinculos(prev => [...prev, { ...emptyVinculo, id: `new-${Date.now()}` }])
+  }
+
+  function removeVinculo(index) {
+    setVinculos(prev => prev.map((v, i) => {
+      if (i !== index) return v
+      // Se é um vínculo existente (do banco), marca como deletado
+      if (!v.isNew) {
+        return { ...v, isDeleted: true }
+      }
+      // Se é novo, remove da lista
+      return null
+    }).filter(Boolean))
+  }
+
+  function calcularDiasRestantes(dataFim) {
+    if (!dataFim) return null
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const fim = new Date(dataFim)
+    fim.setHours(0, 0, 0, 0)
+    const diff = fim - hoje
+    return Math.ceil(diff / (1000 * 60 * 60 * 24))
+  }
+
+  function getBadgeClass(dataFim) {
+    const dias = calcularDiasRestantes(dataFim)
+    if (dias === null) return 'badge-secondary'
+    if (dias < 0) return 'badge-danger'
+    if (dias <= 30) return 'badge-warning'
+    if (dias <= 90) return 'badge-info'
+    return 'badge-success'
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -86,16 +176,59 @@ function DependenteForm() {
 
     try {
       const dataToSend = { ...formData }
+      
+      // Validar tipo_dependente - apenas valores válidos
+      const tiposValidos = ['CONJUGE', 'FILHO', 'ENTEADO', 'PAI_MAE', 'OUTRO']
+      if (dataToSend.tipo_dependente && !tiposValidos.includes(dataToSend.tipo_dependente)) {
+        dataToSend.tipo_dependente = null
+      }
+      
+      // Validar sexo - apenas valores válidos
+      const sexosValidos = ['M', 'F']
+      if (dataToSend.sexo && !sexosValidos.includes(dataToSend.sexo)) {
+        dataToSend.sexo = null
+      }
+      
       Object.keys(dataToSend).forEach(key => {
         if (dataToSend[key] === '') {
           dataToSend[key] = null
         }
       })
 
+      console.log('Enviando dependente:', dataToSend)
+
+      let dependenteId = id
+
       if (isEditing) {
         await updateDependente(id, dataToSend)
       } else {
-        await createDependente(dataToSend)
+        const response = await createDependente(dataToSend)
+        dependenteId = response.data.id
+      }
+      
+      // Processar vínculos do dependente
+      for (const vinculo of vinculos) {
+        const vinculoToSend = { 
+          dependente: dependenteId,
+          amparo: vinculo.amparo || null,
+          consulado: vinculo.consulado || null,
+          tipo_atualizacao: vinculo.tipo_atualizacao || null,
+          data_entrada: vinculo.data_entrada || null,
+          data_fim_vinculo: vinculo.data_fim_vinculo || null,
+          observacoes: vinculo.observacoes || null,
+          status: vinculo.status,
+        }
+        
+        if (vinculo.isDeleted && !vinculo.isNew) {
+          // Deletar vínculo existente
+          await deleteVinculoDependente(vinculo.id)
+        } else if (vinculo.isNew && !vinculo.isDeleted) {
+          // Criar novo vínculo
+          await createVinculoDependente(vinculoToSend)
+        } else if (!vinculo.isNew && !vinculo.isDeleted) {
+          // Atualizar vínculo existente
+          await updateVinculoDependente(vinculo.id, vinculoToSend)
+        }
       }
       
       // Voltar para a lista, mantendo o filtro do titular se veio de lá
@@ -105,6 +238,7 @@ function DependenteForm() {
         navigate('/dependentes')
       }
     } catch (err) {
+      console.error('Erro detalhado:', err.response?.data)
       const errorData = err.response?.data
       if (errorData) {
         const messages = Object.entries(errorData)
@@ -118,6 +252,26 @@ function DependenteForm() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Função para calcular dias restantes
+  function calcularDiasRestantes(dataFim) {
+    if (!dataFim) return null
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const fim = new Date(dataFim)
+    fim.setHours(0, 0, 0, 0)
+    const diffTime = fim - hoje
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  // Função para obter classe do badge
+  function getBadgeClass(dataFim) {
+    const dias = calcularDiasRestantes(dataFim)
+    if (dias === null) return ''
+    if (dias < 0) return 'badge-danger'
+    if (dias <= 60) return 'badge-warning'
+    return 'badge-success'
   }
 
   if (loading) {
@@ -292,6 +446,151 @@ function DependenteForm() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Seção de Vínculos do Dependente */}
+        <div className="form-section">
+          <div className="section-header">
+            <h3>📋 Vínculos Migratórios</h3>
+            <button
+              type="button"
+              onClick={addVinculo}
+              className="btn btn-sm btn-secondary"
+            >
+              + Adicionar Vínculo
+            </button>
+          </div>
+          
+          {vinculos.filter(v => !v.isDeleted).length === 0 ? (
+            <div className="empty-state-small">
+              <p>Nenhum vínculo cadastrado.</p>
+              <p className="text-muted">Clique em "Adicionar Vínculo" para inserir informações de prazo e amparo legal.</p>
+            </div>
+          ) : (
+            <div className="vinculos-list">
+              {vinculos.map((vinculo, index) => {
+                if (vinculo.isDeleted) return null
+                const dias = calcularDiasRestantes(vinculo.data_fim_vinculo)
+                
+                return (
+                  <div key={vinculo.id} className="vinculo-card">
+                    <div className="vinculo-header">
+                      <span className="vinculo-number">Vínculo #{index + 1}</span>
+                      <div className="vinculo-header-actions">
+                        {vinculo.data_fim_vinculo && dias !== null && (
+                          <span className={`badge ${getBadgeClass(vinculo.data_fim_vinculo)}`}>
+                            {dias < 0 ? `Vencido há ${Math.abs(dias)} dias` : `${dias} dias restantes`}
+                          </span>
+                        )}
+                        <label className="checkbox-inline">
+                          <input
+                            type="checkbox"
+                            name="status"
+                            checked={vinculo.status}
+                            onChange={(e) => handleVinculoChange(index, e)}
+                          />
+                          Ativo
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeVinculo(index)}
+                          className="btn btn-sm btn-danger"
+                          title="Remover vínculo"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Amparo Legal</label>
+                        <select
+                          name="amparo"
+                          value={vinculo.amparo}
+                          onChange={(e) => handleVinculoChange(index, e)}
+                          className="form-control"
+                        >
+                          <option value="">Selecione...</option>
+                          {amparosLegais.map(a => (
+                            <option key={a.id} value={a.id}>{a.nome}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="form-group">
+                        <label>Consulado</label>
+                        <select
+                          name="consulado"
+                          value={vinculo.consulado}
+                          onChange={(e) => handleVinculoChange(index, e)}
+                          className="form-control"
+                        >
+                          <option value="">Selecione...</option>
+                          {consulados.map(c => (
+                            <option key={c.id} value={c.id}>{c.pais} - {c.cidade}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="form-group">
+                        <label>Tipo de Atualização</label>
+                        <select
+                          name="tipo_atualizacao"
+                          value={vinculo.tipo_atualizacao}
+                          onChange={(e) => handleVinculoChange(index, e)}
+                          className="form-control"
+                        >
+                          <option value="">Selecione...</option>
+                          {tiposAtualizacao.map(t => (
+                            <option key={t.id} value={t.id}>{t.nome}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Data de Entrada</label>
+                        <input
+                          type="date"
+                          name="data_entrada"
+                          value={vinculo.data_entrada}
+                          onChange={(e) => handleVinculoChange(index, e)}
+                          className="form-control"
+                        />
+                      </div>
+                      
+                      <div className="form-group">
+                        <label>Data Fim do Vínculo (Vencimento)</label>
+                        <input
+                          type="date"
+                          name="data_fim_vinculo"
+                          value={vinculo.data_fim_vinculo}
+                          onChange={(e) => handleVinculoChange(index, e)}
+                          className="form-control"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="form-row">
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label>Observações</label>
+                        <textarea
+                          name="observacoes"
+                          value={vinculo.observacoes}
+                          onChange={(e) => handleVinculoChange(index, e)}
+                          className="form-control"
+                          rows="2"
+                          placeholder="Observações sobre este vínculo..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div className="form-actions">

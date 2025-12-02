@@ -1,7 +1,29 @@
 from rest_framework import serializers
 from apps.core.serializers import NacionalidadeSerializer, AmparoLegalSerializer, ConsuladoSerializer, TipoAtualizacaoSerializer
 from apps.empresa.serializers import EmpresaListSerializer
-from .models import Titular, VinculoTitular, Dependente
+from .models import Titular, VinculoTitular, Dependente, VinculoDependente
+
+
+class VinculoDependenteSerializer(serializers.ModelSerializer):
+    """Serializer para Vínculo do Dependente."""
+    dependente_nome = serializers.CharField(source='dependente.nome', read_only=True)
+    amparo_nome = serializers.CharField(source='amparo.nome', read_only=True)
+    consulado_pais = serializers.CharField(source='consulado.pais', read_only=True)
+    tipo_atualizacao_nome = serializers.CharField(source='tipo_atualizacao.nome', read_only=True)
+    criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
+    atualizado_por_nome = serializers.CharField(source='atualizado_por.nome', read_only=True)
+    
+    class Meta:
+        model = VinculoDependente
+        fields = [
+            'id', 'dependente', 'dependente_nome',
+            'status', 'data_entrada', 'data_fim_vinculo', 'observacoes',
+            'amparo', 'amparo_nome', 'consulado', 'consulado_pais',
+            'tipo_atualizacao', 'tipo_atualizacao_nome',
+            'data_criacao', 'ultima_atualizacao',
+            'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
+        ]
+        read_only_fields = ['id', 'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por']
 
 
 class DependenteSerializer(serializers.ModelSerializer):
@@ -11,6 +33,7 @@ class DependenteSerializer(serializers.ModelSerializer):
     atualizado_por_nome = serializers.CharField(source='atualizado_por.nome', read_only=True)
     tipo_dependente_display = serializers.CharField(source='get_tipo_dependente_display', read_only=True)
     sexo_display = serializers.CharField(source='get_sexo_display', read_only=True)
+    vinculos = VinculoDependenteSerializer(many=True, read_only=True)
     
     class Meta:
         model = Dependente
@@ -20,7 +43,8 @@ class DependenteSerializer(serializers.ModelSerializer):
             'tipo_dependente', 'tipo_dependente_display',
             'sexo', 'sexo_display', 'data_nascimento', 'pai', 'mae',
             'data_criacao', 'ultima_atualizacao',
-            'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
+            'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome',
+            'vinculos'
         ]
         read_only_fields = ['id', 'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por']
 

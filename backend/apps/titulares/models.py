@@ -293,3 +293,100 @@ class Dependente(models.Model):
     
     def __str__(self):
         return f"{self.nome} (Dependente de {self.titular.nome})"
+
+
+class VinculoDependente(models.Model):
+    """Modelo de Vínculo do Dependente (prazo de vencimento, amparo legal, etc.)."""
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_vinculo'
+    )
+    
+    dependente = models.ForeignKey(
+        Dependente,
+        on_delete=models.CASCADE,
+        related_name='vinculos',
+        verbose_name='Dependente',
+        db_column='id_dependente'
+    )
+    
+    status = models.BooleanField('Status', default=True)
+    data_entrada = models.DateField('Data de Entrada', blank=True, null=True)
+    data_fim_vinculo = models.DateField('Data Fim do Vínculo', blank=True, null=True)
+    observacoes = models.TextField('Observações', blank=True, null=True)
+    
+    # Dados migratórios
+    amparo = models.ForeignKey(
+        'core.AmparoLegal',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vinculos_dependentes',
+        verbose_name='Amparo Legal',
+        db_column='id_amparo'
+    )
+    
+    consulado = models.ForeignKey(
+        'core.Consulado',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vinculos_dependentes',
+        verbose_name='Consulado',
+        db_column='id_consulado'
+    )
+    
+    tipo_atualizacao = models.ForeignKey(
+        'core.TipoAtualizacao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vinculos_dependentes',
+        verbose_name='Tipo de Atualização',
+        db_column='id_tipo_atualizacao'
+    )
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Auditoria
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vinculos_dependentes_criados',
+        verbose_name='Criado por',
+        db_column='criado_por'
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vinculos_dependentes_atualizados',
+        verbose_name='Atualizado por',
+        db_column='atualizado_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Vínculo do Dependente'
+        verbose_name_plural = 'Vínculos dos Dependentes'
+        db_table = 'vinculo_dependente'
+        ordering = ['-data_criacao']
+        indexes = [
+            models.Index(fields=['dependente']),
+            models.Index(fields=['status']),
+            models.Index(fields=['data_fim_vinculo']),
+            models.Index(fields=['amparo']),
+            models.Index(fields=['consulado']),
+            models.Index(fields=['tipo_atualizacao']),
+        ]
+    
+    def __str__(self):
+        return f"Vínculo de {self.dependente.nome} - {'Ativo' if self.status else 'Inativo'}"

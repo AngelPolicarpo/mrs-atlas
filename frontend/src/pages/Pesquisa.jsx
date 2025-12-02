@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { getTitulares, getVinculos, getDependentes } from '../services/titulares'
+import { pesquisaUnificada } from '../services/titulares'
 import { getEmpresas } from '../services/empresas'
 import { getNacionalidades } from '../services/core'
 
@@ -21,6 +21,16 @@ function Pesquisa() {
     periodoPosterior: true,
     dataDe: '',
     dataAte: '',
+  })
+  
+  // Estados de paginação
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 20,
+    totalPages: 1,
+    totalCount: 0,
+    hasNext: false,
+    hasPrevious: false,
   })
   
   // Estados da página
@@ -49,12 +59,42 @@ function Pesquisa() {
     loadCombos()
   }, [])
   
-  // Função de busca unificada
-  const handleSearch = useCallback(async () => {
+  // Função para calcular datas do período
+  const calcularDatasDoPerido = useCallback(() => {
+    if (!filters.tipoEvento || !filters.periodo) {
+      return { dataDe: null, dataAte: null }
+    }
+    
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const diasOffset = parseInt(filters.periodo) || 0
+    
+    const dataLimite = new Date(hoje)
+    if (filters.periodoPosterior) {
+      dataLimite.setDate(dataLimite.getDate() + diasOffset)
+    } else {
+      dataLimite.setDate(dataLimite.getDate() - diasOffset)
+    }
+    
+    const hojeStr = hoje.toISOString().split('T')[0]
+    const dataLimiteStr = dataLimite.toISOString().split('T')[0]
+    
+    if (filters.periodoPosterior) {
+      return { dataDe: hojeStr, dataAte: dataLimiteStr }
+    } else {
+      return { dataDe: dataLimiteStr, dataAte: hojeStr }
+    }
+  }, [filters.tipoEvento, filters.periodo, filters.periodoPosterior])
+  
+  // Função de busca paginada
+  const handleSearch = useCallback(async (page = 1, customPageSize = null) => {
     setLoading(true)
     
     try {
-      const params = { page_size: 1000 }
+      const params = {
+        page,
+        page_size: customPageSize || pagination.pageSize,
+      }
       
       // Adicionar filtro de busca
       if (filters.searchTerm) {
@@ -65,308 +105,88 @@ function Pesquisa() {
       if (filters.nacionalidade) params.nacionalidade = filters.nacionalidade
       if (filters.empresa) params.empresa = filters.empresa
       if (filters.tipoVinculo) params.tipo_vinculo = filters.tipoVinculo
-      if (filters.status) params.vinculo_status = filters.status === 'ativo'
+      if (filters.status) params.vinculo_status = filters.status === 'ativo' ? 'true' : 'false'
       
-      // Filtros de prazo/período
-      if (filters.tipoEvento && filters.periodo) {
-        const hoje = new Date()
-        hoje.setHours(0, 0, 0, 0)
-        let diasOffset = 0
+      // Filtros de data
+      if (filters.tipoEvento) {
+        params.tipo_evento = filters.tipoEvento
         
-        // Calcular offset em dias
-        switch (filters.periodo) {
-          case '15': diasOffset = 15; break
-          case '30': diasOffset = 30; break
-          case '60': diasOffset = 60; break
-          case '90': diasOffset = 90; break
-          case '120': diasOffset = 120; break
-          case '180': diasOffset = 180; break
-          case '365': diasOffset = 365; break
-          default: diasOffset = 0
-        }
-        
-        const dataLimite = new Date(hoje)
-        if (filters.periodoPosterior) {
-          dataLimite.setDate(dataLimite.getDate() + diasOffset)
-        } else {
-          dataLimite.setDate(dataLimite.getDate() - diasOffset)
-        }
-        
-        const hojeStr = hoje.toISOString().split('T')[0]
-        const dataLimiteStr = dataLimite.toISOString().split('T')[0]
-        
-        // Aplicar filtro baseado no tipo de evento
-        if (filters.tipoEvento === 'vencimento') {
-          if (filters.periodoPosterior) {
-            params.data_fim_vinculo_gte = hojeStr
-            params.data_fim_vinculo_lte = dataLimiteStr
-          } else {
-            params.data_fim_vinculo_gte = dataLimiteStr
-            params.data_fim_vinculo_lte = hojeStr
-          }
-        } else if (filters.tipoEvento === 'entrada') {
-          if (filters.periodoPosterior) {
-            params.data_entrada_gte = hojeStr
-            params.data_entrada_lte = dataLimiteStr
-          } else {
-            params.data_entrada_gte = dataLimiteStr
-            params.data_entrada_lte = hojeStr
-          }
-        } else if (filters.tipoEvento === 'atualizacao') {
-          if (filters.periodoPosterior) {
-            params.ultima_atualizacao_gte = hojeStr
-            params.ultima_atualizacao_lte = dataLimiteStr
-          } else {
-            params.ultima_atualizacao_gte = dataLimiteStr
-            params.ultima_atualizacao_lte = hojeStr
-          }
-        }
-      } else if (filters.tipoEvento && (filters.dataDe || filters.dataAte)) {
-        // Filtro por De - Até (quando Período não está selecionado)
-        if (filters.tipoEvento === 'vencimento') {
-          if (filters.dataDe) params.data_fim_vinculo_gte = filters.dataDe
-          if (filters.dataAte) params.data_fim_vinculo_lte = filters.dataAte
-        } else if (filters.tipoEvento === 'entrada') {
-          if (filters.dataDe) params.data_entrada_gte = filters.dataDe
-          if (filters.dataAte) params.data_entrada_lte = filters.dataAte
-        } else if (filters.tipoEvento === 'atualizacao') {
-          if (filters.dataDe) params.ultima_atualizacao_gte = filters.dataDe
-          if (filters.dataAte) params.ultima_atualizacao_lte = filters.dataAte
-        }
-      }
-      
-      // Buscar titulares
-      const titularesRes = await getTitulares(params)
-      const titulares = titularesRes.data.results || titularesRes.data || []
-      
-      // Buscar dependentes (com filtro de busca se houver)
-      const dependentesParams = { page_size: 1000 }
-      if (filters.searchTerm) {
-        dependentesParams.search = filters.searchTerm
-      }
-      if (filters.nacionalidade) {
-        dependentesParams.nacionalidade = filters.nacionalidade
-      }
-      
-      const dependentesRes = await getDependentes(dependentesParams)
-      const todosDependentes = dependentesRes.data.results || dependentesRes.data || []
-      
-      // Criar mapa de dependentes por titular_id
-      const dependentesPorTitular = {}
-      todosDependentes.forEach(dep => {
-        const tid = dep.titular // ID do titular
-        if (!dependentesPorTitular[tid]) {
-          dependentesPorTitular[tid] = []
-        }
-        dependentesPorTitular[tid].push(dep)
-      })
-      
-      // Montar resultado final: uma linha para cada vínculo do titular
-      // Dependentes aparecem após o último vínculo do titular
-      const finalResults = []
-      
-      // Função para verificar se um vínculo está dentro do filtro de data
-      const vinculoDentroDoFiltro = (vinculo) => {
-        // Se não há filtro de evento, mostrar todos
-        if (!filters.tipoEvento) return true
-        
-        let dataParaFiltrar = null
-        if (filters.tipoEvento === 'vencimento') {
-          dataParaFiltrar = vinculo.data_fim_vinculo
-        } else if (filters.tipoEvento === 'entrada') {
-          dataParaFiltrar = vinculo.data_entrada_pais
-        } else if (filters.tipoEvento === 'atualizacao') {
-          dataParaFiltrar = vinculo.ultima_atualizacao
-        }
-        
-        if (!dataParaFiltrar) return true // Se não tem a data, mostrar
-        
-        // Se está usando Período
+        // Se usa período, calcular datas
         if (filters.periodo) {
-          const hoje = new Date()
-          hoje.setHours(0, 0, 0, 0)
-          let diasOffset = parseInt(filters.periodo) || 0
-          
-          const dataLimite = new Date(hoje)
-          if (filters.periodoPosterior) {
-            dataLimite.setDate(dataLimite.getDate() + diasOffset)
-          } else {
-            dataLimite.setDate(dataLimite.getDate() - diasOffset)
-          }
-          
-          const dataVinculo = new Date(dataParaFiltrar)
-          dataVinculo.setHours(0, 0, 0, 0)
-          
-          if (filters.periodoPosterior) {
-            return dataVinculo >= hoje && dataVinculo <= dataLimite
-          } else {
-            return dataVinculo >= dataLimite && dataVinculo <= hoje
-          }
-        }
-        
-        // Se está usando De - Até
-        if (filters.dataDe || filters.dataAte) {
-          const dataVinculo = new Date(dataParaFiltrar)
-          dataVinculo.setHours(0, 0, 0, 0)
-          
-          if (filters.dataDe) {
-            const dataDe = new Date(filters.dataDe)
-            dataDe.setHours(0, 0, 0, 0)
-            if (dataVinculo < dataDe) return false
-          }
-          
-          if (filters.dataAte) {
-            const dataAte = new Date(filters.dataAte)
-            dataAte.setHours(0, 0, 0, 0)
-            if (dataVinculo > dataAte) return false
-          }
-          
-          return true
-        }
-        
-        return true
-      }
-      
-      titulares.forEach(titular => {
-        const todosVinculos = titular.vinculos || []
-        // Filtrar vínculos que estão dentro do filtro de data
-        const vinculos = todosVinculos.filter(vinculoDentroDoFiltro)
-        const depsDesseTitular = dependentesPorTitular[titular.id] || []
-        
-        if (vinculos.length === 0) {
-          // Titular sem vínculo - mostrar uma linha só
-          finalResults.push({
-            type: 'titular',
-            id: titular.id,
-            visibleId: `titular-${titular.id}-0`,
-            nome: titular.nome,
-            rnm: titular.rnm,
-            cpf: titular.cpf,
-            passaporte: titular.passaporte,
-            nacionalidade: titular.nacionalidade_nome,
-            tipoVinculo: null,
-            empresa: null,
-            amparo: null,
-            dataFimVinculo: null,
-            status: null,
-            vinculoId: null,
-            email: titular.email,
-            telefone: titular.telefone,
-            pai: titular.pai,
-            mae: titular.mae,
-            dataNascimento: titular.data_nascimento,
-            isLastVinculo: true,
-          })
-          
-          // Adicionar dependentes após titular sem vínculo
-          depsDesseTitular.forEach(dep => {
-            finalResults.push({
-              type: 'dependente',
-              id: dep.id,
-              visibleId: `dependente-${dep.id}`,
-              titularId: dep.titular,
-              titularNome: dep.titular_nome,
-              nome: dep.nome,
-              rnm: dep.rnm,
-              passaporte: dep.passaporte,
-              nacionalidade: dep.nacionalidade_nome,
-              tipoDependente: dep.tipo_dependente_display,
-              dataNascimento: dep.data_nascimento,
-              pai: dep.pai,
-              mae: dep.mae,
-            })
-          })
+          const { dataDe, dataAte } = calcularDatasDoPerido()
+          if (dataDe) params.data_de = dataDe
+          if (dataAte) params.data_ate = dataAte
         } else {
-          // Titular com vínculos - uma linha para cada vínculo
-          vinculos.forEach((vinculo, idx) => {
-            const isLastVinculo = idx === vinculos.length - 1
-            
-            finalResults.push({
-              type: 'titular',
-              id: titular.id,
-              visibleId: `titular-${titular.id}-${vinculo.id}`,
-              nome: titular.nome,
-              rnm: titular.rnm,
-              cpf: titular.cpf,
-              passaporte: titular.passaporte,
-              nacionalidade: titular.nacionalidade_nome,
-              tipoVinculo: vinculo.tipo_vinculo_display,
-              empresa: vinculo.empresa_nome,
-              amparo: vinculo.amparo_nome,
-              dataFimVinculo: vinculo.data_fim_vinculo,
-              status: vinculo.status,
-              vinculoId: vinculo.id,
-              email: titular.email,
-              telefone: titular.telefone,
-              pai: titular.pai,
-              mae: titular.mae,
-              dataNascimento: titular.data_nascimento,
-              isLastVinculo,
-            })
-            
-            // Adicionar dependentes após o último vínculo
-            if (isLastVinculo) {
-              depsDesseTitular.forEach(dep => {
-                finalResults.push({
-                  type: 'dependente',
-                  id: dep.id,
-                  visibleId: `dependente-${dep.id}`,
-                  titularId: dep.titular,
-                  titularNome: dep.titular_nome,
-                  nome: dep.nome,
-                  rnm: dep.rnm,
-                  passaporte: dep.passaporte,
-                  nacionalidade: dep.nacionalidade_nome,
-                  tipoDependente: dep.tipo_dependente_display,
-                  dataNascimento: dep.data_nascimento,
-                  pai: dep.pai,
-                  mae: dep.mae,
-                })
-              })
-            }
-          })
+          // Usar datas manuais
+          if (filters.dataDe) params.data_de = filters.dataDe
+          if (filters.dataAte) params.data_ate = filters.dataAte
         }
-      })
-      
-      // Se há termo de busca, adicionar dependentes órfãos (cujo titular não apareceu)
-      if (filters.searchTerm) {
-        const titularIdsNoResultado = new Set(titulares.map(t => t.id))
-        todosDependentes.forEach(dep => {
-          // Se o titular deste dependente não está nos resultados, adicionar como órfão
-          if (!titularIdsNoResultado.has(dep.titular)) {
-            finalResults.push({
-              type: 'dependente-orphan',
-              id: dep.id,
-              visibleId: `dependente-orphan-${dep.id}`,
-              titularId: dep.titular,
-              titularNome: dep.titular_nome,
-              nome: dep.nome,
-              rnm: dep.rnm,
-              passaporte: dep.passaporte,
-              nacionalidade: dep.nacionalidade_nome,
-              tipoDependente: dep.tipo_dependente_display,
-              dataNascimento: dep.data_nascimento,
-              pai: dep.pai,
-              mae: dep.mae,
-            })
-          }
-        })
       }
       
-      setResults(finalResults)
+      // Fazer requisição
+      const response = await pesquisaUnificada(params)
+      const data = response.data
+      
+      setResults(data.results || [])
+      setPagination(prev => ({
+        ...prev,
+        page: data.page,
+        totalPages: data.total_pages,
+        totalCount: data.count,
+        hasNext: data.has_next,
+        hasPrevious: data.has_previous,
+      }))
+      
+      // Limpar expansões ao mudar de página
+      setExpandedItems({})
       
     } catch (error) {
       console.error('Erro na busca:', error)
       setResults([])
+      setPagination(prev => ({
+        ...prev,
+        page: 1,
+        totalPages: 1,
+        totalCount: 0,
+        hasNext: false,
+        hasPrevious: false,
+      }))
     } finally {
       setLoading(false)
     }
-  }, [filters])
+  }, [filters, pagination.pageSize, calcularDatasDoPerido])
   
   // Buscar ao carregar
   useEffect(() => {
-    handleSearch()
+    handleSearch(1)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // Navegação de páginas
+  const goToPage = (page) => {
+    if (page >= 1 && page <= pagination.totalPages) {
+      handleSearch(page)
+    }
+  }
+  
+  const goToNextPage = () => {
+    if (pagination.hasNext) {
+      handleSearch(pagination.page + 1)
+    }
+  }
+  
+  const goToPreviousPage = () => {
+    if (pagination.hasPrevious) {
+      handleSearch(pagination.page - 1)
+    }
+  }
+  
+  // Mudar tamanho da página
+  const handlePageSizeChange = (newSize) => {
+    setPagination(prev => ({ ...prev, pageSize: newSize }))
+    // Rebuscar imediatamente com o novo tamanho
+    handleSearch(1, newSize)
+  }
   
   // Função para calcular dias restantes
   function calcularDiasRestantes(dataFim) {
@@ -426,7 +246,7 @@ function Pesquisa() {
   // Handler para tecla Enter
   function handleKeyPress(e) {
     if (e.key === 'Enter') {
-      handleSearch()
+      handleSearch(1)
     }
   }
   
@@ -441,7 +261,7 @@ function Pesquisa() {
   // Render detalhes expandidos do titular
   function renderTitularDetails(item) {
     return (
-      <tr className="row-details">
+      <tr className="row-details" key={`details-${item.visibleId}`}>
         <td colSpan="9">
           <div className="details-content">
             <div className="details-grid">
@@ -472,7 +292,7 @@ function Pesquisa() {
   // Render detalhes expandidos do dependente
   function renderDependenteDetails(item) {
     return (
-      <tr className="row-details">
+      <tr className="row-details" key={`details-${item.visibleId}`}>
         <td colSpan="9">
           <div className="details-content">
             <div className="details-grid">
@@ -498,6 +318,86 @@ function Pesquisa() {
           </div>
         </td>
       </tr>
+    )
+  }
+  
+  // Renderizar paginação
+  function renderPagination() {
+    if (pagination.totalPages <= 1) return null
+    
+    const pages = []
+    const maxVisiblePages = 5
+    let startPage = Math.max(1, pagination.page - Math.floor(maxVisiblePages / 2))
+    let endPage = Math.min(pagination.totalPages, startPage + maxVisiblePages - 1)
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1)
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i)
+    }
+    
+    return (
+      <div className="pagination">
+        <button 
+          className="btn btn-sm btn-outline"
+          onClick={() => goToPage(1)}
+          disabled={pagination.page === 1}
+        >
+          ⏮️
+        </button>
+        <button 
+          className="btn btn-sm btn-outline"
+          onClick={goToPreviousPage}
+          disabled={!pagination.hasPrevious}
+        >
+          ◀️ Anterior
+        </button>
+        
+        <div className="pagination-pages">
+          {startPage > 1 && (
+            <>
+              <button className="btn btn-sm btn-outline" onClick={() => goToPage(1)}>1</button>
+              {startPage > 2 && <span className="pagination-ellipsis">...</span>}
+            </>
+          )}
+          
+          {pages.map(page => (
+            <button
+              key={page}
+              className={`btn btn-sm ${page === pagination.page ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => goToPage(page)}
+            >
+              {page}
+            </button>
+          ))}
+          
+          {endPage < pagination.totalPages && (
+            <>
+              {endPage < pagination.totalPages - 1 && <span className="pagination-ellipsis">...</span>}
+              <button className="btn btn-sm btn-outline" onClick={() => goToPage(pagination.totalPages)}>
+                {pagination.totalPages}
+              </button>
+            </>
+          )}
+        </div>
+        
+        <button 
+          className="btn btn-sm btn-outline"
+          onClick={goToNextPage}
+          disabled={!pagination.hasNext}
+        >
+          Próxima ▶️
+        </button>
+        <button 
+          className="btn btn-sm btn-outline"
+          onClick={() => goToPage(pagination.totalPages)}
+          disabled={pagination.page === pagination.totalPages}
+        >
+          ⏭️
+        </button>
+      </div>
     )
   }
   
@@ -538,7 +438,7 @@ function Pesquisa() {
               style={{ border: '0px solid transparent' }}
             />
           </div>
-          <button className="btn btn-primary" onClick={handleSearch}>
+          <button className="btn btn-primary" onClick={() => handleSearch(1)}>
             🔍 Buscar
           </button>
         </div>
@@ -739,7 +639,7 @@ function Pesquisa() {
               <button className="btn btn-secondary" onClick={handleClearFilters}>
                 Limpar Filtros
               </button>
-              <button className="btn btn-primary" onClick={handleSearch}>
+              <button className="btn btn-primary" onClick={() => handleSearch(1)}>
                 Aplicar Filtros
               </button>
             </div>
@@ -751,8 +651,27 @@ function Pesquisa() {
       <div className="card">
         <div className="results-header">
           <span className="results-count">
-            {results.length} resultado(s) encontrado(s)
+            <strong>{pagination.totalCount}</strong> titular(es) encontrado(s)
+            {pagination.totalPages > 1 && (
+              <span className="text-muted"> — Página {pagination.page} de {pagination.totalPages}</span>
+            )}
           </span>
+          <div className="results-options">
+            <label className="form-label-inline">
+              Itens por página:
+              <select 
+                className="form-select form-select-sm"
+                value={pagination.pageSize}
+                onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
+                style={{ width: '80px', marginLeft: '0.5rem' }}
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+          </div>
         </div>
         
         {loading ? (
@@ -763,6 +682,7 @@ function Pesquisa() {
             <p>Tente ajustar os filtros de busca.</p>
           </div>
         ) : (
+          <>
           <div className="table-container">
             <table className="pesquisa-table">
               <thead>
@@ -780,9 +700,8 @@ function Pesquisa() {
               </thead>
               <tbody>
                 {results.map(item => (
-                  <>
+                  <React.Fragment key={item.visibleId}>
                     <tr 
-                      key={item.visibleId} 
                       className={getRowClass(item.dataFimVinculo, item.type)}
                     >
                       <td>
@@ -807,8 +726,8 @@ function Pesquisa() {
                       <td>
                         {item.type === 'titular' && (
                           <>
-                            {item.tipoVinculo || '-'}
-                            {item.empresa && ` - ${item.empresa}`}
+                            {item.tipoVinculo !== 'Empresa' && (item.tipoVinculo || '-')}
+                            {item.empresa && ` ${item.empresa}`}
                           </>
                         )}
                         {(item.type === 'dependente' || item.type === 'dependente-orphan') && (
@@ -818,7 +737,7 @@ function Pesquisa() {
                         )}
                       </td>
                       <td>
-                        {item.type === 'titular' ? (item.amparo || '-') : '-'}
+                        {item.type === 'titular' ? (item.amparo || '-') : (item.amparo || '-')}
                       </td>
                       <td>{item.rnm || '-'}</td>
                       <td>
@@ -827,9 +746,14 @@ function Pesquisa() {
                             {formatDate(item.dataFimVinculo)}
                             {(() => {
                               const dias = calcularDiasRestantes(item.dataFimVinculo)
-                              if (dias !== null && dias <= 60) {
+                              if (dias !== null) {
+                                let badgeClass = 'badge-success'
+                                if (dias < 0) badgeClass = 'badge-danger'
+                                else if (dias <= 30) badgeClass = 'badge-warning'
+                                else if (dias <= 90) badgeClass = 'badge-info'
+                                
                                 return (
-                                  <span className={`badge ${dias < 0 ? 'badge-danger' : 'badge-warning'}`} style={{ marginLeft: '0.5rem' }}>
+                                  <span className={`badge ${badgeClass}`} style={{ marginLeft: '0.5rem' }}>
                                     {dias < 0 ? `${Math.abs(dias)}d atrás` : `${dias}d`}
                                   </span>
                                 )
@@ -838,7 +762,27 @@ function Pesquisa() {
                             })()}
                           </>
                         )}
-                        {(item.type === 'dependente' || item.type === 'dependente-orphan') && '-'}
+                        {(item.type === 'dependente' || item.type === 'dependente-orphan') && (
+                          <>
+                            {formatDate(item.dataFimVinculo)}
+                            {(() => {
+                              const dias = calcularDiasRestantes(item.dataFimVinculo)
+                              if (dias !== null) {
+                                let badgeClass = 'badge-success'
+                                if (dias < 0) badgeClass = 'badge-danger'
+                                else if (dias <= 30) badgeClass = 'badge-warning'
+                                else if (dias <= 90) badgeClass = 'badge-info'
+                                
+                                return (
+                                  <span className={`badge ${badgeClass}`} style={{ marginLeft: '0.5rem' }}>
+                                    {dias < 0 ? `${Math.abs(dias)}d atrás` : `${dias}d`}
+                                  </span>
+                                )
+                              }
+                              return null
+                            })()}
+                          </>
+                        )}
                       </td>
                       <td>
                         {item.type === 'titular' && (
@@ -872,11 +816,15 @@ function Pesquisa() {
                         ? renderTitularDetails(item) 
                         : renderDependenteDetails(item)
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
           </div>
+          
+          {/* Paginação */}
+          {renderPagination()}
+          </>
         )}
       </div>
       

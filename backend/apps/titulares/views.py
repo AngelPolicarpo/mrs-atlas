@@ -9,10 +9,10 @@ from django.db import transaction
 from django.db.models import Q
 import openpyxl
 from io import BytesIO
-from .models import Titular, VinculoTitular, Dependente
+from .models import Titular, VinculoTitular, Dependente, VinculoDependente
 from .serializers import (
     TitularSerializer, TitularListSerializer, TitularCreateUpdateSerializer,
-    VinculoTitularSerializer, DependenteSerializer
+    VinculoTitularSerializer, DependenteSerializer, VinculoDependenteSerializer
 )
 from apps.core.models import Nacionalidade, AmparoLegal
 
@@ -332,3 +332,354 @@ class DependenteViewSet(viewsets.ModelViewSet):
     
     def perform_update(self, serializer):
         serializer.save(atualizado_por=self.request.user)
+
+
+class VinculoDependenteViewSet(viewsets.ModelViewSet):
+    """ViewSet para gerenciamento de vínculos de dependentes."""
+    
+    queryset = VinculoDependente.objects.select_related(
+        'dependente', 'amparo', 'consulado', 'tipo_atualizacao',
+        'criado_por', 'atualizado_por'
+    )
+    serializer_class = VinculoDependenteSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['dependente', 'status', 'amparo', 'consulado', 'tipo_atualizacao']
+    search_fields = ['dependente__nome', 'observacoes']
+    ordering_fields = ['data_fim_vinculo', 'data_entrada', 'data_criacao']
+    ordering = ['-data_criacao']
+    
+    def perform_create(self, serializer):
+        serializer.save(criado_por=self.request.user, atualizado_por=self.request.user)
+    
+    def perform_update(self, serializer):
+        serializer.save(atualizado_por=self.request.user)
+
+
+class PesquisaUnificadaViewSet(viewsets.ViewSet):
+    """
+    ViewSet para pesquisa unificada de titulares e dependentes com paginação real.
+    Retorna titulares com seus vínculos e dependentes de forma paginada.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def list(self, request):
+        """
+        Pesquisa unificada paginada.
+        
+        Parâmetros:
+        - search: termo de busca (nome, rnm, cpf, passaporte)
+        - nacionalidade: ID da nacionalidade
+        - empresa: ID da empresa
+        - tipo_vinculo: EMPRESA ou PARTICULAR
+        - vinculo_status: true/false
+        - tipo_evento: vencimento, entrada, atualizacao
+        - data_de: data início do filtro (YYYY-MM-DD)
+        - data_ate: data fim do filtro (YYYY-MM-DD)
+        - page: número da página
+        - page_size: itens por página (default 20, max 100)
+        """
+        from django.core.paginator import Paginator
+        from django.db.models import Count, Prefetch
+        
+        # Parâmetros de paginação
+        page = int(request.query_params.get('page', 1))
+        page_size = min(int(request.query_params.get('page_size', 20)), 100)
+        
+        # Parâmetros de filtro
+        search = request.query_params.get('search', '').strip()
+        nacionalidade = request.query_params.get('nacionalidade')
+        empresa = request.query_params.get('empresa')
+        tipo_vinculo = request.query_params.get('tipo_vinculo')
+        vinculo_status = request.query_params.get('vinculo_status')
+        tipo_evento = request.query_params.get('tipo_evento')
+        data_de = request.query_params.get('data_de')
+        data_ate = request.query_params.get('data_ate')
+        
+        # Query base para titulares
+        titulares_qs = Titular.objects.select_related('nacionalidade').prefetch_related(
+            Prefetch(
+                'vinculos',
+                queryset=VinculoTitular.objects.select_related('empresa', 'amparo').order_by('-data_fim_vinculo')
+            ),
+            Prefetch(
+                'dependentes',
+                queryset=Dependente.objects.select_related('nacionalidade').prefetch_related(
+                    Prefetch(
+                        'vinculos',
+                        queryset=VinculoDependente.objects.filter(status=True).order_by('-data_fim_vinculo')
+                    )
+                )
+            )
+        )
+        
+        # Query base para dependentes (busca independente)
+        dependentes_qs = Dependente.objects.select_related('titular', 'nacionalidade').prefetch_related(
+            Prefetch(
+                'vinculos',
+                queryset=VinculoDependente.objects.filter(status=True).order_by('-data_fim_vinculo')
+            )
+        )
+        
+        # Aplicar filtro de busca
+        if search:
+            titulares_qs = titulares_qs.filter(
+                Q(nome__icontains=search) |
+                Q(rnm__icontains=search) |
+                Q(cpf__icontains=search) |
+                Q(passaporte__icontains=search)
+            )
+            dependentes_qs = dependentes_qs.filter(
+                Q(nome__icontains=search) |
+                Q(rnm__icontains=search) |
+                Q(passaporte__icontains=search)
+            )
+        
+        # Filtro de nacionalidade
+        if nacionalidade:
+            titulares_qs = titulares_qs.filter(nacionalidade_id=nacionalidade)
+            dependentes_qs = dependentes_qs.filter(nacionalidade_id=nacionalidade)
+        
+        # Filtro de empresa (só se aplica a titulares)
+        if empresa:
+            titulares_qs = titulares_qs.filter(vinculos__empresa_id=empresa).distinct()
+        
+        # Filtro de tipo de vínculo
+        if tipo_vinculo:
+            titulares_qs = titulares_qs.filter(vinculos__tipo_vinculo=tipo_vinculo).distinct()
+        
+        # Filtro de status do vínculo
+        if vinculo_status is not None:
+            status_bool = vinculo_status.lower() == 'true'
+            titulares_qs = titulares_qs.filter(vinculos__status=status_bool).distinct()
+        
+        # Filtros de data (baseado no tipo de evento)
+        if tipo_evento and (data_de or data_ate):
+            if tipo_evento == 'vencimento':
+                if data_de:
+                    titulares_qs = titulares_qs.filter(vinculos__data_fim_vinculo__gte=data_de).distinct()
+                if data_ate:
+                    titulares_qs = titulares_qs.filter(vinculos__data_fim_vinculo__lte=data_ate).distinct()
+            elif tipo_evento == 'entrada':
+                if data_de:
+                    titulares_qs = titulares_qs.filter(vinculos__data_entrada_pais__gte=data_de).distinct()
+                if data_ate:
+                    titulares_qs = titulares_qs.filter(vinculos__data_entrada_pais__lte=data_ate).distinct()
+            elif tipo_evento == 'atualizacao':
+                if data_de:
+                    titulares_qs = titulares_qs.filter(vinculos__ultima_atualizacao__gte=data_de).distinct()
+                if data_ate:
+                    titulares_qs = titulares_qs.filter(vinculos__ultima_atualizacao__lte=data_ate).distinct()
+        
+        # Ordenar titulares
+        titulares_qs = titulares_qs.order_by('nome')
+        
+        # Contar totais antes de paginar
+        total_titulares = titulares_qs.count()
+        
+        # Paginar titulares
+        paginator = Paginator(titulares_qs, page_size)
+        titulares_page = paginator.get_page(page)
+        
+        # Montar resultado
+        results = []
+        titular_ids_na_pagina = set()
+        
+        for titular in titulares_page:
+            titular_ids_na_pagina.add(titular.id)
+            vinculos = list(titular.vinculos.all())
+            dependentes = list(titular.dependentes.all())
+            
+            # Filtrar vínculos baseado nos parâmetros de filtro
+            vinculos_filtrados = vinculos
+            
+            # Filtro de tipo de vínculo
+            if tipo_vinculo:
+                vinculos_filtrados = [v for v in vinculos_filtrados if v.tipo_vinculo == tipo_vinculo]
+            
+            # Filtro de empresa (empresa_id é UUID)
+            if empresa:
+                from uuid import UUID
+                try:
+                    empresa_uuid = UUID(empresa) if isinstance(empresa, str) else empresa
+                    vinculos_filtrados = [v for v in vinculos_filtrados if v.empresa_id == empresa_uuid]
+                except (ValueError, TypeError):
+                    vinculos_filtrados = []
+            
+            # Filtro de status
+            if vinculo_status is not None:
+                status_bool = vinculo_status.lower() == 'true'
+                vinculos_filtrados = [v for v in vinculos_filtrados if v.status == status_bool]
+            
+            # Filtro de data (baseado no tipo de evento)
+            if tipo_evento and (data_de or data_ate):
+                vinculos_temp = []
+                for v in vinculos_filtrados:
+                    if tipo_evento == 'vencimento':
+                        data_campo = v.data_fim_vinculo
+                    elif tipo_evento == 'entrada':
+                        data_campo = v.data_entrada_pais
+                    elif tipo_evento == 'atualizacao':
+                        data_campo = v.ultima_atualizacao
+                    else:
+                        data_campo = None
+                    
+                    if data_campo:
+                        from datetime import datetime
+                        data_campo_str = data_campo.strftime('%Y-%m-%d') if hasattr(data_campo, 'strftime') else str(data_campo)
+                        
+                        passa_de = not data_de or data_campo_str >= data_de
+                        passa_ate = not data_ate or data_campo_str <= data_ate
+                        
+                        if passa_de and passa_ate:
+                            vinculos_temp.append(v)
+                    else:
+                        # Se não tem a data do campo filtrado, não incluir
+                        pass
+                vinculos_filtrados = vinculos_temp
+            
+            vinculos = vinculos_filtrados
+            
+            # Verificar se há filtros de vínculo aplicados
+            has_vinculo_filters = tipo_vinculo or empresa or vinculo_status is not None or (tipo_evento and (data_de or data_ate))
+            
+            if not vinculos:
+                # Se há filtros de vínculo ativos e nenhum vínculo passou, não mostrar o titular
+                if has_vinculo_filters:
+                    continue
+                
+                # Titular sem vínculo (sem filtros de vínculo ativos)
+                results.append({
+                    'type': 'titular',
+                    'id': str(titular.id),
+                    'visibleId': f'titular-{titular.id}-0',
+                    'nome': titular.nome,
+                    'rnm': titular.rnm,
+                    'cpf': titular.cpf,
+                    'passaporte': titular.passaporte,
+                    'nacionalidade': titular.nacionalidade.nome if titular.nacionalidade else None,
+                    'tipoVinculo': None,
+                    'empresa': None,
+                    'amparo': None,
+                    'dataFimVinculo': None,
+                    'status': None,
+                    'vinculoId': None,
+                    'email': titular.email,
+                    'telefone': titular.telefone,
+                    'pai': titular.pai,
+                    'mae': titular.mae,
+                    'dataNascimento': str(titular.data_nascimento) if titular.data_nascimento else None,
+                    'isLastVinculo': True,
+                })
+                
+                # Adicionar dependentes após titular sem vínculo
+                for dep in dependentes:
+                    # Pegar o vínculo ativo mais recente do dependente
+                    dep_vinculos = list(dep.vinculos.all())
+                    dep_vinculo_ativo = dep_vinculos[0] if dep_vinculos else None
+                    
+                    results.append({
+                        'type': 'dependente',
+                        'id': str(dep.id),
+                        'visibleId': f'dependente-{dep.id}',
+                        'titularId': str(titular.id),
+                        'titularNome': titular.nome,
+                        'nome': dep.nome,
+                        'rnm': dep.rnm,
+                        'passaporte': dep.passaporte,
+                        'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                        'tipoDependente': dep.get_tipo_dependente_display(),
+                        'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
+                        'pai': dep.pai,
+                        'mae': dep.mae,
+                        'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
+                        'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
+                    })
+            else:
+                # Uma linha para cada vínculo
+                for idx, vinculo in enumerate(vinculos):
+                    is_last = idx == len(vinculos) - 1
+                    
+                    results.append({
+                        'type': 'titular',
+                        'id': str(titular.id),
+                        'visibleId': f'titular-{titular.id}-{vinculo.id}',
+                        'nome': titular.nome,
+                        'rnm': titular.rnm,
+                        'cpf': titular.cpf,
+                        'passaporte': titular.passaporte,
+                        'nacionalidade': titular.nacionalidade.nome if titular.nacionalidade else None,
+                        'tipoVinculo': vinculo.get_tipo_vinculo_display(),
+                        'empresa': vinculo.empresa.nome if vinculo.empresa else None,
+                        'amparo': vinculo.amparo.nome if vinculo.amparo else None,
+                        'dataFimVinculo': str(vinculo.data_fim_vinculo) if vinculo.data_fim_vinculo else None,
+                        'status': vinculo.status,
+                        'vinculoId': str(vinculo.id),
+                        'email': titular.email,
+                        'telefone': titular.telefone,
+                        'pai': titular.pai,
+                        'mae': titular.mae,
+                        'dataNascimento': str(titular.data_nascimento) if titular.data_nascimento else None,
+                        'isLastVinculo': is_last,
+                    })
+                    
+                    # Adicionar dependentes após o último vínculo
+                    if is_last:
+                        for dep in dependentes:
+                            # Pegar o vínculo ativo mais recente do dependente
+                            dep_vinculos = list(dep.vinculos.all())
+                            dep_vinculo_ativo = dep_vinculos[0] if dep_vinculos else None
+                            
+                            results.append({
+                                'type': 'dependente',
+                                'id': str(dep.id),
+                                'visibleId': f'dependente-{dep.id}',
+                                'titularId': str(titular.id),
+                                'titularNome': titular.nome,
+                                'nome': dep.nome,
+                                'rnm': dep.rnm,
+                                'passaporte': dep.passaporte,
+                                'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                                'tipoDependente': dep.get_tipo_dependente_display(),
+                                'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
+                                'pai': dep.pai,
+                                'mae': dep.mae,
+                                'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
+                                'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
+                            })
+        
+        # Se há termo de busca, verificar dependentes órfãos (cujo titular não está na página)
+        if search:
+            dependentes_orfaos = dependentes_qs.exclude(titular_id__in=titular_ids_na_pagina)
+            for dep in dependentes_orfaos[:20]:  # Limitar órfãos por página
+                # Pegar o vínculo ativo mais recente do dependente
+                dep_vinculos = list(dep.vinculos.all())
+                dep_vinculo_ativo = dep_vinculos[0] if dep_vinculos else None
+                
+                results.append({
+                    'type': 'dependente-orphan',
+                    'id': str(dep.id),
+                    'visibleId': f'dependente-orphan-{dep.id}',
+                    'titularId': str(dep.titular_id),
+                    'titularNome': dep.titular.nome if dep.titular else 'Desconhecido',
+                    'nome': dep.nome,
+                    'rnm': dep.rnm,
+                    'passaporte': dep.passaporte,
+                    'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                    'tipoDependente': dep.get_tipo_dependente_display(),
+                    'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
+                    'pai': dep.pai,
+                    'mae': dep.mae,
+                    'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
+                    'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
+                })
+        
+        return Response({
+            'results': results,
+            'count': total_titulares,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': paginator.num_pages,
+            'has_next': titulares_page.has_next(),
+            'has_previous': titulares_page.has_previous(),
+        })

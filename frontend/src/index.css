@@ -682,15 +682,60 @@ tr:hover {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-top: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pagination-ellipsis {
+  padding: 0 0.5rem;
+  color: var(--text-light);
 }
 
 .pagination-info {
   font-size: 0.875rem;
   color: var(--text-light);
+}
+
+/* Results Header */
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.results-options {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.form-label-inline {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
+
+.form-select-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.text-muted {
+  color: var(--text-light);
+  font-size: 0.875rem;
 }
 
 /* Legend */
@@ -1747,4 +1792,83 @@ details[open] .filter-summary::before {
     padding: 0.75rem 1rem;
     font-size: 0.8125rem;
   }
+}
+
+/* Seção de Vínculos */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.vinculos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.vinculo-card {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.vinculo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.vinculo-number {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.vinculo-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.checkbox-inline input[type="checkbox"] {
+  width: auto;
+  cursor: pointer;
+}
+
+.empty-state-small {
+  text-align: center;
+  padding: 2rem 1rem;
+  background: var(--background);
+  border-radius: 0.5rem;
+  border: 1px dashed var(--border);
+}
+
+.empty-state-small p {
+  margin: 0.25rem 0;
+}
+
+.empty-state-small .text-muted {
+  color: var(--text-light);
+  font-size: 0.875rem;
 }

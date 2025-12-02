@@ -29,3 +29,13 @@ export const getDependente = (id) => api.get(`/api/v1/dependentes/${id}/`)
 export const createDependente = (data) => api.post('/api/v1/dependentes/', data)
 export const updateDependente = (id, data) => api.patch(`/api/v1/dependentes/${id}/`, data)
 export const deleteDependente = (id) => api.delete(`/api/v1/dependentes/${id}/`)
+
+// Vínculos de Dependentes
+export const getVinculosDependentes = (params) => api.get('/api/v1/vinculos-dependentes/', { params })
+export const getVinculoDependente = (id) => api.get(`/api/v1/vinculos-dependentes/${id}/`)
+export const createVinculoDependente = (data) => api.post('/api/v1/vinculos-dependentes/', data)
+export const updateVinculoDependente = (id, data) => api.patch(`/api/v1/vinculos-dependentes/${id}/`, data)
+export const deleteVinculoDependente = (id) => api.delete(`/api/v1/vinculos-dependentes/${id}/`)
+
+// Pesquisa Unificada (paginada)
+export const pesquisaUnificada = (params) => api.get('/api/v1/pesquisa/', { params })
