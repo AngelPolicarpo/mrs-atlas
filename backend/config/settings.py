@@ -19,6 +19,10 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-me')
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# Adicionar hosts ngrok automaticamente em modo DEBUG
+if DEBUG:
+    ALLOWED_HOSTS += ['.ngrok-free.app', '.ngrok.io']
+
 # ===========================================
 # APPLICATION DEFINITION
 # ===========================================
@@ -251,11 +255,50 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Permitir origens que correspondem a padrões (útil para ngrok, etc.)
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.ngrok-free\.app$",
+    r"^https://.*\.ngrok\.io$",
+]
+
+# Permitir todos os headers e métodos necessários
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'ngrok-skip-browser-warning',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Em modo DEBUG, permitir todas as origens (facilita desenvolvimento)
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+
 # CSRF Trusted Origins (necessário para Django 4.0+)
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     'CSRF_TRUSTED_ORIGINS',
     'http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000'
 ).split(',')
+
+# Adicionar padrões ngrok ao CSRF trusted origins
+CSRF_TRUSTED_ORIGINS += [
+    'https://*.ngrok-free.app',
+    'https://*.ngrok.io',
+]
 
 # ===========================================
 # DEBUG TOOLBAR

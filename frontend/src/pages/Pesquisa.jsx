@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom'
 import { pesquisaUnificada } from '../services/titulares'
 import { getEmpresas } from '../services/empresas'
 import { getNacionalidades } from '../services/core'
+import * as XLSX from 'xlsx'
+import { saveAs } from 'file-saver'
+import { jsPDF } from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+const doc = new jsPDF()
 
 function Pesquisa() {
   // Estados dos filtros
@@ -215,6 +220,240 @@ function Pesquisa() {
   function formatDate(dateStr) {
     if (!dateStr) return '-'
     return new Date(dateStr).toLocaleDateString('pt-BR')
+  }
+  
+  // ====================
+  // FUNÇÕES DE EXPORTAÇÃO
+  // ====================
+  
+  const [exporting, setExporting] = useState(false)
+  
+  // Buscar todos os resultados para exportação
+  async function fetchAllResults() {
+    try {
+      const params = {
+        page: 1,
+        page_size: 1000, // Máximo permitido pela API
+      }
+      
+      // Adicionar filtros atuais
+      if (filters.searchTerm) params.search = filters.searchTerm
+      if (filters.nacionalidade) params.nacionalidade = filters.nacionalidade
+      if (filters.empresa) params.empresa = filters.empresa
+      if (filters.tipoVinculo) params.tipo_vinculo = filters.tipoVinculo
+      if (filters.status) params.vinculo_status = filters.status === 'ativo' ? 'true' : 'false'
+      
+      if (filters.tipoEvento) {
+        params.tipo_evento = filters.tipoEvento
+        if (filters.periodo) {
+          const { dataDe, dataAte } = calcularDatasDoPerido()
+          if (dataDe) params.data_de = dataDe
+          if (dataAte) params.data_ate = dataAte
+        } else {
+          if (filters.dataDe) params.data_de = filters.dataDe
+          if (filters.dataAte) params.data_ate = filters.dataAte
+        }
+      }
+      
+      const response = await pesquisaUnificada(params)
+      return response.data.results || []
+    } catch (error) {
+      console.error('Erro ao buscar dados para exportação:', error)
+      throw error
+    }
+  }
+  
+  // Preparar dados para exportação
+  function prepareExportData(data) {
+    return data.map(item => ({
+      'Nome': item.nome || '-',
+      'Tipo': item.type === 'titular' ? 'Titular' : 'Dependente',
+      'Vínculo/Relação': item.type === 'titular' 
+        ? `${item.tipoVinculo || ''}${item.empresa ? ` ${item.empresa}` : ''}`.trim() || '-'
+        : `${item.tipoDependente || 'Dependente'} de ${item.titularNome}`,
+      'Amparo': item.amparo || '-',
+      'RNM': item.rnm || '-',
+      'CPF': item.cpf || '-',
+      'Passaporte': item.passaporte || '-',
+      'Nacionalidade': item.nacionalidade || '-',
+      'Data Nascimento': formatDate(item.dataNascimento),
+      'Data Fim Vínculo': formatDate(item.dataFimVinculo),
+      'Status': item.type === 'titular' 
+        ? (item.status ? 'Ativo' : item.status === false ? 'Inativo' : 'Sem Vínculo')
+        : 'Ativo',
+      'Email': item.email || '-',
+      'Telefone': item.telefone || '-',
+    }))
+  }
+  
+  // Exportar para CSV
+  async function exportToCSV(exportAll = false) {
+    if (results.length === 0) {
+      alert('Não há dados para exportar.')
+      return
+    }
+    
+    setExporting(true)
+    try {
+      const dataToExport = exportAll ? await fetchAllResults() : results
+      const data = prepareExportData(dataToExport)
+      const headers = Object.keys(data[0])
+      
+      // Criar conteúdo CSV com BOM para UTF-8
+      let csvContent = '\uFEFF' // BOM para Excel reconhecer UTF-8
+      csvContent += headers.join(';') + '\n'
+      
+      data.forEach(row => {
+        const values = headers.map(header => {
+          let value = row[header] || ''
+          // Escapar aspas e envolver em aspas se contiver separador
+          value = String(value).replace(/"/g, '""')
+          if (value.includes(';') || value.includes('"') || value.includes('\n')) {
+            value = `"${value}"`
+          }
+          return value
+        })
+        csvContent += values.join(';') + '\n'
+      })
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' })
+      const timestamp = new Date().toISOString().split('T')[0]
+      const suffix = exportAll ? '_completo' : ''
+      saveAs(blob, `pesquisa_atlas${suffix}_${timestamp}.csv`)
+    } catch (error) {
+      console.error('Erro ao exportar CSV:', error)
+      alert('Erro ao exportar. Tente novamente.')
+    } finally {
+      setExporting(false)
+    }
+  }
+  
+  // Exportar para XLSX
+  async function exportToXLSX(exportAll = false) {
+    if (results.length === 0) {
+      alert('Não há dados para exportar.')
+      return
+    }
+    
+    setExporting(true)
+    try {
+      const dataToExport = exportAll ? await fetchAllResults() : results
+      const data = prepareExportData(dataToExport)
+      
+      // Criar worksheet
+      const ws = XLSX.utils.json_to_sheet(data)
+      
+      // Ajustar largura das colunas
+      const colWidths = Object.keys(data[0]).map(key => ({
+        wch: Math.max(key.length, ...data.map(row => String(row[key] || '').length).slice(0, 50)) + 2
+      }))
+      ws['!cols'] = colWidths
+      
+      // Criar workbook
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Pesquisa')
+      
+      // Gerar arquivo
+      const timestamp = new Date().toISOString().split('T')[0]
+      const suffix = exportAll ? '_completo' : ''
+      XLSX.writeFile(wb, `pesquisa_atlas${suffix}_${timestamp}.xlsx`)
+    } catch (error) {
+      console.error('Erro ao exportar XLSX:', error)
+      alert('Erro ao exportar. Tente novamente.')
+    } finally {
+      setExporting(false)
+    }
+  }
+  
+  // Exportar para PDF
+  async function exportToPDF(exportAll = false) {
+    if (results.length === 0) {
+      alert('Não há dados para exportar.')
+      return
+    }
+    
+    setExporting(true)
+    try {
+      const dataToExport = exportAll ? await fetchAllResults() : results
+      
+      const doc = new jsPDF('landscape', 'mm', 'a4')
+      
+      // Título
+      doc.setFontSize(16)
+      doc.text('Pesquisa Avançada - Atlas', 14, 15)
+      
+      // Info
+      doc.setFontSize(10)
+      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 22)
+      doc.text(`Total de registros: ${dataToExport.length}`, 14, 27)
+      
+      // Preparar dados para tabela
+      const tableColumns = ['Nome', 'Tipo', 'Vínculo/Relação', 'Amparo', 'RNM', 'Fim Vínculo', 'Status']
+      const tableData = dataToExport.map(item => [
+        item.nome || '-',
+        item.type === 'titular' ? 'Titular' : 'Dependente',
+        item.type === 'titular' 
+          ? `${item.tipoVinculo || ''}${item.empresa ? ` ${item.empresa}` : ''}`.trim() || '-'
+          : `${item.tipoDependente || 'Dep.'} de ${item.titularNome?.split(' ')[0] || ''}`,
+        item.amparo || '-',
+        item.rnm || '-',
+        formatDate(item.dataFimVinculo),
+        item.type === 'titular' 
+          ? (item.status ? 'Ativo' : item.status === false ? 'Inativo' : 'Sem Vínculo')
+          : 'Ativo',
+      ])
+      
+      // Gerar tabela
+        autoTable(doc, {
+        head: [tableColumns],
+        body: tableData,
+        startY: 32,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [59, 130, 246], // Azul
+          textColor: 255,
+          fontStyle: 'bold',
+        },
+        alternateRowStyles: {
+          fillColor: [245, 247, 250],
+        },
+        columnStyles: {
+          0: { cellWidth: 50 }, // Nome
+          1: { cellWidth: 20 }, // Tipo
+          2: { cellWidth: 50 }, // Vínculo
+          3: { cellWidth: 40 }, // Amparo
+          4: { cellWidth: 30 }, // RNM
+          5: { cellWidth: 25 }, // Fim Vínculo
+          6: { cellWidth: 25 }, // Status
+        },
+      })
+      
+      // Rodapé
+      const pageCount = doc.internal.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i)
+        doc.setFontSize(8)
+        doc.text(
+          `Página ${i} de ${pageCount}`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        )
+      }
+      
+      // Salvar
+      const timestamp = new Date().toISOString().split('T')[0]
+      const suffix = exportAll ? '_completo' : ''
+      doc.save(`pesquisa_atlas${suffix}_${timestamp}.pdf`)
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error)
+      alert('Erro ao exportar. Tente novamente.')
+    } finally {
+      setExporting(false)
+    }
   }
   
   // Handler para mudança de filtro
@@ -651,12 +890,66 @@ function Pesquisa() {
       <div className="card">
         <div className="results-header">
           <span className="results-count">
-            <strong>{pagination.totalCount}</strong> titular(es) encontrado(s)
+            <strong>{results.length}</strong> registro(s) encontrado(s)
             {pagination.totalPages > 1 && (
-              <span className="text-muted"> — Página {pagination.page} de {pagination.totalPages}</span>
+              <span className="text-muted"> — Página {pagination.page} de {pagination.totalPages} ({pagination.totalCount} titulares)</span>
             )}
           </span>
           <div className="results-options">
+            {/* Botões de Exportação */}
+            <div className="export-buttons">
+              <div className="export-dropdown">
+                <button 
+                  className="btn btn-sm btn-outline" 
+                  disabled={results.length === 0 || exporting}
+                  title="Exportar para CSV"
+                >
+                  {exporting ? '⏳' : '📄'} CSV ▾
+                </button>
+                <div className="export-dropdown-content">
+                  <button onClick={() => exportToCSV(false)} disabled={exporting}>
+                    Página atual ({results.length})
+                  </button>
+                  <button onClick={() => exportToCSV(true)} disabled={exporting}>
+                    Todos ({pagination.totalCount})
+                  </button>
+                </div>
+              </div>
+              <div className="export-dropdown">
+                <button 
+                  className="btn btn-sm btn-outline" 
+                  disabled={results.length === 0 || exporting}
+                  title="Exportar para Excel"
+                >
+                  {exporting ? '⏳' : '📊'} XLSX ▾
+                </button>
+                <div className="export-dropdown-content">
+                  <button onClick={() => exportToXLSX(false)} disabled={exporting}>
+                    Página atual ({results.length})
+                  </button>
+                  <button onClick={() => exportToXLSX(true)} disabled={exporting}>
+                    Todos ({pagination.totalCount})
+                  </button>
+                </div>
+              </div>
+              <div className="export-dropdown">
+                <button 
+                  className="btn btn-sm btn-outline" 
+                  disabled={results.length === 0 || exporting}
+                  title="Exportar para PDF"
+                >
+                  {exporting ? '⏳' : '📑'} PDF ▾
+                </button>
+                <div className="export-dropdown-content">
+                  <button onClick={() => exportToPDF(false)} disabled={exporting}>
+                    Página atual ({results.length})
+                  </button>
+                  <button onClick={() => exportToPDF(true)} disabled={exporting}>
+                    Todos ({pagination.totalCount})
+                  </button>
+                </div>
+              </div>
+            </div>
             <label className="form-label-inline">
               Itens por página:
               <select 

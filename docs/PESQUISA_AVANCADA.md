@@ -12,6 +12,7 @@ Este documento explica em detalhes o funcionamento da página de Pesquisa Avanç
 - [Cálculo de Período](#cálculo-de-período)
 - [Sistema de Cores (Vencimento)](#sistema-de-cores-vencimento)
 - [Estrutura de Resultados](#estrutura-de-resultados)
+- [Exportação de Dados](#exportação-de-dados)
 - [Backend: PesquisaUnificadaViewSet](#backend-pesquisaunificadaviewset)
 - [Sugestões de Otimização](#sugestões-de-otimização)
 
@@ -26,6 +27,7 @@ A página de Pesquisa Avançada permite buscar titulares e dependentes com diver
 - **Filtros de vínculo**: tipo (empresa/particular), status (ativo/inativo)
 - **Filtros de data**: por entrada, atualização ou vencimento
 - **Paginação real**: resultados divididos em páginas
+- **Exportação de dados**: CSV, XLSX (Excel) e PDF
 
 ---
 
@@ -420,6 +422,114 @@ if (dias !== null) {
   pai: 'Pedro Santos',
   mae: 'Ana Santos',
   dataNascimento: '1988-07-20'
+}
+```
+
+---
+
+## Exportação de Dados
+
+### Visão Geral
+
+A página de pesquisa oferece funcionalidade de exportação dos resultados em três formatos:
+
+- **CSV** - Formato texto separado por ponto e vírgula (compatível com Excel em português)
+- **XLSX** - Formato nativo do Excel com formatação automática de colunas
+- **PDF** - Relatório em formato PDF com tabela formatada
+
+### Opções de Exportação
+
+Cada formato oferece duas opções:
+
+1. **Página atual** - Exporta apenas os registros visíveis na página atual
+2. **Todos** - Busca e exporta todos os registros que atendem aos filtros (máximo 1000)
+
+### Bibliotecas Utilizadas
+
+```json
+{
+  "xlsx": "^0.18.5",       // Geração de arquivos Excel
+  "file-saver": "^2.0.5",  // Download de arquivos
+  "jspdf": "^3.0.4",       // Geração de PDF
+  "jspdf-autotable": "^5.0.2"  // Plugin para tabelas em PDF
+}
+```
+
+### Campos Exportados
+
+| Campo | Descrição |
+|-------|-----------|
+| Nome | Nome completo da pessoa |
+| Tipo | "Titular" ou "Dependente" |
+| Vínculo/Relação | Tipo de vínculo (empresa/particular) ou relação com titular |
+| Amparo | Amparo legal vigente |
+| RNM | Registro Nacional Migratório |
+| CPF | CPF do titular/dependente |
+| Passaporte | Número do passaporte |
+| Nacionalidade | País de origem |
+| Data Nascimento | Data de nascimento formatada |
+| Data Fim Vínculo | Data de vencimento do vínculo |
+| Status | Ativo, Inativo ou Sem Vínculo |
+| Email | E-mail de contato |
+| Telefone | Telefone de contato |
+
+### Implementação
+
+#### Preparação dos Dados
+
+```javascript
+function prepareExportData(data) {
+  return data.map(item => ({
+    'Nome': item.nome || '-',
+    'Tipo': item.type === 'titular' ? 'Titular' : 'Dependente',
+    // ... demais campos
+  }))
+}
+```
+
+#### Exportação para CSV
+
+- Usa BOM (`\uFEFF`) para garantir codificação UTF-8 no Excel
+- Separador: ponto e vírgula (`;`) para compatibilidade com Excel em português
+- Escapa valores com aspas quando necessário
+
+#### Exportação para XLSX
+
+- Ajusta automaticamente a largura das colunas
+- Usa `XLSX.writeFile()` para download direto
+
+#### Exportação para PDF
+
+- Orientação paisagem (A4)
+- Título e informações de geração
+- Tabela com cabeçalhos coloridos
+- Linhas alternadas para melhor legibilidade
+- Paginação no rodapé
+
+### Estado de Exportação
+
+```javascript
+const [exporting, setExporting] = useState(false)
+```
+
+Durante a exportação:
+- Botões ficam desabilitados
+- Ícone muda para "⏳" (ampulheta)
+- Impede múltiplas exportações simultâneas
+
+### Busca de Todos os Resultados
+
+Para exportar "Todos", uma nova requisição é feita ao backend com `page_size: 1000`:
+
+```javascript
+async function fetchAllResults() {
+  const params = {
+    page: 1,
+    page_size: 1000,
+    // ... filtros atuais
+  }
+  const response = await pesquisaUnificada(params)
+  return response.data.results || []
 }
 ```
 

@@ -677,6 +677,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
         return Response({
             'results': results,
             'count': total_titulares,
+            'total_records': len(results),  # Total de registros na página (titulares + dependentes)
             'page': page,
             'page_size': page_size,
             'total_pages': paginator.num_pages,

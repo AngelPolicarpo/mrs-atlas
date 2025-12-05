@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import authService from '../services/auth'
+import { SESSION_EXPIRED_EVENT } from '../services/authEvents'
 
 const AuthContext = createContext(null)
 
@@ -27,9 +28,26 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(getStoredUser)
   const [loading, setLoading] = useState(true)
   
+  // Handler para sessão expirada
+  const handleSessionExpired = useCallback(() => {
+    console.log('Sessão expirada - fazendo logout...')
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user_data')
+    setUser(null)
+    setStoredUser(null)
+  }, [])
+  
   useEffect(() => {
     checkAuth()
-  }, [])
+    
+    // Escutar evento de sessão expirada
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
+    
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
+    }
+  }, [handleSessionExpired])
   
   async function checkAuth() {
     const token = localStorage.getItem('access_token')

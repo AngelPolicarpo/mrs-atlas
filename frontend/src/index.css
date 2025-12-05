@@ -721,6 +721,80 @@ tr:hover {
   gap: 1rem;
 }
 
+/* Export Buttons */
+.export-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.export-buttons .btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  transition: all 0.2s ease;
+}
+
+.export-buttons .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.export-buttons .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Export Dropdown */
+.export-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.export-dropdown-content {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  min-width: 160px;
+  background-color: var(--card-background);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.export-dropdown:hover .export-dropdown-content {
+  display: block;
+}
+
+.export-dropdown-content button {
+  display: block;
+  width: 100%;
+  padding: 0.625rem 1rem;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--text);
+  transition: background-color 0.15s ease;
+}
+
+.export-dropdown-content button:hover:not(:disabled) {
+  background-color: var(--border);
+}
+
+.export-dropdown-content button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-dropdown-content button:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
 .form-label-inline {
   display: flex;
   align-items: center;

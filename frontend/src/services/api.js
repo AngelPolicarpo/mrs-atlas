@@ -1,6 +1,26 @@
 import axios from 'axios'
+import { dispatchSessionExpired } from './authEvents'
 
-const API_URL = import.meta.env.VITE_API_URL || ''
+// Detecta a URL da API baseado no ambiente
+function getApiUrl() {
+  // Se tem variável de ambiente definida, usa ela
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  
+  // Se está rodando via ngrok ou outro proxy, usa URL relativa
+  // (requer que o backend esteja no mesmo domínio ou proxy configurado)
+  if (window.location.hostname.includes('ngrok')) {
+    // Para ngrok, assumimos que o backend está acessível na mesma origem
+    // ou você precisa configurar VITE_API_URL para a URL do backend ngrok
+    return ''
+  }
+  
+  // Desenvolvimento local - usa URL relativa
+  return ''
+}
+
+const API_URL = getApiUrl()
 
 const api = axios.create({
   baseURL: API_URL,
@@ -22,32 +42,39 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Interceptor para refresh token
+// Interceptor para refresh token e tratamento de 401
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
     
+    // Se recebeu 401 (não autorizado)
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
       
+      const refreshToken = localStorage.getItem('refresh_token')
+      
+      // Se não tem refresh token, dispara evento de sessão expirada
+      if (!refreshToken) {
+        dispatchSessionExpired()
+        return Promise.reject(error)
+      }
+      
       try {
-        const refreshToken = localStorage.getItem('refresh_token')
-        if (refreshToken) {
-          const response = await axios.post(`${API_URL}/api/token/refresh/`, {
-            refresh: refreshToken,
-          })
-          
-          const { access } = response.data
-          localStorage.setItem('access_token', access)
-          
-          originalRequest.headers.Authorization = `Bearer ${access}`
-          return api(originalRequest)
-        }
+        // Tenta renovar o token - usa URL relativa para funcionar com proxy
+        const response = await axios.post('/api/token/refresh/', {
+          refresh: refreshToken,
+        })
+        
+        const { access } = response.data
+        localStorage.setItem('access_token', access)
+        
+        originalRequest.headers.Authorization = `Bearer ${access}`
+        return api(originalRequest)
       } catch (refreshError) {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        window.location.href = '/login'
+        // Refresh falhou - dispara evento de sessão expirada
+        dispatchSessionExpired()
+        return Promise.reject(refreshError)
       }
     }
     
