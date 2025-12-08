@@ -16,7 +16,7 @@ function usePesquisaSearch() {
   const debounceRef = useRef(null)
 
   // Executar busca com parâmetros
-  const search = useCallback(async (params, page = 1, pageSize = 20) => {
+  const search = useCallback(async (params, page = 1, pageSize = 10) => {
     setLoading(true)
     try {
       const searchParams = {
@@ -31,15 +31,17 @@ function usePesquisaSearch() {
       setResults(data.results || [])
       setExpandedItems({})
 
+      const paginationData = {
+        page: data.page || 1,
+        totalPages: data.total_pages || 1,
+        totalCount: data.count || 0,
+        hasNext: data.has_next || false,
+        hasPrevious: data.has_previous || false,
+      }
+
       return {
         results: data.results || [],
-        pagination: {
-          page: data.page,
-          totalPages: data.total_pages,
-          totalCount: data.count,
-          hasNext: data.has_next,
-          hasPrevious: data.has_previous,
-        },
+        pagination: paginationData,
       }
     } catch (error) {
       console.error('Erro na busca:', error)

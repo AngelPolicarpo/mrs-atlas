@@ -73,19 +73,33 @@ export function formatCPF(value) {
  */
 export function formatRNM(value) {
   if (!value) return ''
+
   const clean = removeFormatting(value).toUpperCase()
-  // Permitir letra inicial + até 7 dígitos
-  const match = clean.match(/^([A-Z])?(\d{0,6})(\d)?$/)
+
+  // Nova regex: letra + 0–7 alfanuméricos
+  const match = clean.match(/^([A-Z])?([A-Z0-9]{0,6})([A-Z0-9])?$/)
+
   if (!match) {
-    // Tenta extrair o que for possível
+    // Força extração correta mesmo em entradas "sujas"
     const letra = clean.match(/^[A-Z]/)?.[0] || ''
-    const numeros = clean.replace(/[^0-9]/g, '').slice(0, 7)
-    if (numeros.length <= 6) return letra + numeros
-    return `${letra}${numeros.slice(0, 6)}-${numeros.slice(6, 7)}`
+    const resto = clean.replace(/[^A-Z0-9]/g, '').slice(letra ? 1 : 0)
+    
+    const alfanum = resto.slice(0, 7)
+
+    // RNM até 6 caracteres: sem hífen
+    if (alfanum.length <= 6) return letra + alfanum
+
+    // RNM com 7 caracteres: hífen antes do último
+    return `${letra}${alfanum.slice(0, 6)}-${alfanum.slice(6)}`
   }
-  const [, letra = '', num1 = '', num2 = ''] = match
-  if (!num2) return letra + num1
-  return `${letra}${num1}-${num2}`
+
+  const [, letra = '', parte1 = '', parte2 = ''] = match
+
+  // Se ainda não tem o 7º caractere → sem hífen
+  if (!parte2) return letra + parte1
+
+  // 7 caracteres → insere hífen antes do último
+  return `${letra}${parte1}-${parte2}`
 }
 
 /**
@@ -114,6 +128,35 @@ export function formatCNH(value) {
 export function formatPassaporte(value) {
   if (!value) return ''
   return removeFormatting(value).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15)
+}
+
+/**
+ * Formata Email: lowercase, sem espaços
+ */
+export function formatEmail(value) {
+  if (!value) return ''
+  return value.toLowerCase().trim().replace(/\s/g, '')
+}
+
+/**
+ * Formata Telefone: remove tudo exceto dígitos e caracteres especiais (+, -, ())
+ */
+export function formatTelefone(value) {
+  if (!value) return ''
+  return value.replace(/[^0-9+()\-\s]/g, '')
+}
+
+/**
+ * Formata Filiação: mesma regra do Nome (uppercase, apenas letras e espaços)
+ */
+export function formatFiliacao(value) {
+  if (!value) return ''
+  return value
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/[^A-Z\s]/g, '') // Remove tudo exceto letras e espaços
+    .replace(/\s{2,}/g, ' ') // Apenas remove espaços DUPLOS
 }
 
 // ===== FUNÇÕES DE VALIDAÇÃO =====
@@ -165,21 +208,29 @@ export function validateCPF(value) {
  */
 export function validateRNM(value) {
   if (!value) return { valid: true, error: null }
-  
+
   const clean = removeFormatting(value).toUpperCase()
-  
+
   if (isInvalidPattern(value)) {
-    return { valid: false, error: 'Valor inválido. Digite o RNM corretamente ou deixe em branco.' }
+    return {
+      valid: false,
+      error: 'Valor inválido. Digite o RNM corretamente ou deixe em branco.'
+    }
   }
-  
-  // Formato: letra + 6-7 dígitos
-  const rnmRegex = /^[A-Z]\d{6,7}$/
+
+  // Novo formato válido: letra + 6-7 caracteres alfanuméricos
+  const rnmRegex = /^[A-Z][A-Z0-9]{6,7}$/
+
   if (!rnmRegex.test(clean)) {
-    return { valid: false, error: 'RNM deve ter formato: letra + 6-7 dígitos (ex: V1234567)' }
+    return {
+      valid: false,
+      error: 'RNM deve ter formato: letra + 6-7 caracteres alfanuméricos (ex: V1234567 ou V123456A)'
+    }
   }
-  
+
   return { valid: true, error: null }
 }
+
 
 /**
  * Valida Passaporte
@@ -266,10 +317,77 @@ export function validateNome(value) {
   return { valid: true, error: null }
 }
 
+/**
+ * Valida Filiação (mesmas regras do Nome)
+ */
+export function validateFiliacao(value) {
+  if (!value) return { valid: true, error: null } // Campo opcional
+  
+  const normalized = normalizeNome(value)
+  
+  if (normalized.length < 3) {
+    return { valid: false, error: 'Filiação deve ter pelo menos 3 caracteres' }
+  }
+  
+  if (!/\s/.test(normalized)) {
+    return { valid: false, error: 'Digite a filiação completa (nome e sobrenome)' }
+  }
+  
+  return { valid: true, error: null }
+}
+
+/**
+ * Valida Email
+ */
+export function validateEmail(value) {
+  if (!value) return { valid: true, error: null } // Campo opcional
+  
+  const normalized = value.toLowerCase().trim()
+  
+  if (isInvalidPattern(value)) {
+    return { valid: false, error: 'Email inválido' }
+  }
+  
+  // Email pattern simples mas eficaz
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(normalized)) {
+    return { valid: false, error: 'Email deve estar no formato correto (ex: usuario@dominio.com)' }
+  }
+  
+  return { valid: true, error: null }
+}
+
+/**
+ * Valida Telefone (aceita formato nacional e internacional)
+ * Formatos aceitos:
+ * - Celular: (11) 9 9999-9999 ou +55 11 99999-9999
+ * - Fixo: (11) 3333-3333 ou +55 11 3333-3333
+ */
+export function validateTelefone(value) {
+  if (!value) return { valid: true, error: null } // Campo opcional
+  
+  const clean = removeFormatting(value).replace(/\D/g, '')
+  
+  if (isInvalidPattern(value)) {
+    return { valid: false, error: 'Telefone inválido' }
+  }
+  
+  // Telefone: mínimo 10 dígitos (nacional) até 15 (internacional)
+  if (clean.length < 10 || clean.length > 15) {
+    return { valid: false, error: 'Telefone deve ter entre 10 e 15 dígitos' }
+  }
+  
+  return { valid: true, error: null }
+}
+
 // ===== OBJETO DE VALIDADORES =====
 
 export const validators = {
   nome: validateNome,
+  filiacao_um: validateFiliacao,
+  filiacao_dois: validateFiliacao,
+  email: validateEmail,
+  telefone: validateTelefone,
   cpf: validateCPF,
   rnm: validateRNM,
   passaporte: validatePassaporte,
@@ -279,6 +397,10 @@ export const validators = {
 
 export const formatters = {
   nome: formatNomeInput, // Usa formatador sem trim para digitação
+  filiacao_um: formatFiliacao,
+  filiacao_dois: formatFiliacao,
+  email: formatEmail,
+  telefone: formatTelefone,
   cpf: formatCPF,
   rnm: formatRNM,
   passaporte: formatPassaporte,
@@ -287,12 +409,16 @@ export const formatters = {
 }
 
 export const cleaners = {
+  nome: normalizeNome,
+  filiacao_um: normalizeNome,
+  filiacao_dois: normalizeNome,
+  email: (v) => v.toLowerCase().trim(),
+  telefone: (v) => removeFormatting(v),
   cpf: (v) => removeFormatting(v).replace(/\D/g, ''),
   rnm: (v) => removeFormatting(v).toUpperCase(),
   passaporte: (v) => removeFormatting(v).toUpperCase().replace(/[^A-Z0-9]/g, ''),
   ctps: (v) => removeFormatting(v).replace(/\D/g, ''),
   cnh: (v) => removeFormatting(v).replace(/\D/g, ''),
-  nome: normalizeNome,
 }
 
 /**
@@ -304,6 +430,26 @@ export function validateDocuments(data) {
   if (data.nome !== undefined) {
     const result = validateNome(data.nome)
     if (!result.valid) errors.nome = result.error
+  }
+  
+  if (data.filiacao_um !== undefined && data.filiacao_um) {
+    const result = validateFiliacao(data.filiacao_um)
+    if (!result.valid) errors.filiacao_um = result.error
+  }
+  
+  if (data.filiacao_dois !== undefined && data.filiacao_dois) {
+    const result = validateFiliacao(data.filiacao_dois)
+    if (!result.valid) errors.filiacao_dois = result.error
+  }
+  
+  if (data.email !== undefined && data.email) {
+    const result = validateEmail(data.email)
+    if (!result.valid) errors.email = result.error
+  }
+  
+  if (data.telefone !== undefined && data.telefone) {
+    const result = validateTelefone(data.telefone)
+    if (!result.valid) errors.telefone = result.error
   }
   
   if (data.cpf !== undefined && data.cpf) {
@@ -343,7 +489,11 @@ export function validateDocuments(data) {
 export function cleanDataForSubmit(data) {
   const cleaned = { ...data }
   
-  if (cleaned.nome) cleaned.nome = normalizeNome(cleaned.nome)
+  if (cleaned.nome) cleaned.nome = cleaners.nome(cleaned.nome)
+  if (cleaned.filiacao_um) cleaned.filiacao_um = cleaners.filiacao_um(cleaned.filiacao_um)
+  if (cleaned.filiacao_dois) cleaned.filiacao_dois = cleaners.filiacao_dois(cleaned.filiacao_dois)
+  if (cleaned.email) cleaned.email = cleaners.email(cleaned.email)
+  if (cleaned.telefone) cleaned.telefone = cleaners.telefone(cleaned.telefone)
   if (cleaned.cpf) cleaned.cpf = cleaners.cpf(cleaned.cpf)
   if (cleaned.rnm) cleaned.rnm = cleaners.rnm(cleaned.rnm)
   if (cleaned.passaporte) cleaned.passaporte = cleaners.passaporte(cleaned.passaporte)

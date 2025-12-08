@@ -659,29 +659,30 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     'isLastVinculo': True,
                 })
                 
-                # Adicionar dependentes após titular sem vínculo
-                for dep in dependentes:
-                    # Pegar o vínculo ativo mais recente do dependente
-                    dep_vinculos = list(dep.vinculos.all())
-                    dep_vinculo_ativo = dep_vinculos[0] if dep_vinculos else None
-                    
-                    results.append({
-                        'type': 'dependente',
-                        'id': str(dep.id),
-                        'visibleId': f'dependente-{dep.id}',
-                        'titularId': str(titular.id),
-                        'titularNome': titular.nome,
-                        'nome': dep.nome,
-                        'rnm': dep.rnm,
-                        'passaporte': dep.passaporte,
-                        'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
-                        'tipoDependente': dep.get_tipo_dependente_display(),
-                        'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
-                        'filiacao_um': dep.filiacao_um,
-                        'filiacao_dois': dep.filiacao_dois,
-                        'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
-                        'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
-                    })
+                # Adicionar dependentes após titular sem vínculo (apenas se não estiver filtrando só titulares)
+                if tipo_registro != 'titular':
+                    for dep in dependentes:
+                        # Pegar o vínculo ativo mais recente do dependente
+                        dep_vinculos = list(dep.vinculos.all())
+                        dep_vinculo_ativo = dep_vinculos[0] if dep_vinculos else None
+                        
+                        results.append({
+                            'type': 'dependente',
+                            'id': str(dep.id),
+                            'visibleId': f'dependente-{dep.id}',
+                            'titularId': str(titular.id),
+                            'titularNome': titular.nome,
+                            'nome': dep.nome,
+                            'rnm': dep.rnm,
+                            'passaporte': dep.passaporte,
+                            'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                            'tipoDependente': dep.get_tipo_dependente_display(),
+                            'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
+                            'filiacao_um': dep.filiacao_um,
+                            'filiacao_dois': dep.filiacao_dois,
+                            'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
+                            'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
+                        })
             else:
                 # Uma linha para cada vínculo
                 for idx, vinculo in enumerate(vinculos):
@@ -710,8 +711,8 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                         'isLastVinculo': is_last,
                     })
                     
-                    # Adicionar dependentes após o último vínculo
-                    if is_last:
+                    # Adicionar dependentes após o último vínculo (apenas se não estiver filtrando só titulares)
+                    if is_last and tipo_registro != 'titular':
                         for dep in dependentes:
                             # Pegar o vínculo ativo mais recente do dependente
                             dep_vinculos = list(dep.vinculos.all())
@@ -736,7 +737,8 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                             })
         
         # Se há termo de busca, verificar dependentes órfãos (cujo titular não está na página)
-        if search:
+        # Mas não se estiver filtrando apenas titulares
+        if search and tipo_registro != 'titular':
             dependentes_orfaos = dependentes_qs.exclude(titular_id__in=titular_ids_na_pagina)
             for dep in dependentes_orfaos[:20]:  # Limitar órfãos por página
                 # Pegar o vínculo ativo mais recente do dependente

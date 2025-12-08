@@ -4,7 +4,7 @@ import usePesquisaFilters from '../hooks/usePesquisaFilters'
 import usePesquisaPagination from '../hooks/usePesquisaPagination'
 import usePesquisaSearch from '../hooks/usePesquisaSearch'
 import usePesquisaExport from '../hooks/usePesquisaExport'
-import useAutocomplete from '../hooks/useAutocomplete'
+import useAutoComplete from '../hooks/useAutoComplete'
 import { getEmpresas } from '../services/empresas'
 import { getNacionalidades, getConsulados } from '../services/core'
 import {
@@ -38,21 +38,22 @@ function Pesquisa() {
   const exportFunctions = usePesquisaExport()
 
   // Autocomplete hooks
-  const empresasAutocomplete = useAutocomplete(
+  const empresasAutocomplete = useAutoComplete(
     (searchText) => getEmpresas({ search: searchText, status: true, page_size: 15 })
   )
-  const nacionalidadesAutocomplete = useAutocomplete(
+  const nacionalidadesAutocomplete = useAutoComplete(
     (searchText) => getNacionalidades({ search: searchText, ativo: true, page_size: 15 })
   )
-  const consuladosAutocomplete = useAutocomplete(
+  const consuladosAutocomplete = useAutoComplete(
     (searchText) => getConsulados({ search: searchText, ativo: true, page_size: 15 })
   )
 
   // Handler para buscar
   const handleSearch = useCallback(
-    async (page = 1) => {
-      const params = buildSearchParams(filters.filters, page, pagination.pagination.pageSize)
-      const result = await search.search(params, page, pagination.pagination.pageSize)
+    async (page = 1, customPageSize = null) => {
+      const effectivePageSize = customPageSize || pagination.pagination.pageSize
+      const params = buildSearchParams(filters.filters, page, effectivePageSize)
+      const result = await search.search(params, page, effectivePageSize)
       pagination.updatePagination(result.pagination)
     },
     [filters.filters, pagination, search]
@@ -70,7 +71,7 @@ function Pesquisa() {
   const handlePageSizeChange = useCallback(
     (newSize) => {
       pagination.setPageSize(newSize)
-      handleSearch(1)
+      handleSearch(1, newSize) // Passa o novo tamanho diretamente
     },
     [pagination, handleSearch]
   )

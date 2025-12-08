@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 /**
  * Hook genérico para buscas assíncronas com debounce usadas em autocompletes.
  */
-function useAutocomplete(fetchFn, options = {}) {
+function useAutoComplete(fetchFn, options = {}) {
   const { minLength = 2, delay = 300 } = options
   const [suggestions, setSuggestions] = useState([])
   const debounceRef = useRef(null)
@@ -44,4 +44,4 @@ function useAutocomplete(fetchFn, options = {}) {
   return { suggestions, search, clear }
 }
 
-export default useAutocomplete
+export default useAutoComplete

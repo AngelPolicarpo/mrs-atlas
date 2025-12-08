@@ -4,7 +4,7 @@ from .views import TitularViewSet, VinculoTitularViewSet, DependenteViewSet, Vin
 
 router = DefaultRouter()
 router.register(r'titulares', TitularViewSet, basename='titular')
-router.register(r'vinculos', VinculoTitularViewSet, basename='vinculo')
+router.register(r'vinculos-titular', VinculoTitularViewSet, basename='vinculo-titular')
 router.register(r'dependentes', DependenteViewSet, basename='dependente')
 router.register(r'vinculos-dependentes', VinculoDependenteViewSet, basename='vinculo-dependente')
 router.register(r'pesquisa', PesquisaUnificadaViewSet, basename='pesquisa')

@@ -78,9 +78,9 @@ def validate_rnm(value):
     
     clean = remove_formatting(value).upper()
     
-    # Formato: letra + 6-7 dígitos (ex: V1234567)
-    if not re.match(r'^[A-Z]\d{6,7}$', clean):
-        raise ValidationError('RNM deve ter formato: letra + 6-7 dígitos (ex: V1234567).')
+    # Formato correto: letra + 6-7 caracteres alfanuméricos
+    if not re.match(r'^[A-Z][A-Z0-9]{6,7}$', clean):
+        raise ValidationError('RNM deve ter formato: letra + 6-7 caracteres alfanuméricos (ex: V1234567 ou V123456A).')
 
 
 def validate_passaporte(value):

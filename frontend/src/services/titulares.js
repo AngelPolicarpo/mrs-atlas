@@ -16,12 +16,12 @@ export const importarTitulares = (file) => {
   })
 }
 
-// Vínculos
-export const getVinculos = (params) => api.get('/api/v1/vinculos/', { params })
-export const getVinculo = (id) => api.get(`/api/v1/vinculos/${id}/`)
-export const createVinculo = (data) => api.post('/api/v1/vinculos/', data)
-export const updateVinculo = (id, data) => api.patch(`/api/v1/vinculos/${id}/`, data)
-export const deleteVinculo = (id) => api.delete(`/api/v1/vinculos/${id}/`)
+// Vínculos de Titular (vinculo_titular)
+export const getVinculosTitular = (params) => api.get('/api/v1/vinculos-titular/', { params })
+export const getVinculoTitular = (id) => api.get(`/api/v1/vinculos-titular/${id}/`)
+export const createVinculoTitular = (data) => api.post('/api/v1/vinculos-titular/', data)
+export const updateVinculoTitular = (id, data) => api.patch(`/api/v1/vinculos-titular/${id}/`, data)
+export const deleteVinculoTitular = (id) => api.delete(`/api/v1/vinculos-titular/${id}/`)
 
 // Dependentes
 export const getDependentes = (params) => api.get('/api/v1/dependentes/', { params })

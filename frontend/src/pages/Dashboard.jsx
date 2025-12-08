@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { getTitulares, getVinculos, importarTitulares } from '../services/titulares'
+import { getTitulares, getVinculosTitular, importarTitulares } from '../services/titulares'
 import { getEmpresas } from '../services/empresas'
 import * as XLSX from 'xlsx'
 
@@ -44,7 +44,7 @@ function Dashboard() {
         getTitulares(),
         getEmpresas({ page_size: 1 }),  // Só para pegar o count total
         getEmpresas({ status: true, page_size: 1 }),  // Só para pegar o count de ativas
-        getVinculos({ status: true })
+        getVinculosTitular({ status: true })
       ])
       
       const titulares = titularesRes.data.results || titularesRes.data || []
@@ -93,7 +93,7 @@ function Dashboard() {
       // Buscar todos os dados
       const [titularesRes, vinculosRes] = await Promise.all([
         getTitulares({ page_size: 10000 }),
-        getVinculos({ page_size: 10000 }),
+        getVinculosTitular({ page_size: 10000 }),
       ])
       
       const titulares = titularesRes.data.results || titularesRes.data || []

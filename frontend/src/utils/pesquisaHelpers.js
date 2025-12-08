@@ -8,9 +8,10 @@
  */
 export function formatDate(dateStr) {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('pt-BR')
+  return new Date(dateStr).toLocaleDateString('pt-BR', {
+    timeZone: 'UTC',
+  });
 }
-
 /**
  * Calcula dias restantes até uma data
  */

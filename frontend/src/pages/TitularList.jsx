@@ -35,9 +35,6 @@ function TitularList() {
                 <tr>
                   <th>Nome</th>
                   <th>RNM</th>
-                  <th>CPF</th>
-                  <th>Nacionalidade</th>
-                  <th>Email</th>
                   <th>Vínculos</th>
                   <th>Dependentes</th>
                   <th>Ações</th>
@@ -55,9 +52,6 @@ function TitularList() {
                     <tr key={titular.id}>
                       <td><strong>{titular.nome}</strong></td>
                       <td>{titular.rnm || '-'}</td>
-                      <td>{titular.cpf || '-'}</td>
-                      <td>{titular.nacionalidade_nome || '-'}</td>
-                      <td>{titular.email || '-'}</td>
                       <td>
                         <span className="badge badge-info">{titular.vinculos_count || 0}</span>
                       </td>

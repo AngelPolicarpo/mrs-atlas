@@ -1,72 +1,21 @@
-import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getDependentes, deleteDependente } from '../services/titulares'
-import { getTitulares } from '../services/titulares'
+import useDependenteList from '../hooks/useDependenteList'
+import { formatDate } from '../utils/uiHelpers'
 
 function DependenteList() {
   const [searchParams] = useSearchParams()
   const titularIdFromUrl = searchParams.get('titular')
-  
-  const [dependentes, setDependentes] = useState([])
-  const [titulares, setTitulares] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [titularFilter, setTitularFilter] = useState(titularIdFromUrl || '')
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    loadTitulares()
-  }, [])
-
-  useEffect(() => {
-    loadDependentes()
-  }, [search, titularFilter])
-
-  async function loadTitulares() {
-    try {
-      const response = await getTitulares()
-      setTitulares(response.data.results || response.data)
-    } catch (err) {
-      console.error('Erro ao carregar titulares:', err)
-    }
-  }
-
-  async function loadDependentes() {
-    try {
-      setLoading(true)
-      const params = {}
-      if (search) params.search = search
-      if (titularFilter) params.titular = titularFilter
-      const response = await getDependentes(params)
-      setDependentes(response.data.results || response.data)
-    } catch (err) {
-      setError('Erro ao carregar dependentes')
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleDelete(id, nome) {
-    if (!window.confirm(`Deseja realmente excluir o dependente "${nome}"?`)) {
-      return
-    }
-
-    try {
-      await deleteDependente(id)
-      loadDependentes()
-    } catch (err) {
-      setError('Erro ao excluir dependente')
-      console.error(err)
-    }
-  }
-
-  function formatDate(dateStr) {
-    if (!dateStr) return '-'
-    return new Date(dateStr).toLocaleDateString('pt-BR', {
-    timeZone: 'UTC',
-  });
-}
+  const {
+    dependentes,
+    titulares,
+    loading,
+    search,
+    titularFilter,
+    error,
+    setSearch,
+    setTitularFilter,
+    handleDelete,
+  } = useDependenteList(titularIdFromUrl)
 
   return (
     <div className="page">
@@ -86,17 +35,6 @@ function DependenteList() {
           className="form-input"
           style={{ flex: 1 }}
         />
-        <select
-          value={titularFilter}
-          onChange={(e) => setTitularFilter(e.target.value)}
-          className="form-select"
-          style={{ width: '300px' }}
-        >
-          <option value="">Todos os titulares</option>
-          {titulares.map(t => (
-            <option key={t.id} value={t.id}>{t.nome}</option>
-          ))}
-        </select>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -111,8 +49,6 @@ function DependenteList() {
                 <tr>
                   <th>Nome</th>
                   <th>Titular</th>
-                  <th>Tipo</th>
-                  <th>Nacionalidade</th>
                   <th>RNM</th>
                   <th>Data Nascimento</th>
                   <th>Ações</th>
@@ -130,10 +66,6 @@ function DependenteList() {
                     <tr key={dep.id}>
                       <td><strong>{dep.nome}</strong></td>
                       <td>{dep.titular_nome || '-'}</td>
-                      <td>
-                        <span className="badge badge-info">{dep.tipo_dependente_display || '-'}</span>
-                      </td>
-                      <td>{dep.nacionalidade_nome || '-'}</td>
                       <td>{dep.rnm || '-'}</td>
                       <td>{formatDate(dep.data_nascimento)}</td>
                       <td>

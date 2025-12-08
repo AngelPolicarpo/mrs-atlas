@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 
 const initialPagination = {
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   totalPages: 1,
   totalCount: 0,
   hasNext: false,
@@ -20,15 +20,18 @@ function usePesquisaPagination() {
   const [pagination, setPagination] = useState(initialPagination)
 
   const updatePagination = useCallback((data) => {
-    setPagination({
-      page: data.page,
-      pageSize: pagination.pageSize,
-      totalPages: data.total_pages,
-      totalCount: data.count,
-      hasNext: data.has_next,
-      hasPrevious: data.has_previous,
+    setPagination(prev => {
+      const newPagination = {
+        page: data.page,
+        pageSize: prev.pageSize, // Usa o pageSize atual do estado
+        totalPages: data.totalPages,
+        totalCount: data.totalCount,
+        hasNext: data.hasNext,
+        hasPrevious: data.hasPrevious,
+      }
+      return newPagination
     })
-  }, [pagination.pageSize])
+  }, [])
 
   const goToPage = useCallback((page) => {
     if (page >= 1 && page <= pagination.totalPages) {

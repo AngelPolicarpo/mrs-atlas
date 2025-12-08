@@ -263,7 +263,7 @@ function VinculoCard({
                 </div>
 
                 <div className="form-group">
-                  <label>Data Fim do Vínculo</label>
+                  <label>Valido até</label>
                   <input type="date" name="data_fim_vinculo" value={vinculo.data_fim_vinculo} onChange={(e) => onChange(index, e)} className="form-control" />
                 </div>
 

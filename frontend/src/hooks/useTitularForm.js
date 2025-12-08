@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { getTitular, createTitular, updateTitular, createVinculo, updateVinculo, deleteVinculo } from '../services/titulares'
+import { getTitular, createTitular, updateTitular, createVinculoTitular, updateVinculoTitular, deleteVinculoTitular } from '../services/titulares'
 import { getNacionalidades, getTiposAtualizacao } from '../services/core'
 import { validateDocuments, cleanDataForSubmit } from '../utils/validation'
 
@@ -16,6 +16,7 @@ const emptyFormData = {
   sexo: '',
   email: '',
   telefone: '',
+  pais_telefone: 'BR',
   filiacao_um: '',
   filiacao_dois: '',
   data_nascimento: '',
@@ -55,6 +56,7 @@ const fieldLabels = {
   sexo: 'Sexo',
   email: 'Email',
   telefone: 'Telefone',
+  pais_telefone: 'País (Telefone)',
   filiacao_um: 'Filiação 1',
   filiacao_dois: 'Filiação 2',
   data_nascimento: 'Data de Nascimento',
@@ -346,11 +348,11 @@ function useTitularForm(titularId) {
           }
 
           if (vinculo.isDeleted && !vinculo.isNew) {
-            await deleteVinculo(vinculo.id)
+            await deleteVinculoTitular(vinculo.id)
           } else if (vinculo.isNew && !vinculo.isDeleted) {
-            await createVinculo(vinculoToSend)
+            await createVinculoTitular(vinculoToSend)
           } else if (!vinculo.isNew && !vinculo.isDeleted) {
-            await updateVinculo(vinculo.id, vinculoToSend)
+            await updateVinculoTitular(vinculo.id, vinculoToSend)
           }
         }
 

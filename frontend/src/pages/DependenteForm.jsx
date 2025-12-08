@@ -1,30 +1,253 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { 
-  getDependente, createDependente, updateDependente, getTitulares,
-  getVinculosDependentes, createVinculoDependente, updateVinculoDependente, deleteVinculoDependente
-} from '../services/titulares'
-import { getNacionalidades, getAmparosLegais, getConsulados, getTiposAtualizacao } from '../services/core'
-import { 
-  formatters, validators, cleanDataForSubmit, validateDocuments 
-} from '../utils/validation'
+import useDependenteForm from '../hooks/useDependenteForm'
+import { formatDate, formatDiasRestantes, getBadgeClass } from '../utils/uiHelpers'
+import { formatters, validators } from '../utils/validation'
 
-const emptyVinculo = {
-  id: null,
-  amparo: '',
-  amparo_nome: '',
-  consulado: '',
-  consulado_nome: '',
-  tipo_atualizacao: '',
-  data_entrada: '',
-  data_fim_vinculo: '',
-  atualizacao: '',
-  observacoes: '',
-  status: true,
-  tipo_status: '',
-  isNew: true,
-  isDeleted: false,
-  isExpanded: true, // Novos vínculos começam expandidos
+function SuggestionBox({ items, onSelect, getLabel, isVisible }) {
+  if (!isVisible || !items.length) return null
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        backgroundColor: '#fff',
+        border: '1px solid #ddd',
+        borderRadius: '4px',
+        maxHeight: '200px',
+        overflowY: 'auto',
+        zIndex: 1000,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+      }}
+    >
+      {items.map((item) => (
+        <div
+          key={item.id}
+          onClick={() => onSelect(item)}
+          style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #eee' }}
+          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f5f5f5' }}
+          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff' }}
+        >
+          {getLabel(item)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function VinculoCard({
+  index,
+  vinculo,
+  searchTexts,
+  amparosSuggestions,
+  consuladosSuggestions,
+  tiposAtualizacao,
+  onToggle,
+  onRemove,
+  onChange,
+  onAmparoSearch,
+  onAmparoSelect,
+  onConsuladoSearch,
+  onConsuladoSelect,
+}) {
+  if (vinculo.isDeleted) return null
+  const diasRestantes = formatDiasRestantes(vinculo.data_fim_vinculo)
+  const tituloVinculo = vinculo.amparo_nome || 'Novo Vínculo'
+
+  return (
+    <div
+      className="vinculo-card"
+      style={{
+        border: '1px solid #ddd',
+        borderRadius: '8px',
+        marginBottom: '12px',
+        backgroundColor: vinculo.status ? '#fff' : '#f9f9f9',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 16px',
+          backgroundColor: vinculo.isExpanded ? '#f8f9fa' : 'transparent',
+          cursor: 'pointer',
+          borderBottom: vinculo.isExpanded ? '1px solid #ddd' : 'none',
+        }}
+        onClick={() => onToggle(index)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <span style={{ color: '#666' }}>{vinculo.isExpanded ? '▼' : '▶'}</span>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontWeight: 'bold', color: '#333' }}>{tituloVinculo}</span>
+            {!vinculo.status && <span style={{ color: '#999', marginLeft: '8px' }}>(Inativo)</span>}
+          </div>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '13px' }}>
+            {vinculo.data_fim_vinculo && (
+              <span style={{ color: '#666' }}>
+                <strong>Vencimento:</strong> {formatDate(vinculo.data_fim_vinculo)}
+                {diasRestantes && (
+                  <span className={`badge ${getBadgeClass(vinculo.data_fim_vinculo)}`} style={{ marginLeft: '6px', fontSize: '11px' }}>
+                    {diasRestantes}
+                  </span>
+                )}
+              </span>
+            )}
+            {vinculo.atualizacao && (
+              <span style={{ color: '#666' }}>
+                <strong>Atualização:</strong> {formatDate(vinculo.atualizacao)}
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onRemove(index) }}
+          className="btn btn-danger"
+          style={{ padding: '4px 10px', fontSize: '12px', marginLeft: '12px' }}
+        >
+          🗑️
+        </button>
+      </div>
+
+      {vinculo.isExpanded && (
+        <div style={{ padding: '16px' }}>
+          <div className="form-row">
+            <div className="form-group" style={{ position: 'relative' }}>
+              <label>Amparo Legal</label>
+              <input
+                type="text"
+                value={searchTexts[`amparo_${index}`] || vinculo.amparo_nome || ''}
+                onChange={(e) => onAmparoSearch(index, e.target.value)}
+                className="form-control"
+                placeholder="Digite para buscar..."
+                autoComplete="off"
+              />
+              <SuggestionBox
+                items={amparosSuggestions}
+                onSelect={(item) => onAmparoSelect(index, item)}
+                getLabel={(item) => item.nome}
+                isVisible={Boolean(searchTexts[`amparo_${index}`])}
+              />
+            </div>
+
+            <div className="form-group" style={{ position: 'relative' }}>
+              <label>Consulado</label>
+              <input
+                type="text"
+                value={searchTexts[`consulado_${index}`] || vinculo.consulado_nome || ''}
+                onChange={(e) => onConsuladoSearch(index, e.target.value)}
+                className="form-control"
+                placeholder="Digite para buscar..."
+                autoComplete="off"
+              />
+              <SuggestionBox
+                items={consuladosSuggestions}
+                onSelect={(item) => onConsuladoSelect(index, item)}
+                getLabel={(item) => item.pais}
+                isVisible={Boolean(searchTexts[`consulado_${index}`])}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Tipo de Atualização</label>
+              <select
+                name="tipo_atualizacao"
+                value={vinculo.tipo_atualizacao}
+                onChange={(e) => onChange(index, e)}
+                className="form-control"
+              >
+                <option value="">Selecione...</option>
+                {tiposAtualizacao.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Data de Entrada</label>
+              <input
+                type="date"
+                name="data_entrada"
+                value={vinculo.data_entrada}
+                onChange={(e) => onChange(index, e)}
+                className="form-control"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Valido até</label>
+              <input
+                type="date"
+                name="data_fim_vinculo"
+                value={vinculo.data_fim_vinculo}
+                onChange={(e) => onChange(index, e)}
+                className="form-control"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Atualização</label>
+              <input
+                type="date"
+                name="atualizacao"
+                value={vinculo.atualizacao}
+                onChange={(e) => onChange(index, e)}
+                className="form-control"
+              />
+            </div>
+
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: '25px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  name="status"
+                  checked={vinculo.status}
+                  onChange={(e) => onChange(index, e)}
+                />
+                Vínculo Ativo
+              </label>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Observações</label>
+              <textarea
+                name="observacoes"
+                value={vinculo.observacoes}
+                onChange={(e) => onChange(index, e)}
+                className="form-control"
+                rows="2"
+                placeholder="Observações sobre este vínculo..."
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Tipo Status</label>
+              <select
+                name="tipo_status"
+                value={vinculo.tipo_status}
+                onChange={(e) => onChange(index, e)}
+                className="form-control"
+              >
+                <option value="">Selecione...</option>
+                <option value="VALIDO">Válido</option>
+                <option value="PENDENTE">Pendente</option>
+                <option value="VENCIDO">Vencido</option>
+                <option value="INDEFINIDO">Indefinido</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function DependenteForm() {
@@ -32,463 +255,47 @@ function DependenteForm() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const titularIdFromUrl = searchParams.get('titular')
-  const isEditing = Boolean(id)
 
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [fieldErrors, setFieldErrors] = useState({})
-  const [nacionalidades, setNacionalidades] = useState([])
-  const [tiposAtualizacao, setTiposAtualizacao] = useState([])
-  
-  // Mapeamento de campos para nomes amigáveis
-  const fieldLabels = {
-    nome: 'Nome',
-    cpf: 'CPF',
-    cnh: 'CNH',
-    passaporte: 'Passaporte',
-    rnm: 'RNM',
-    ctps: 'CTPS',
-    nacionalidade: 'Nacionalidade',
-    sexo: 'Sexo',
-    filiacao_um: 'Filiação 1',
-    filiacao_dois: 'Filiação 2',
-    data_nascimento: 'Data de Nascimento',
-    data_validade_passaporte: 'Validade do Passaporte',
-    status_visto: 'Status do Visto',
-    titular: 'Titular',
-    tipo_dependente: 'Tipo de Dependente',
-    amparo: 'Amparo Legal',
-    consulado: 'Consulado',
-  }
-  
-  // Estados para autocomplete com busca no backend
-  const [titularesSuggestions, setTitularesSuggestions] = useState([])
-  const [amparosSuggestions, setAmparosSuggestions] = useState([])
-  const [consuladosSuggestions, setConsuladosSuggestions] = useState([])
-  
-  // Refs para debounce
-  const titularDebounceRef = useRef(null)
-  const amparoDebounceRef = useRef(null)
-  const consuladoDebounceRef = useRef(null)
-  
-  // Estados para texto de busca
-  const [titularSearchText, setTitularSearchText] = useState('')
-  const [vinculoSearchTexts, setVinculoSearchTexts] = useState({})
-  
-  const [formData, setFormData] = useState({
-    titular: titularIdFromUrl || '',
-    nome: '',
-    passaporte: '',
-    data_validade_passaporte: '',
-    rnm: '',
-    cnh: '',
-    status_visto: '',
-    ctps: '',
-    nacionalidade: '',
-    tipo_dependente: '',
-    sexo: '',
-    data_nascimento: '',
-    filiacao_um: '',
-    filiacao_dois: '',
-  })
-
-  const [vinculos, setVinculos] = useState([])
-
-  useEffect(() => {
-    loadDados()
-    if (isEditing) {
-      loadDependente()
-    }
-  }, [id])
-
-  async function loadDados() {
-    try {
-      const [nacRes, tipoRes] = await Promise.all([
-        getNacionalidades({ ativo: true }),
-        getTiposAtualizacao({ ativo: true }),
-      ])
-      setNacionalidades(nacRes.data.results || nacRes.data)
-      setTiposAtualizacao(tipoRes.data.results || tipoRes.data)
-      
-      // Se tem titular da URL, carregar dados dele
-      if (titularIdFromUrl) {
-        try {
-          const titularRes = await getTitulares({ page_size: 1 })
-          // Buscar titular específico
-          const allTitulares = await getTitulares({ search: '', page_size: 100 })
-          const titular = (allTitulares.data.results || allTitulares.data).find(t => t.id === titularIdFromUrl)
-          if (titular) {
-            setTitularSearchText(`${titular.nome}${titular.rnm ? ` - ${titular.rnm}` : ''}`)
-          }
-        } catch (e) {
-          console.error('Erro ao carregar titular:', e)
-        }
-      }
-    } catch (err) {
-      console.error('Erro ao carregar dados:', err)
-    }
-  }
-
-  // Busca de titulares com debounce
-  const searchTitulares = useCallback(async (searchText) => {
-    if (!searchText || searchText.length < 2) {
-      setTitularesSuggestions([])
-      return
-    }
-    try {
-      const response = await getTitulares({ search: searchText, page_size: 15 })
-      setTitularesSuggestions(response.data.results || response.data || [])
-    } catch (error) {
-      console.error('Erro ao buscar titulares:', error)
-    }
-  }, [])
-
-  const handleTitularSearch = useCallback((text) => {
-    setTitularSearchText(text)
-    setFormData(prev => ({ ...prev, titular: '' }))
-    
-    if (titularDebounceRef.current) clearTimeout(titularDebounceRef.current)
-    titularDebounceRef.current = setTimeout(() => searchTitulares(text), 300)
-  }, [searchTitulares])
-
-  const handleTitularSelect = useCallback((titular) => {
-    setFormData(prev => ({ ...prev, titular: titular.id }))
-    setTitularSearchText(`${titular.nome}${titular.rnm ? ` - ${titular.rnm}` : ''}`)
-    setTitularesSuggestions([])
-  }, [])
-
-  // Funções de busca com debounce
-  const searchAmparos = useCallback(async (searchText) => {
-    if (!searchText || searchText.length < 2) {
-      setAmparosSuggestions([])
-      return
-    }
-    try {
-      const response = await getAmparosLegais({ search: searchText, ativo: true, page_size: 15 })
-      setAmparosSuggestions(response.data.results || response.data || [])
-    } catch (error) {
-      console.error('Erro ao buscar amparos:', error)
-    }
-  }, [])
-
-  const searchConsulados = useCallback(async (searchText) => {
-    if (!searchText || searchText.length < 2) {
-      setConsuladosSuggestions([])
-      return
-    }
-    try {
-      const response = await getConsulados({ search: searchText, ativo: true, page_size: 15 })
-      setConsuladosSuggestions(response.data.results || response.data || [])
-    } catch (error) {
-      console.error('Erro ao buscar consulados:', error)
-    }
-  }, [])
-
-  // Handlers para campos com autocomplete
-  const handleAmparoSearch = useCallback((index, text) => {
-    setVinculoSearchTexts(prev => ({ ...prev, [`amparo_${index}`]: text }))
-    setVinculos(prev => prev.map((v, i) => i === index ? { ...v, amparo: '', amparo_nome: text } : v))
-    
-    if (amparoDebounceRef.current) clearTimeout(amparoDebounceRef.current)
-    amparoDebounceRef.current = setTimeout(() => searchAmparos(text), 300)
-  }, [searchAmparos])
-
-  const handleAmparoSelect = useCallback((index, amparo) => {
-    setVinculos(prev => prev.map((v, i) => i === index ? { ...v, amparo: amparo.id, amparo_nome: amparo.nome } : v))
-    setVinculoSearchTexts(prev => ({ ...prev, [`amparo_${index}`]: amparo.nome }))
-    setAmparosSuggestions([])
-  }, [])
-
-  const handleConsuladoSearch = useCallback((index, text) => {
-    setVinculoSearchTexts(prev => ({ ...prev, [`consulado_${index}`]: text }))
-    setVinculos(prev => prev.map((v, i) => i === index ? { ...v, consulado: '', consulado_nome: text } : v))
-    
-    if (consuladoDebounceRef.current) clearTimeout(consuladoDebounceRef.current)
-    consuladoDebounceRef.current = setTimeout(() => searchConsulados(text), 300)
-  }, [searchConsulados])
-
-  const handleConsuladoSelect = useCallback((index, consulado) => {
-    setVinculos(prev => prev.map((v, i) => i === index ? { ...v, consulado: consulado.id, consulado_nome: consulado.pais } : v))
-    setVinculoSearchTexts(prev => ({ ...prev, [`consulado_${index}`]: consulado.pais }))
-    setConsuladosSuggestions([])
-  }, [])
-
-  async function loadDependente() {
-    try {
-      setLoading(true)
-      const response = await getDependente(id)
-      const data = response.data
-      setFormData({
-        titular: data.titular || '',
-        nome: data.nome || '',
-        passaporte: data.passaporte || '',
-        data_validade_passaporte: data.data_validade_passaporte || '',
-        rnm: data.rnm || '',
-        cnh: data.cnh || '',
-        status_visto: data.status_visto || '',
-        ctps: data.ctps || '',
-        nacionalidade: data.nacionalidade || '',
-        tipo_dependente: data.tipo_dependente || '',
-        sexo: data.sexo || '',
-        data_nascimento: data.data_nascimento || '',
-        filiacao_um: data.filiacao_um || '',
-        filiacao_dois: data.filiacao_dois || '',
-      })
-      
-      // Definir o texto de busca do titular
-      if (data.titular_nome) {
-        setTitularSearchText(data.titular_nome)
-      }
-      
-      // Carregar vínculos do dependente
-      if (data.vinculos && data.vinculos.length > 0) {
-        const vinculosCarregados = data.vinculos.map(v => ({
-          id: v.id,
-          amparo: v.amparo || '',
-          amparo_nome: v.amparo_nome || '',
-          consulado: v.consulado || '',
-          consulado_nome: v.consulado_pais || '',
-          tipo_atualizacao: v.tipo_atualizacao || '',
-          data_entrada: v.data_entrada || '',
-          data_fim_vinculo: v.data_fim_vinculo || '',
-          atualizacao: v.atualizacao || '',
-          observacoes: v.observacoes || '',
-          status: v.status !== undefined ? v.status : true,
-          tipo_status: v.tipo_status || '',
-          isNew: false,
-          isDeleted: false,
-          isExpanded: false, // Vínculos existentes começam fechados
-        }))
-        setVinculos(vinculosCarregados)
-        
-        // Inicializar textos de busca
-        const searchTexts = {}
-        vinculosCarregados.forEach((v, i) => {
-          searchTexts[`amparo_${i}`] = v.amparo_nome
-          searchTexts[`consulado_${i}`] = v.consulado_nome
-        })
-        setVinculoSearchTexts(searchTexts)
-      }
-    } catch (err) {
-      setError('Erro ao carregar dados do dependente')
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function handleChange(e) {
-    const { name, value } = e.target
-    let newValue = value
-    
-    // Aplica formatação para campos específicos
-    if (formatters[name]) {
-      newValue = formatters[name](value)
-    }
-    
-    setFormData(prev => ({ ...prev, [name]: newValue }))
-    
-    // Limpa erro do campo ao digitar
-    if (fieldErrors[name]) {
-      setFieldErrors(prev => ({ ...prev, [name]: null }))
-    }
-  }
-
-  function handleBlur(e) {
-    const { name, value } = e.target
-    
-    // Valida campo ao sair
-    if (validators[name] && value) {
-      const result = validators[name](value)
-      if (!result.valid) {
-        setFieldErrors(prev => ({ ...prev, [name]: result.error }))
-      }
-    }
-  }
-
-  function handleVinculoChange(index, e) {
-    const { name, value, type, checked } = e.target
-    setVinculos(prev => prev.map((v, i) => {
-      if (i !== index) return v
-      return {
-        ...v,
-        [name]: type === 'checkbox' ? checked : value,
-      }
-    }))
-  }
-
-  function toggleVinculoExpanded(index) {
-    setVinculos(prev => prev.map((v, i) => i === index ? { ...v, isExpanded: !v.isExpanded } : v))
-  }
-
-  function addVinculo() {
-    const newIndex = vinculos.length
-    setVinculos(prev => [...prev, { ...emptyVinculo, id: `new-${Date.now()}` }])
-    setVinculoSearchTexts(prev => ({
-      ...prev,
-      [`amparo_${newIndex}`]: '',
-      [`consulado_${newIndex}`]: '',
-    }))
-  }
-
-  function removeVinculo(index) {
-    setVinculos(prev => prev.map((v, i) => {
-      if (i !== index) return v
-      // Se é um vínculo existente (do banco), marca como deletado
-      if (!v.isNew) {
-        return { ...v, isDeleted: true }
-      }
-      // Se é novo, remove da lista
-      return null
-    }).filter(Boolean))
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
-    
-    // Valida documentos antes de enviar
-    const validation = validateDocuments(formData)
-    if (!validation.valid) {
-      setFieldErrors(validation.errors)
-      // Criar mensagem com nomes amigáveis dos campos com erro
-      const camposComErro = Object.keys(validation.errors)
-        .map(field => fieldLabels[field] || field)
-        .join(', ')
-      setError(`Por favor, corrija os erros nos campos: ${camposComErro}`)
-      window.location.hash = 'mensagens'
-      return
-    }
-    
-    setSaving(true)
-
-    try {
-      // Limpa e normaliza os dados antes de enviar
-      const dataToSend = cleanDataForSubmit({ ...formData })
-      
-      // Validar tipo_dependente - apenas valores válidos
-      const tiposValidos = ['CONJUGE', 'FILHO', 'ENTEADO', 'PAI_MAE', 'OUTRO']
-      if (dataToSend.tipo_dependente && !tiposValidos.includes(dataToSend.tipo_dependente)) {
-        dataToSend.tipo_dependente = null
-      }
-      
-      // Validar sexo - apenas valores válidos
-      const sexosValidos = ['M', 'F', 'O']
-      if (dataToSend.sexo && !sexosValidos.includes(dataToSend.sexo)) {
-        dataToSend.sexo = null
-      }
-      
-      Object.keys(dataToSend).forEach(key => {
-        if (dataToSend[key] === '') {
-          dataToSend[key] = null
-        }
-      })
-
-      console.log('Enviando dependente:', dataToSend)
-
-      let dependenteId = id
-
-      if (isEditing) {
-        await updateDependente(id, dataToSend)
+  const onSaved = useCallback(({ titular }) => {
+    setTimeout(() => {
+      if (titular) {
+        navigate(`/dependentes?titular=${titular}`)
       } else {
-        const response = await createDependente(dataToSend)
-        dependenteId = response.data.id
+        navigate('/dependentes')
       }
-      
-      // Processar vínculos do dependente
-      for (const vinculo of vinculos) {
-        const vinculoToSend = { 
-          dependente: dependenteId,
-          amparo: vinculo.amparo || null,
-          consulado: vinculo.consulado || null,
-          tipo_atualizacao: vinculo.tipo_atualizacao || null,
-          data_entrada: vinculo.data_entrada || null,
-          data_fim_vinculo: vinculo.data_fim_vinculo || null,
-          atualizacao: vinculo.atualizacao || null,
-          observacoes: vinculo.observacoes || null,
-          status: vinculo.status,
-          tipo_status: vinculo.tipo_status || null,
-        }
-        
-        if (vinculo.isDeleted && !vinculo.isNew) {
-          // Deletar vínculo existente
-          await deleteVinculoDependente(vinculo.id)
-        } else if (vinculo.isNew && !vinculo.isDeleted) {
-          // Criar novo vínculo
-          await createVinculoDependente(vinculoToSend)
-        } else if (!vinculo.isNew && !vinculo.isDeleted) {
-          // Atualizar vínculo existente
-          await updateVinculoDependente(vinculo.id, vinculoToSend)
-        }
-      }
-      
-      // Mostrar mensagem de sucesso e redirecionar
-      setSuccess(isEditing ? 'Dependente atualizado com sucesso!' : 'Dependente cadastrado com sucesso!')
-      window.location.hash = 'mensagens'
-      setTimeout(() => {
-        // Voltar para a lista, mantendo o filtro do titular se veio de lá
-        if (formData.titular) {
-          navigate(`/dependentes?titular=${formData.titular}`)
-        } else {
-          navigate('/dependentes')
-        }
-      }, 1500)
-    } catch (err) {
-      console.error('Erro detalhado:', err.response?.data)
-      const errorData = err.response?.data
-      if (errorData) {
-        const messages = Object.entries(errorData)
-          .map(([field, errors]) => {
-            const label = fieldLabels[field] || field
-            let errorMsg = Array.isArray(errors) ? errors.join(', ') : errors
-            // Melhorar mensagens de campos únicos
-            if (errorMsg.includes('already exists') || errorMsg.includes('já existe') || errorMsg.includes('unique')) {
-              errorMsg = `Este ${label} já está cadastrado no sistema.`
-            }
-            return `${label}: ${errorMsg}`
-          })
-          .join('\n')
-        setError(messages)
-      } else {
-        setError('Erro ao salvar dependente')
-      }
-      window.location.hash = 'mensagens'
-      console.error(err)
-    } finally {
-      setSaving(false)
-    }
-  }
+    }, 1200)
+  }, [navigate])
 
-  // Função para calcular dias restantes
-  function calcularDiasRestantes(dataFim) {
-    if (!dataFim) return null
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const fim = new Date(dataFim)
-    fim.setHours(0, 0, 0, 0)
-    const diffTime = fim - hoje
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  }
-
-  // Função para obter classe do badge
-  function getBadgeClass(dataFim) {
-    const dias = calcularDiasRestantes(dataFim)
-    if (dias === null) return ''
-    if (dias < 0) return 'badge-danger'
-    if (dias <= 60) return 'badge-warning'
-    return 'badge-success'
-  }
-
-  // Função para formatar data
-  function formatDate(dateStr) {
-    if (!dateStr) return '-'
-    return new Date(dateStr).toLocaleDateString('pt-BR', {
-    timeZone: 'UTC',
-  });
-}
+  const {
+    isEditing,
+    loading,
+    saving,
+    error,
+    success,
+    formData,
+    fieldErrors,
+    nacionalidades,
+    tiposAtualizacao,
+    vinculos,
+    vinculoSearchTexts,
+    titularSearchText,
+    titularSuggestions,
+    amparosSuggestions,
+    consuladosSuggestions,
+    handleChange,
+    handleBlur,
+    handleTitularSearch,
+    handleTitularSelect,
+    handleAmparoSearch,
+    handleAmparoSelect,
+    handleConsuladoSearch,
+    handleConsuladoSelect,
+    handleVinculoChange,
+    toggleVinculoExpanded,
+    addVinculo,
+    removeVinculo,
+    handleSubmit,
+  } = useDependenteForm({ dependenteId: id, titularIdFromUrl, onSaved })
 
   if (loading) {
     return <div className="loading">Carregando...</div>
@@ -508,16 +315,17 @@ function DependenteForm() {
       <form onSubmit={handleSubmit} className="form">
         <div className="form-section">
           <h3>Titular</h3>
-          
-          <div className="form-row">
-            <div className="form-group" style={{ flex: 1, position: 'relative' }}>
-              <label htmlFor="titular">Titular *</label>
+          <div className="form-grid">
+            <div className="form-field" style={{ position: 'relative' }}>
+              <label htmlFor="titular" className="form-label">
+                Titular <span className="required">*</span>
+              </label>
               <input
                 type="text"
                 id="titular"
                 value={titularSearchText}
                 onChange={(e) => handleTitularSearch(e.target.value)}
-                className="form-control"
+                className="form-input"
                 placeholder="Digite para buscar titular..."
                 autoComplete="off"
                 required={!formData.titular}
@@ -525,41 +333,20 @@ function DependenteForm() {
               {formData.titular && (
                 <input type="hidden" name="titular" value={formData.titular} />
               )}
-              {titularesSuggestions.length > 0 && titularSearchText && !formData.titular && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  backgroundColor: '#fff',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  zIndex: 1000,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-                }}>
-                  {titularesSuggestions.map(t => (
-                    <div 
-                      key={t.id} 
-                      onClick={() => handleTitularSelect(t)}
-                      style={{ 
-                        padding: '10px 12px', 
-                        cursor: 'pointer',
-                        borderBottom: '1px solid #eee'
-                      }}
-                      onMouseOver={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-                      onMouseOut={(e) => e.target.style.backgroundColor = '#fff'}
-                    >
-                      <strong>{t.nome}</strong>
-                      {t.rnm && <span style={{ color: '#666', marginLeft: '8px' }}>RNM: {t.rnm}</span>}
-                      {t.passaporte && <span style={{ color: '#888', marginLeft: '8px', fontSize: '12px' }}>Pass: {t.passaporte}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <SuggestionBox
+                items={titularSuggestions}
+                onSelect={handleTitularSelect}
+                getLabel={(t) => (
+                  <>
+                    <strong>{t.nome}</strong>
+                    {t.rnm && <span style={{ color: '#666', marginLeft: '8px' }}>RNM: {t.rnm}</span>}
+                    {t.passaporte && <span style={{ color: '#888', marginLeft: '8px', fontSize: '12px' }}>Pass: {t.passaporte}</span>}
+                  </>
+                )}
+                isVisible={Boolean(titularSearchText) && !formData.titular}
+              />
               {formData.titular && (
-                <small style={{ color: '#28a745', marginTop: '4px', display: 'block' }}>
+                <small style={{ color: 'var(--success)', marginTop: '0.25rem', display: 'block', fontSize: '0.75rem' }}>
                   ✓ Titular selecionado
                 </small>
               )}
@@ -569,10 +356,12 @@ function DependenteForm() {
 
         <div className="form-section">
           <h3>Identificação do Dependente</h3>
-          
-          <div className="form-row">
-            <div className="form-group" style={{ flex: 2 }}>
-              <label htmlFor="nome">Nome Completo *</label>
+
+          <div className="form-grid-2">
+            <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+              <label htmlFor="nome" className="form-label">
+                Nome Completo <span className="required">*</span>
+              </label>
               <input
                 type="text"
                 id="nome"
@@ -581,20 +370,20 @@ function DependenteForm() {
                 onChange={handleChange}
                 onBlur={handleBlur}
                 required
-                className={`form-control ${fieldErrors.nome ? 'is-invalid' : ''}`}
+                className={`form-input ${fieldErrors.nome ? 'is-invalid' : ''}`}
                 placeholder="NOME COMPLETO"
               />
-              {fieldErrors.nome && <small className="text-danger">{fieldErrors.nome}</small>}
+              {fieldErrors.nome && <span className="form-error">{fieldErrors.nome}</span>}
             </div>
-            
-            <div className="form-group">
-              <label htmlFor="tipo_dependente">Tipo de Dependente</label>
+
+            <div className="form-field">
+              <label htmlFor="tipo_dependente" className="form-label">Tipo de Dependente</label>
               <select
                 id="tipo_dependente"
                 name="tipo_dependente"
                 value={formData.tipo_dependente}
                 onChange={handleChange}
-                className="form-control"
+                className="form-input"
               >
                 <option value="">Selecione...</option>
                 <option value="CONJUGE">Cônjuge</option>
@@ -606,9 +395,9 @@ function DependenteForm() {
             </div>
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="passaporte">Passaporte</label>
+          <div className="form-grid-4">
+            <div className="form-field">
+              <label htmlFor="passaporte" className="form-label">Passaporte</label>
               <input
                 type="text"
                 id="passaporte"
@@ -616,26 +405,59 @@ function DependenteForm() {
                 value={formData.passaporte}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                className={`form-control ${fieldErrors.passaporte ? 'is-invalid' : ''}`}
+                className={`form-input ${fieldErrors.passaporte ? 'is-invalid' : ''}`}
                 placeholder="AB123456"
               />
-              {fieldErrors.passaporte && <small className="text-danger">{fieldErrors.passaporte}</small>}
+              {fieldErrors.passaporte && <span className="form-error">{fieldErrors.passaporte}</span>}
             </div>
-            
-            <div className="form-group">
-              <label htmlFor="data_validade_passaporte">Validade Passaporte</label>
+
+            <div className="form-field">
+              <label htmlFor="data_validade_passaporte" className="form-label">Validade Passaporte</label>
               <input
                 type="date"
                 id="data_validade_passaporte"
                 name="data_validade_passaporte"
                 value={formData.data_validade_passaporte}
                 onChange={handleChange}
-                className="form-control"
+                className="form-input"
               />
             </div>
-            
-            <div className="form-group">
-              <label htmlFor="rnm">RNM</label>
+
+            <div className="form-field">
+              <label htmlFor="status_visto" className="form-label">Status do Visto</label>
+              <select
+                id="status_visto"
+                name="status_visto"
+                value={formData.status_visto}
+                onChange={handleChange}
+                className="form-input"
+              >
+                <option value="">Selecione...</option>
+                <option value="TEMPORARIO">Temporário</option>
+                <option value="PERMANENTE">Permanente</option>
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="nacionalidade" className="form-label">Nacionalidade</label>
+              <select
+                id="nacionalidade"
+                name="nacionalidade"
+                value={formData.nacionalidade}
+                onChange={handleChange}
+                className="form-input"
+              >
+                <option value="">Selecione...</option>
+                {nacionalidades.map((nac) => (
+                  <option key={nac.id} value={nac.id}>{nac.nome}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="form-grid-3">
+            <div className="form-field">
+              <label htmlFor="rnm" className="form-label">RNM</label>
               <input
                 type="text"
                 id="rnm"
@@ -643,16 +465,14 @@ function DependenteForm() {
                 value={formData.rnm}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                className={`form-control ${fieldErrors.rnm ? 'is-invalid' : ''}`}
+                className={`form-input ${fieldErrors.rnm ? 'is-invalid' : ''}`}
                 placeholder="V1234567"
               />
-              {fieldErrors.rnm && <small className="text-danger">{fieldErrors.rnm}</small>}
+              {fieldErrors.rnm && <span className="form-error">{fieldErrors.rnm}</span>}
             </div>
-          </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="cnh">CNH</label>
+
+            <div className="form-field">
+              <label htmlFor="cnh" className="form-label">CNH</label>
               <input
                 type="text"
                 id="cnh"
@@ -660,29 +480,14 @@ function DependenteForm() {
                 value={formData.cnh}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                className={`form-control ${fieldErrors.cnh ? 'is-invalid' : ''}`}
+                className={`form-input ${fieldErrors.cnh ? 'is-invalid' : ''}`}
                 placeholder="00000000000"
               />
-              {fieldErrors.cnh && <small className="text-danger">{fieldErrors.cnh}</small>}
+              {fieldErrors.cnh && <span className="form-error">{fieldErrors.cnh}</span>}
             </div>
-            
-            <div className="form-group">
-              <label htmlFor="status_visto">Status do Visto</label>
-              <select
-                id="status_visto"
-                name="status_visto"
-                value={formData.status_visto}
-                onChange={handleChange}
-                className="form-control"
-              >
-                <option value="">Selecione...</option>
-                <option value="TEMPORARIO">Temporário</option>
-                <option value="PERMANENTE">Permanente</option>
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="ctps">CTPS</label>
+
+            <div className="form-field">
+              <label htmlFor="ctps" className="form-label">CTPS</label>
               <input
                 type="text"
                 id="ctps"
@@ -690,44 +495,26 @@ function DependenteForm() {
                 value={formData.ctps}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                className={`form-control ${fieldErrors.ctps ? 'is-invalid' : ''}`}
+                className={`form-input ${fieldErrors.ctps ? 'is-invalid' : ''}`}
                 placeholder="0000000 00000-00"
               />
-              {fieldErrors.ctps && <small className="text-danger">{fieldErrors.ctps}</small>}
-            </div>
-          </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="nacionalidade">Nacionalidade</label>
-              <select
-                id="nacionalidade"
-                name="nacionalidade"
-                value={formData.nacionalidade}
-                onChange={handleChange}
-                className="form-control"
-              >
-                <option value="">Selecione...</option>
-                {nacionalidades.map(nac => (
-                  <option key={nac.id} value={nac.id}>{nac.nome}</option>
-                ))}
-              </select>
+              {fieldErrors.ctps && <span className="form-error">{fieldErrors.ctps}</span>}
             </div>
           </div>
         </div>
 
         <div className="form-section">
           <h3>Dados Pessoais</h3>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="sexo">Sexo</label>
+
+          <div className="form-grid-2">
+            <div className="form-field">
+              <label htmlFor="sexo" className="form-label">Sexo</label>
               <select
                 id="sexo"
                 name="sexo"
                 value={formData.sexo}
                 onChange={handleChange}
-                className="form-control"
+                className="form-input"
               >
                 <option value="">Selecione...</option>
                 <option value="M">Masculino</option>
@@ -735,322 +522,90 @@ function DependenteForm() {
                 <option value="O">Outro</option>
               </select>
             </div>
-            
-            <div className="form-group">
-              <label htmlFor="data_nascimento">Data de Nascimento</label>
+
+            <div className="form-field">
+              <label htmlFor="data_nascimento" className="form-label">Data de Nascimento</label>
               <input
                 type="date"
                 id="data_nascimento"
                 name="data_nascimento"
                 value={formData.data_nascimento}
                 onChange={handleChange}
-                className="form-control"
+                className="form-input"
               />
             </div>
-          </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="filiacao_um">Filiação 1</label>
+            <div className="form-field">
+              <label htmlFor="filiacao_um" className="form-label">Filiação 1</label>
               <input
                 type="text"
                 id="filiacao_um"
                 name="filiacao_um"
                 value={formData.filiacao_um}
-                onChange={handleChange}
-                className="form-control"
+                onChange={(e) => {
+                  const formatted = formatters.filiacao_um(e.target.value)
+                  handleChange({ target: { name: 'filiacao_um', value: formatted } })
+                }}
+                onBlur={(e) => handleBlur(e, validators.filiacao_um)}
+                className={`form-input ${fieldErrors.filiacao_um ? 'is-invalid' : ''}`}
               />
+              {fieldErrors.filiacao_um && <span className="form-error">{fieldErrors.filiacao_um}</span>}
             </div>
-            
-            <div className="form-group">
-              <label htmlFor="filiacao_dois">Filiação 2</label>
+
+            <div className="form-field">
+              <label htmlFor="filiacao_dois" className="form-label">Filiação 2</label>
               <input
                 type="text"
                 id="filiacao_dois"
                 name="filiacao_dois"
                 value={formData.filiacao_dois}
-                onChange={handleChange}
-                className="form-control"
+                onChange={(e) => {
+                  const formatted = formatters.filiacao_dois(e.target.value)
+                  handleChange({ target: { name: 'filiacao_dois', value: formatted } })
+                }}
+                onBlur={(e) => handleBlur(e, validators.filiacao_dois)}
+                className={`form-input ${fieldErrors.filiacao_dois ? 'is-invalid' : ''}`}
               />
+              {fieldErrors.filiacao_dois && <span className="form-error">{fieldErrors.filiacao_dois}</span>}
             </div>
           </div>
         </div>
 
-        {/* Seção de Vínculos do Dependente */}
         <div className="form-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="form-section-header">
             <h3 style={{ margin: 0 }}>📋 Vínculos Migratórios</h3>
             <button
               type="button"
               onClick={addVinculo}
-              className="btn btn-secondary"
-              style={{ padding: '6px 12px', fontSize: '14px' }}
+              className="btn-secondary btn-sm"
             >
               + Adicionar Vínculo
             </button>
           </div>
-          
-          {vinculos.filter(v => !v.isDeleted).length === 0 ? (
+
+          {vinculos.filter((v) => !v.isDeleted).length === 0 ? (
             <p style={{ color: '#666', fontStyle: 'italic' }}>
               Nenhum vínculo cadastrado. Clique em "Adicionar Vínculo" para criar um novo.
             </p>
           ) : (
-            vinculos.map((vinculo, index) => {
-              if (vinculo.isDeleted) return null
-              const dias = calcularDiasRestantes(vinculo.data_fim_vinculo)
-              
-              // Título do card compacto
-              const tituloVinculo = vinculo.amparo_nome || 'Novo Vínculo'
-              
-              return (
-                <div 
-                  key={vinculo.id} 
-                  className="vinculo-card"
-                  style={{ 
-                    border: '1px solid #ddd', 
-                    borderRadius: '8px', 
-                    marginBottom: '12px',
-                    backgroundColor: vinculo.status ? '#fff' : '#f9f9f9',
-                    overflow: 'hidden'
-                  }}
-                >
-                  {/* Header compacto - sempre visível */}
-                  <div 
-                    style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center', 
-                      padding: '12px 16px',
-                      backgroundColor: vinculo.isExpanded ? '#f8f9fa' : 'transparent',
-                      cursor: 'pointer',
-                      borderBottom: vinculo.isExpanded ? '1px solid #ddd' : 'none'
-                    }}
-                    onClick={() => toggleVinculoExpanded(index)}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                      <span style={{ color: '#666' }}>{vinculo.isExpanded ? '▼' : '▶'}</span>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontWeight: 'bold', color: '#333' }}>
-                          {tituloVinculo}
-                        </span>
-                        {!vinculo.status && <span style={{ color: '#999', marginLeft: '8px' }}>(Inativo)</span>}
-                      </div>
-                      
-                      {/* Info compacta */}
-                      <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '13px' }}>
-                        {vinculo.data_fim_vinculo && (
-                          <span style={{ color: '#666' }}>
-                            <strong>Vencimento:</strong> {formatDate(vinculo.data_fim_vinculo)}
-                            {dias !== null && (
-                              <span className={`badge ${getBadgeClass(vinculo.data_fim_vinculo)}`} style={{ marginLeft: '6px', fontSize: '11px' }}>
-                                {dias < 0 ? `${Math.abs(dias)}d atrás` : `${dias}d`}
-                              </span>
-                            )}
-                          </span>
-                        )}
-                        {vinculo.atualizacao && (
-                          <span style={{ color: '#666' }}>
-                            <strong>Atualização:</strong> {formatDate(vinculo.atualizacao)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); removeVinculo(index); }}
-                      className="btn btn-danger"
-                      style={{ padding: '4px 10px', fontSize: '12px', marginLeft: '12px' }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                  
-                  {/* Conteúdo expandido */}
-                  {vinculo.isExpanded && (
-                    <div style={{ padding: '16px' }}>
-                      <div className="form-row">
-                        <div className="form-group" style={{ position: 'relative' }}>
-                          <label>Amparo Legal</label>
-                          <input
-                            type="text"
-                            value={vinculoSearchTexts[`amparo_${index}`] || vinculo.amparo_nome || ''}
-                            onChange={(e) => handleAmparoSearch(index, e.target.value)}
-                            className="form-control"
-                            placeholder="Digite para buscar..."
-                            autoComplete="off"
-                          />
-                          {amparosSuggestions.length > 0 && vinculoSearchTexts[`amparo_${index}`] && (
-                            <div style={{
-                              position: 'absolute',
-                              top: '100%',
-                              left: 0,
-                              right: 0,
-                              backgroundColor: '#fff',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              maxHeight: '200px',
-                              overflowY: 'auto',
-                              zIndex: 1000,
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-                            }}>
-                              {amparosSuggestions.map(amp => (
-                                <div 
-                                  key={amp.id} 
-                                  onClick={() => handleAmparoSelect(index, amp)}
-                                  style={{ 
-                                    padding: '8px 12px', 
-                                    cursor: 'pointer',
-                                    borderBottom: '1px solid #eee'
-                                  }}
-                                  onMouseOver={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-                                  onMouseOut={(e) => e.target.style.backgroundColor = '#fff'}
-                                >
-                                  {amp.nome}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="form-group" style={{ position: 'relative' }}>
-                          <label>Consulado</label>
-                          <input
-                            type="text"
-                            value={vinculoSearchTexts[`consulado_${index}`] || vinculo.consulado_nome || ''}
-                            onChange={(e) => handleConsuladoSearch(index, e.target.value)}
-                            className="form-control"
-                            placeholder="Digite para buscar..."
-                            autoComplete="off"
-                          />
-                          {consuladosSuggestions.length > 0 && vinculoSearchTexts[`consulado_${index}`] && (
-                            <div style={{
-                              position: 'absolute',
-                              top: '100%',
-                              left: 0,
-                              right: 0,
-                              backgroundColor: '#fff',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              maxHeight: '200px',
-                              overflowY: 'auto',
-                              zIndex: 1000,
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-                            }}>
-                              {consuladosSuggestions.map(cons => (
-                                <div 
-                                  key={cons.id} 
-                                  onClick={() => handleConsuladoSelect(index, cons)}
-                                  style={{ 
-                                    padding: '8px 12px', 
-                                    cursor: 'pointer',
-                                    borderBottom: '1px solid #eee'
-                                  }}
-                                  onMouseOver={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-                                  onMouseOut={(e) => e.target.style.backgroundColor = '#fff'}
-                                >
-                                  {cons.pais}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="form-group">
-                          <label>Tipo de Atualização</label>
-                          <select
-                            name="tipo_atualizacao"
-                            value={vinculo.tipo_atualizacao}
-                            onChange={(e) => handleVinculoChange(index, e)}
-                            className="form-control"
-                          >
-                            <option value="">Selecione...</option>
-                            {tiposAtualizacao.map(t => (
-                              <option key={t.id} value={t.id}>{t.nome}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Data de Entrada</label>
-                          <input
-                            type="date"
-                            name="data_entrada"
-                            value={vinculo.data_entrada}
-                            onChange={(e) => handleVinculoChange(index, e)}
-                            className="form-control"
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label>Valido até</label>
-                          <input
-                            type="date"
-                            name="data_fim_vinculo"
-                            value={vinculo.data_fim_vinculo}
-                            onChange={(e) => handleVinculoChange(index, e)}
-                            className="form-control"
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label>Atualização</label>
-                          <input
-                            type="date"
-                            name="atualizacao"
-                            value={vinculo.atualizacao}
-                            onChange={(e) => handleVinculoChange(index, e)}
-                            className="form-control"
-                          />
-                        </div>
-                        
-                        <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: '25px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                            <input
-                              type="checkbox"
-                              name="status"
-                              checked={vinculo.status}
-                              onChange={(e) => handleVinculoChange(index, e)}
-                            />
-                            Vínculo Ativo
-                          </label>
-                        </div>
-                      </div>
-                      
-                      <div className="form-row">
-                        <div className="form-group" style={{ flex: 1 }}>
-                          <label>Observações</label>
-                          <textarea
-                            name="observacoes"
-                            value={vinculo.observacoes}
-                            onChange={(e) => handleVinculoChange(index, e)}
-                            className="form-control"
-                            rows="2"
-                            placeholder="Observações sobre este vínculo..."
-                          />
-                        </div>
-                        
-                        <div className="form-group">
-                          <label>Tipo Status</label>
-                          <select
-                            name="tipo_status"
-                            value={vinculo.tipo_status}
-                            onChange={(e) => handleVinculoChange(index, e)}
-                            className="form-control"
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="CANCELADO">Cancelado</option>
-                            <option value="VENCIDO">Vencido</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })
+            vinculos.map((vinculo, index) => (
+              <VinculoCard
+                key={vinculo.id}
+                index={index}
+                vinculo={vinculo}
+                searchTexts={vinculoSearchTexts}
+                amparosSuggestions={amparosSuggestions}
+                consuladosSuggestions={consuladosSuggestions}
+                tiposAtualizacao={tiposAtualizacao}
+                onToggle={toggleVinculoExpanded}
+                onRemove={removeVinculo}
+                onChange={handleVinculoChange}
+                onAmparoSearch={handleAmparoSearch}
+                onAmparoSelect={handleAmparoSelect}
+                onConsuladoSearch={handleConsuladoSearch}
+                onConsuladoSelect={handleConsuladoSelect}
+              />
+            ))
           )}
         </div>
 
