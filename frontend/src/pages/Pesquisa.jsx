@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { pesquisaUnificada } from '../services/titulares'
 import { getEmpresas } from '../services/empresas'
-import { getNacionalidades } from '../services/core'
+import { getNacionalidades, getConsulados } from '../services/core'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import { jsPDF } from 'jspdf';
@@ -16,6 +16,8 @@ function Pesquisa() {
     searchField: 'todos',
     nacionalidade: '',
     nacionalidadeText: '',
+    consulado: '',
+    consuladoText: '',
     empresa: '',
     empresaText: '',
     tipoVinculo: '',
@@ -43,26 +45,165 @@ function Pesquisa() {
   const [loading, setLoading] = useState(false)
   const [expandedItems, setExpandedItems] = useState({})
   
-  // Dados para combos
+  // Estados para autocomplete com busca no backend
   const [nacionalidades, setNacionalidades] = useState([])
+  const [consulados, setConsulados] = useState([])
   const [empresas, setEmpresas] = useState([])
+  const [loadingEmpresas, setLoadingEmpresas] = useState(false)
+  const [loadingNacionalidades, setLoadingNacionalidades] = useState(false)
+  const [loadingConsulados, setLoadingConsulados] = useState(false)
   
-  // Carregar dados para combos
-  useEffect(() => {
-    async function loadCombos() {
-      try {
-        const [nacRes, empRes] = await Promise.all([
-          getNacionalidades(),
-          getEmpresas({ page_size: 1000 }),
-        ])
-        setNacionalidades(nacRes.data.results || nacRes.data || [])
-        setEmpresas(empRes.data.results || empRes.data || [])
-      } catch (error) {
-        console.error('Erro ao carregar combos:', error)
-      }
+  // Refs para debounce
+  const empresaDebounceRef = useRef(null)
+  const nacionalidadeDebounceRef = useRef(null)
+  const consuladoDebounceRef = useRef(null)
+  
+  // Função para buscar empresas no backend
+  const searchEmpresas = useCallback(async (searchText) => {
+    if (!searchText || searchText.length < 2) {
+      setEmpresas([])
+      return
     }
-    loadCombos()
+    
+    setLoadingEmpresas(true)
+    try {
+      const response = await getEmpresas({ search: searchText, page_size: 20 })
+      setEmpresas(response.data.results || response.data || [])
+    } catch (error) {
+      console.error('Erro ao buscar empresas:', error)
+      setEmpresas([])
+    } finally {
+      setLoadingEmpresas(false)
+    }
   }, [])
+  
+  // Função para buscar nacionalidades no backend
+  const searchNacionalidades = useCallback(async (searchText) => {
+    if (!searchText || searchText.length < 2) {
+      setNacionalidades([])
+      return
+    }
+    
+    setLoadingNacionalidades(true)
+    try {
+      const response = await getNacionalidades({ search: searchText, page_size: 20 })
+      setNacionalidades(response.data.results || response.data || [])
+    } catch (error) {
+      console.error('Erro ao buscar nacionalidades:', error)
+      setNacionalidades([])
+    } finally {
+      setLoadingNacionalidades(false)
+    }
+  }, [])
+  
+  // Função para buscar consulados no backend
+  const searchConsulados = useCallback(async (searchText) => {
+    if (!searchText || searchText.length < 2) {
+      setConsulados([])
+      return
+    }
+    
+    setLoadingConsulados(true)
+    try {
+      const response = await getConsulados({ search: searchText, page_size: 20 })
+      setConsulados(response.data.results || response.data || [])
+    } catch (error) {
+      console.error('Erro ao buscar consulados:', error)
+      setConsulados([])
+    } finally {
+      setLoadingConsulados(false)
+    }
+  }, [])
+  
+  // Handler para mudança no campo empresa com debounce
+  const handleEmpresaChange = useCallback((text) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      empresaText: text,
+      empresa: '' // Limpar ID até selecionar
+    }))
+    
+    // Debounce: aguardar 300ms antes de buscar
+    if (empresaDebounceRef.current) {
+      clearTimeout(empresaDebounceRef.current)
+    }
+    
+    empresaDebounceRef.current = setTimeout(() => {
+      searchEmpresas(text)
+    }, 300)
+  }, [searchEmpresas])
+  
+  // Handler para mudança no campo nacionalidade com debounce
+  const handleNacionalidadeChange = useCallback((text) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      nacionalidadeText: text,
+      nacionalidade: '' // Limpar ID até selecionar
+    }))
+    
+    // Debounce: aguardar 300ms antes de buscar
+    if (nacionalidadeDebounceRef.current) {
+      clearTimeout(nacionalidadeDebounceRef.current)
+    }
+    
+    nacionalidadeDebounceRef.current = setTimeout(() => {
+      searchNacionalidades(text)
+    }, 300)
+  }, [searchNacionalidades])
+  
+  // Handler para mudança no campo consulado com debounce
+  const handleConsuladoChange = useCallback((text) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      consuladoText: text,
+      consulado: '' // Limpar ID até selecionar
+    }))
+    
+    // Debounce: aguardar 300ms antes de buscar
+    if (consuladoDebounceRef.current) {
+      clearTimeout(consuladoDebounceRef.current)
+    }
+    
+    consuladoDebounceRef.current = setTimeout(() => {
+      searchConsulados(text)
+    }, 300)
+  }, [searchConsulados])
+  
+  // Handler para seleção de empresa do datalist
+  const handleEmpresaSelect = useCallback((text) => {
+    const emp = empresas.find(e => e.nome.toLowerCase() === text.toLowerCase())
+    if (emp) {
+      setFilters(prev => ({ 
+        ...prev, 
+        empresaText: emp.nome,
+        empresa: emp.id 
+      }))
+    }
+  }, [empresas])
+  
+  // Handler para seleção de nacionalidade do datalist
+  const handleNacionalidadeSelect = useCallback((text) => {
+    const nac = nacionalidades.find(n => n.nome.toLowerCase() === text.toLowerCase())
+    if (nac) {
+      setFilters(prev => ({ 
+        ...prev, 
+        nacionalidadeText: nac.nome,
+        nacionalidade: nac.id 
+      }))
+    }
+  }, [nacionalidades])
+  
+  // Handler para seleção de consulado do datalist
+  const handleConsuladoSelect = useCallback((text) => {
+    const cons = consulados.find(c => c.pais.toLowerCase() === text.toLowerCase())
+    if (cons) {
+      setFilters(prev => ({ 
+        ...prev, 
+        consuladoText: cons.pais,
+        consulado: cons.id 
+      }))
+    }
+  }, [consulados])
   
   // Função para calcular datas do período
   const calcularDatasDoPerido = useCallback(() => {
@@ -106,8 +247,18 @@ function Pesquisa() {
         params.search = filters.searchTerm
       }
       
+      // Filtro por campo específico ou tipo
+      if (filters.searchField === 'titular') {
+        params.tipo = 'titular'
+      } else if (filters.searchField === 'dependente') {
+        params.tipo = 'dependente'
+      } else if (filters.searchField && filters.searchField !== 'todos') {
+        params.search_field = filters.searchField
+      }
+      
       // Filtros de titular
       if (filters.nacionalidade) params.nacionalidade = filters.nacionalidade
+      if (filters.consulado) params.consulado = filters.consulado
       if (filters.empresa) params.empresa = filters.empresa
       if (filters.tipoVinculo) params.tipo_vinculo = filters.tipoVinculo
       if (filters.status) params.vinculo_status = filters.status === 'ativo' ? 'true' : 'false'
@@ -160,12 +311,6 @@ function Pesquisa() {
       setLoading(false)
     }
   }, [filters, pagination.pageSize, calcularDatasDoPerido])
-  
-  // Buscar ao carregar
-  useEffect(() => {
-    handleSearch(1)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
   
   // Navegação de páginas
   const goToPage = (page) => {
@@ -239,6 +384,7 @@ function Pesquisa() {
       // Adicionar filtros atuais
       if (filters.searchTerm) params.search = filters.searchTerm
       if (filters.nacionalidade) params.nacionalidade = filters.nacionalidade
+      if (filters.consulado) params.consulado = filters.consulado
       if (filters.empresa) params.empresa = filters.empresa
       if (filters.tipoVinculo) params.tipo_vinculo = filters.tipoVinculo
       if (filters.status) params.vinculo_status = filters.status === 'ativo' ? 'true' : 'false'
@@ -518,8 +664,8 @@ function Pesquisa() {
               </div>
               <div className="details-section">
                 <h4>Filiação</h4>
-                <p><strong>Pai:</strong> {item.pai || '-'}</p>
-                <p><strong>Mãe:</strong> {item.mae || '-'}</p>
+                <p><strong>Filiação 1:</strong> {item.filiacao_um || '-'}</p>
+                <p><strong>Filiação 2:</strong> {item.filiacao_dois || '-'}</p>
               </div>
             </div>
           </div>
@@ -543,8 +689,8 @@ function Pesquisa() {
               </div>
               <div className="details-section">
                 <h4>Filiação</h4>
-                <p><strong>Pai:</strong> {item.pai || '-'}</p>
-                <p><strong>Mãe:</strong> {item.mae || '-'}</p>
+                <p><strong>Filiação 1:</strong> {item.filiacao_um || '-'}</p>
+                <p><strong>Filiação 2:</strong> {item.filiacao_dois || '-'}</p>
               </div>
               <div className="details-section">
                 <h4>Titular</h4>
@@ -663,6 +809,8 @@ function Pesquisa() {
               <option value="rnm">RNM</option>
               <option value="cpf">CPF</option>
               <option value="passaporte">Passaporte</option>
+              <option value="titular">Apenas Titulares</option>
+              <option value="dependente">Apenas Dependentes</option>
             </select>
           </div>
           <div className="search-input-wrapper">
@@ -694,21 +842,33 @@ function Pesquisa() {
                   name="nacionalidadeText"
                   className="form-input"
                   value={filters.nacionalidadeText || ''}
-                  onChange={(e) => {
-                    const text = e.target.value
-                    const nac = nacionalidades.find(n => n.nome.toLowerCase() === text.toLowerCase())
-                    setFilters(prev => ({ 
-                      ...prev, 
-                      nacionalidadeText: text,
-                      nacionalidade: nac ? nac.id : '' 
-                    }))
-                  }}
+                  onChange={(e) => handleNacionalidadeChange(e.target.value)}
+                  onBlur={(e) => handleNacionalidadeSelect(e.target.value)}
                   list="nacionalidades-list"
-                  placeholder="Digite a nacionalidade..."
+                  placeholder={loadingNacionalidades ? 'Buscando...' : 'Digite para buscar...'}
                 />
                 <datalist id="nacionalidades-list">
                   {nacionalidades.map(nac => (
                     <option key={nac.id} value={nac.nome} />
+                  ))}
+                </datalist>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Consulado</label>
+                <input
+                  type="text"
+                  name="consuladoText"
+                  className="form-input"
+                  value={filters.consuladoText || ''}
+                  onChange={(e) => handleConsuladoChange(e.target.value)}
+                  onBlur={(e) => handleConsuladoSelect(e.target.value)}
+                  list="consulados-list"
+                  placeholder={loadingConsulados ? 'Buscando...' : 'Digite para buscar...'}
+                />
+                <datalist id="consulados-list">
+                  {consulados.map(cons => (
+                    <option key={cons.id} value={cons.pais} />
                   ))}
                 </datalist>
               </div>
@@ -720,17 +880,10 @@ function Pesquisa() {
                   name="empresaText"
                   className="form-input"
                   value={filters.empresaText || ''}
-                  onChange={(e) => {
-                    const text = e.target.value
-                    const emp = empresas.find(e => e.nome.toLowerCase() === text.toLowerCase())
-                    setFilters(prev => ({ 
-                      ...prev, 
-                      empresaText: text,
-                      empresa: emp ? emp.id : '' 
-                    }))
-                  }}
+                  onChange={(e) => handleEmpresaChange(e.target.value)}
+                  onBlur={(e) => handleEmpresaSelect(e.target.value)}
                   list="empresas-list"
-                  placeholder="Digite o nome da empresa..."
+                  placeholder={loadingEmpresas ? 'Buscando...' : 'Digite para buscar...'}
                 />
                 <datalist id="empresas-list">
                   {empresas.map(emp => (
@@ -892,7 +1045,7 @@ function Pesquisa() {
           <span className="results-count">
             <strong>{results.length}</strong> registro(s) encontrado(s)
             {pagination.totalPages > 1 && (
-              <span className="text-muted"> — Página {pagination.page} de {pagination.totalPages} ({pagination.totalCount} titulares)</span>
+              <span className="text-muted"> — Página {pagination.page} de {pagination.totalPages}</span>
             )}
           </span>
           <div className="results-options">

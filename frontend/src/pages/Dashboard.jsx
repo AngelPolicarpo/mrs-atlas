@@ -40,14 +40,14 @@ function Dashboard() {
   
   async function loadStats() {
     try {
-      const [titularesRes, empresasRes, vinculosRes] = await Promise.all([
+      const [titularesRes, empresasTotalRes, empresasAtivasRes, vinculosRes] = await Promise.all([
         getTitulares(),
-        getEmpresas(),
+        getEmpresas({ page_size: 1 }),  // Só para pegar o count total
+        getEmpresas({ status: true, page_size: 1 }),  // Só para pegar o count de ativas
         getVinculos({ status: true })
       ])
       
       const titulares = titularesRes.data.results || titularesRes.data || []
-      const empresas = empresasRes.data.results || empresasRes.data || []
       const vinculos = vinculosRes.data.results || vinculosRes.data || []
       
       // Processar vínculos expirando
@@ -72,8 +72,8 @@ function Dashboard() {
       
       setStats({
         totalTitulares: titularesRes.data.count || titulares.length,
-        totalEmpresas: empresasRes.data.count || empresas.length,
-        empresasAtivas: empresas.filter(e => e.status).length,
+        totalEmpresas: empresasTotalRes.data.count || 0,
+        empresasAtivas: empresasAtivasRes.data.count || 0,
         recentTitulares: titulares.slice(0, 5),
       })
     } catch (error) {
@@ -112,8 +112,8 @@ function Dashboard() {
           'Nome': titular.nome || v.titular_nome || '',
           'Nacionalidade': titular.nacionalidade_nome || '',
           'Nascimento': titular.data_nascimento || '',
-          'Mãe': titular.mae || '',
-          'Pai': titular.pai || '',
+          'Filiação 1': titular.filiacao_um || '',
+          'Filiação 2': titular.filiacao_dois || '',
           'RNM': titular.rnm || '',
           'Amparo': v.amparo_nome || '',
           'Prazo': v.data_fim_vinculo || '',
@@ -129,8 +129,8 @@ function Dashboard() {
             'Nome': t.nome,
             'Nacionalidade': t.nacionalidade_nome || '',
             'Nascimento': t.data_nascimento || '',
-            'Mãe': t.mae || '',
-            'Pai': t.pai || '',
+            'Filiação 1': t.filiacao_um || '',
+            'Filiação 2': t.filiacao_dois || '',
             'RNM': t.rnm || '',
             'Amparo': '',
             'Prazo': '',

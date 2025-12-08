@@ -14,7 +14,7 @@ class Empresa(models.Model):
         db_column='id_empresa'
     )
     nome = models.CharField('Nome', max_length=200)
-    cnpj = models.CharField('CNPJ', max_length=20, unique=True)
+    cnpj = models.CharField('CNPJ', max_length=20, unique=True, blank=True, null=True)
     email = models.EmailField('Email', max_length=150, blank=True, null=True)
     telefone = models.CharField('Telefone', max_length=20, blank=True, null=True)
     endereco = models.TextField('Endereço', blank=True, null=True)

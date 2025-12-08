@@ -9,6 +9,7 @@ class Titular(models.Model):
     SEXO_CHOICES = [
         ('M', 'Masculino'),
         ('F', 'Feminino'),
+        ('O', 'Outro'),
     ]
     
     id = models.UUIDField(
@@ -22,21 +23,26 @@ class Titular(models.Model):
     cpf = models.CharField('CPF', max_length=14, unique=True, blank=True, null=True)
     cnh = models.CharField('CNH', max_length=14, unique=True, blank=True, null=True)
     passaporte = models.CharField('Passaporte', max_length=50, blank=True, null=True)
-    rnm = models.CharField('RNM', max_length=100, unique=True)
+    data_validade_passaporte = models.DateField('Validade do Passaporte', blank=True, null=True)
+    rnm = models.CharField('RNM', max_length=100, unique=True, blank=True, null=True)
+    status_visto = models.CharField('Status do Visto', max_length=100, blank=True, null=True)
+    ctps = models.CharField('CTPS', max_length=50, blank=True, null=True)
     
     nacionalidade = models.ForeignKey(
         'core.Nacionalidade',
         on_delete=models.PROTECT,
         related_name='titulares',
         verbose_name='Nacionalidade',
-        db_column='id_nacionalidade'
+        db_column='id_nacionalidade',
+        blank=True,
+        null=True
     )
     
     sexo = models.CharField('Sexo', max_length=1, choices=SEXO_CHOICES, blank=True, null=True)
     email = models.EmailField('Email', max_length=150, blank=True, null=True)
     telefone = models.CharField('Telefone', max_length=20, blank=True, null=True)
-    pai = models.CharField('Nome do Pai', max_length=200, blank=True, null=True)
-    mae = models.CharField('Nome da Mãe', max_length=200, blank=True, null=True)
+    filiacao_um = models.CharField('Filiação 1', max_length=200, blank=True, null=True)
+    filiacao_dois = models.CharField('Filiação 2', max_length=200, blank=True, null=True)
     data_nascimento = models.DateField('Data de Nascimento', blank=True, null=True)
     data_validade_cnh = models.DateField('Validade da CNH', blank=True, null=True)
     
@@ -153,8 +159,10 @@ class VinculoTitular(models.Model):
     )
     
     status = models.BooleanField('Status', default=True)
+    tipo_status = models.CharField('Tipo Status', max_length=100, blank=True, null=True)
     data_entrada_pais = models.DateField('Data de Entrada no País', blank=True, null=True)
     data_fim_vinculo = models.DateField('Data Fim do Vínculo', blank=True, null=True)
+    atualizacao = models.DateField('Atualização', blank=True, null=True)
     observacoes = models.TextField('Observações', blank=True, null=True)
     
     # Timestamps
@@ -212,6 +220,7 @@ class Dependente(models.Model):
     SEXO_CHOICES = [
         ('M', 'Masculino'),
         ('F', 'Feminino'),
+        ('O', 'Outro'),
     ]
     
     id = models.UUIDField(
@@ -232,7 +241,11 @@ class Dependente(models.Model):
     
     nome = models.CharField('Nome', max_length=200)
     passaporte = models.CharField('Passaporte', max_length=50, blank=True, null=True)
+    data_validade_passaporte = models.DateField('Validade do Passaporte', blank=True, null=True)
     rnm = models.CharField('RNM', max_length=100, unique=True, blank=True, null=True)
+    cnh = models.CharField('CNH', max_length=20, blank=True, null=True)
+    status_visto = models.CharField('Status do Visto', max_length=100, blank=True, null=True)
+    ctps = models.CharField('CTPS', max_length=50, blank=True, null=True)
     
     nacionalidade = models.ForeignKey(
         'core.Nacionalidade',
@@ -253,8 +266,8 @@ class Dependente(models.Model):
     )
     sexo = models.CharField('Sexo', max_length=1, choices=SEXO_CHOICES, blank=True, null=True)
     data_nascimento = models.DateField('Data de Nascimento', blank=True, null=True)
-    pai = models.CharField('Nome do Pai', max_length=200, blank=True, null=True)
-    mae = models.CharField('Nome da Mãe', max_length=200, blank=True, null=True)
+    filiacao_um = models.CharField('Filiação 1', max_length=200, blank=True, null=True)
+    filiacao_dois = models.CharField('Filiação 2', max_length=200, blank=True, null=True)
     
     # Timestamps
     data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
@@ -315,8 +328,10 @@ class VinculoDependente(models.Model):
     )
     
     status = models.BooleanField('Status', default=True)
+    tipo_status = models.CharField('Tipo Status', max_length=100, blank=True, null=True)
     data_entrada = models.DateField('Data de Entrada', blank=True, null=True)
     data_fim_vinculo = models.DateField('Data Fim do Vínculo', blank=True, null=True)
+    atualizacao = models.DateField('Atualização', blank=True, null=True)
     observacoes = models.TextField('Observações', blank=True, null=True)
     
     # Dados migratórios

@@ -205,11 +205,11 @@ class TitularViewSet(viewsets.ModelViewSet):
                             if col_map.get('pai') is not None:
                                 pai = row[col_map['pai']]
                                 if pai:
-                                    titular.pai = pai
+                                    titular.filiacao_um = pai
                             if col_map.get('mae') is not None:
                                 mae = row[col_map['mae']]
                                 if mae:
-                                    titular.mae = mae
+                                    titular.filiacao_dois = mae
                             titular.atualizado_por = request.user
                             titular.save()
                             titulares_atualizados += 1
@@ -229,11 +229,11 @@ class TitularViewSet(viewsets.ModelViewSet):
                             if col_map.get('pai') is not None:
                                 pai = row[col_map['pai']]
                                 if pai:
-                                    titular_data['pai'] = pai
+                                    titular_data['filiacao_um'] = pai
                             if col_map.get('mae') is not None:
                                 mae = row[col_map['mae']]
                                 if mae:
-                                    titular_data['mae'] = mae
+                                    titular_data['filiacao_dois'] = mae
                             
                             titular = Titular.objects.create(**titular_data)
                             titulares_criados += 1
@@ -369,6 +369,8 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
         
         Parâmetros:
         - search: termo de busca (nome, rnm, cpf, passaporte)
+        - search_field: campo específico para busca (nome, rnm, cpf, passaporte)
+        - tipo: filtrar por tipo (titular, dependente)
         - nacionalidade: ID da nacionalidade
         - empresa: ID da empresa
         - tipo_vinculo: EMPRESA ou PARTICULAR
@@ -388,7 +390,10 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
         
         # Parâmetros de filtro
         search = request.query_params.get('search', '').strip()
+        search_field = request.query_params.get('search_field', '').strip()
+        tipo_registro = request.query_params.get('tipo', '').strip().lower()  # titular ou dependente
         nacionalidade = request.query_params.get('nacionalidade')
+        consulado = request.query_params.get('consulado')
         empresa = request.query_params.get('empresa')
         tipo_vinculo = request.query_params.get('tipo_vinculo')
         vinculo_status = request.query_params.get('vinculo_status')
@@ -423,22 +428,42 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
         
         # Aplicar filtro de busca
         if search:
-            titulares_qs = titulares_qs.filter(
-                Q(nome__icontains=search) |
-                Q(rnm__icontains=search) |
-                Q(cpf__icontains=search) |
-                Q(passaporte__icontains=search)
-            )
-            dependentes_qs = dependentes_qs.filter(
-                Q(nome__icontains=search) |
-                Q(rnm__icontains=search) |
-                Q(passaporte__icontains=search)
-            )
+            # Se tem campo específico, buscar apenas nesse campo
+            if search_field == 'nome':
+                titulares_qs = titulares_qs.filter(nome__icontains=search)
+                dependentes_qs = dependentes_qs.filter(nome__icontains=search)
+            elif search_field == 'rnm':
+                titulares_qs = titulares_qs.filter(rnm__icontains=search)
+                dependentes_qs = dependentes_qs.filter(rnm__icontains=search)
+            elif search_field == 'cpf':
+                titulares_qs = titulares_qs.filter(cpf__icontains=search)
+                dependentes_qs = dependentes_qs.filter(cpf__icontains=search)
+            elif search_field == 'passaporte':
+                titulares_qs = titulares_qs.filter(passaporte__icontains=search)
+                dependentes_qs = dependentes_qs.filter(passaporte__icontains=search)
+            else:
+                # Busca em todos os campos
+                titulares_qs = titulares_qs.filter(
+                    Q(nome__icontains=search) |
+                    Q(rnm__icontains=search) |
+                    Q(cpf__icontains=search) |
+                    Q(passaporte__icontains=search)
+                )
+                dependentes_qs = dependentes_qs.filter(
+                    Q(nome__icontains=search) |
+                    Q(rnm__icontains=search) |
+                    Q(passaporte__icontains=search)
+                )
         
         # Filtro de nacionalidade
         if nacionalidade:
             titulares_qs = titulares_qs.filter(nacionalidade_id=nacionalidade)
             dependentes_qs = dependentes_qs.filter(nacionalidade_id=nacionalidade)
+        
+        # Filtro de consulado (filtra pelo vínculo)
+        if consulado:
+            titulares_qs = titulares_qs.filter(vinculos__consulado_id=consulado).distinct()
+            dependentes_qs = dependentes_qs.filter(vinculos__consulado_id=consulado).distinct()
         
         # Filtro de empresa (só se aplica a titulares)
         if empresa:
@@ -467,12 +492,65 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     titulares_qs = titulares_qs.filter(vinculos__data_entrada_pais__lte=data_ate).distinct()
             elif tipo_evento == 'atualizacao':
                 if data_de:
-                    titulares_qs = titulares_qs.filter(vinculos__ultima_atualizacao__gte=data_de).distinct()
+                    titulares_qs = titulares_qs.filter(vinculos__atualizacao__gte=data_de).distinct()
                 if data_ate:
-                    titulares_qs = titulares_qs.filter(vinculos__ultima_atualizacao__lte=data_ate).distinct()
+                    titulares_qs = titulares_qs.filter(vinculos__atualizacao__lte=data_ate).distinct()
         
         # Ordenar titulares
         titulares_qs = titulares_qs.order_by('nome')
+        
+        # Se filtrar apenas dependentes, não buscar titulares
+        if tipo_registro == 'dependente':
+            titulares_qs = Titular.objects.none()
+        
+        # Se filtrar apenas titulares, não buscar dependentes
+        if tipo_registro == 'titular':
+            dependentes_qs = Dependente.objects.none()
+        
+        # Caso especial: apenas dependentes
+        if tipo_registro == 'dependente':
+            # Ordenar dependentes
+            dependentes_qs = dependentes_qs.order_by('nome')
+            total_dependentes = dependentes_qs.count()
+            
+            # Paginar dependentes
+            paginator = Paginator(dependentes_qs, page_size)
+            dependentes_page = paginator.get_page(page)
+            
+            results = []
+            for dep in dependentes_page:
+                # Pegar o vínculo ativo mais recente do dependente
+                dep_vinculos = list(dep.vinculos.all())
+                dep_vinculo_ativo = dep_vinculos[0] if dep_vinculos else None
+                
+                results.append({
+                    'type': 'dependente',
+                    'id': str(dep.id),
+                    'visibleId': f'dependente-{dep.id}',
+                    'titularId': str(dep.titular_id) if dep.titular_id else None,
+                    'titularNome': dep.titular.nome if dep.titular else 'Sem Titular',
+                    'nome': dep.nome,
+                    'rnm': dep.rnm,
+                    'passaporte': dep.passaporte,
+                    'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                    'tipoDependente': dep.get_tipo_dependente_display(),
+                    'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
+                    'filiacao_um': dep.filiacao_um,
+                    'filiacao_dois': dep.filiacao_dois,
+                    'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
+                    'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
+                })
+            
+            return Response({
+                'results': results,
+                'count': total_dependentes,
+                'total_records': len(results),
+                'page': page,
+                'page_size': page_size,
+                'total_pages': paginator.num_pages,
+                'has_next': dependentes_page.has_next(),
+                'has_previous': dependentes_page.has_previous(),
+            })
         
         # Contar totais antes de paginar
         total_titulares = titulares_qs.count()
@@ -497,6 +575,15 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
             if tipo_vinculo:
                 vinculos_filtrados = [v for v in vinculos_filtrados if v.tipo_vinculo == tipo_vinculo]
             
+            # Filtro de consulado (consulado_id é UUID)
+            if consulado:
+                from uuid import UUID
+                try:
+                    consulado_uuid = UUID(consulado) if isinstance(consulado, str) else consulado
+                    vinculos_filtrados = [v for v in vinculos_filtrados if v.consulado_id == consulado_uuid]
+                except (ValueError, TypeError):
+                    vinculos_filtrados = []
+            
             # Filtro de empresa (empresa_id é UUID)
             if empresa:
                 from uuid import UUID
@@ -520,7 +607,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     elif tipo_evento == 'entrada':
                         data_campo = v.data_entrada_pais
                     elif tipo_evento == 'atualizacao':
-                        data_campo = v.ultima_atualizacao
+                        data_campo = v.atualizacao
                     else:
                         data_campo = None
                     
@@ -541,7 +628,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
             vinculos = vinculos_filtrados
             
             # Verificar se há filtros de vínculo aplicados
-            has_vinculo_filters = tipo_vinculo or empresa or vinculo_status is not None or (tipo_evento and (data_de or data_ate))
+            has_vinculo_filters = tipo_vinculo or consulado or empresa or vinculo_status is not None or (tipo_evento and (data_de or data_ate))
             
             if not vinculos:
                 # Se há filtros de vínculo ativos e nenhum vínculo passou, não mostrar o titular
@@ -566,8 +653,8 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     'vinculoId': None,
                     'email': titular.email,
                     'telefone': titular.telefone,
-                    'pai': titular.pai,
-                    'mae': titular.mae,
+                    'filiacao_um': titular.filiacao_um,
+                    'filiacao_dois': titular.filiacao_dois,
                     'dataNascimento': str(titular.data_nascimento) if titular.data_nascimento else None,
                     'isLastVinculo': True,
                 })
@@ -590,8 +677,8 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                         'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
                         'tipoDependente': dep.get_tipo_dependente_display(),
                         'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
-                        'pai': dep.pai,
-                        'mae': dep.mae,
+                        'filiacao_um': dep.filiacao_um,
+                        'filiacao_dois': dep.filiacao_dois,
                         'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
                         'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
                     })
@@ -617,8 +704,8 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                         'vinculoId': str(vinculo.id),
                         'email': titular.email,
                         'telefone': titular.telefone,
-                        'pai': titular.pai,
-                        'mae': titular.mae,
+                        'filiacao_um': titular.filiacao_um,
+                        'filiacao_dois': titular.filiacao_dois,
                         'dataNascimento': str(titular.data_nascimento) if titular.data_nascimento else None,
                         'isLastVinculo': is_last,
                     })
@@ -642,8 +729,8 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                                 'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
                                 'tipoDependente': dep.get_tipo_dependente_display(),
                                 'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
-                                'pai': dep.pai,
-                                'mae': dep.mae,
+                                'filiacao_um': dep.filiacao_um,
+                                'filiacao_dois': dep.filiacao_dois,
                                 'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
                                 'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
                             })
@@ -668,8 +755,8 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
                     'tipoDependente': dep.get_tipo_dependente_display(),
                     'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
-                    'pai': dep.pai,
-                    'mae': dep.mae,
+                    'filiacao_um': dep.filiacao_um,
+                    'filiacao_dois': dep.filiacao_dois,
                     'dataFimVinculo': str(dep_vinculo_ativo.data_fim_vinculo) if dep_vinculo_ativo and dep_vinculo_ativo.data_fim_vinculo else None,
                     'amparo': dep_vinculo_ativo.amparo.nome if dep_vinculo_ativo and dep_vinculo_ativo.amparo else None,
                 })
