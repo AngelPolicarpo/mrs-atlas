@@ -309,16 +309,16 @@ function useTitularForm(titularId) {
           }
         })
 
-        let titularId = isEditing ? titularId : null
+        let titularIdToUse = isEditing ? titularId : null
 
         if (isEditing) {
-          await updateTitular(titularId, dataToSend)
+          await updateTitular(titularIdToUse, dataToSend)
         } else {
           const response = await createTitular(dataToSend)
-          titularId = response.data.id
+          titularIdToUse = response.data.id
         }
 
-        if (!titularId) {
+        if (!titularIdToUse) {
           throw new Error('Erro ao obter ID do titular')
         }
 
@@ -338,7 +338,7 @@ function useTitularForm(titularId) {
             observacoes: vinculo.observacoes || null,
             status: vinculo.status,
             tipo_status: vinculo.tipo_status || null,
-            titular: titularId,
+            titular: titularIdToUse,
           }
 
           if (vinculoToSend.tipo_vinculo === 'PARTICULAR') {
@@ -357,12 +357,13 @@ function useTitularForm(titularId) {
         setSuccess(isEditing ? 'Titular atualizado com sucesso!' : 'Titular cadastrado com sucesso!')
         return { success: true, titularId }
       } catch (err) {
+        console.error('Erro ao salvar titular:', err)
         const errorData = err.response?.data
         if (errorData) {
           const messages = Object.entries(errorData)
             .map(([field, errors]) => {
               const label = fieldLabels[field] || field
-              let errorMsg = Array.isArray(errors) ? errors.join(', ') : errors
+              let errorMsg = Array.isArray(errors) ? errors.join(', ') : String(errors)
               if (errorMsg.includes('already exists') || errorMsg.includes('já existe') || errorMsg.includes('unique')) {
                 errorMsg = `Este ${label} já está cadastrado no sistema.`
               }
@@ -371,7 +372,9 @@ function useTitularForm(titularId) {
             .join('\n')
           setError(messages)
         } else {
-          setError('Erro ao salvar titular')
+          const errorMessage = err.message || 'Erro ao salvar titular'
+          setError(errorMessage)
+          console.error('Detalhes do erro:', err)
         }
         return { success: false }
       } finally {
