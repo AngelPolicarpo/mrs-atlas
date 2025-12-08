@@ -1,1113 +1,241 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { pesquisaUnificada } from '../services/titulares'
+import usePesquisaFilters from '../hooks/usePesquisaFilters'
+import usePesquisaPagination from '../hooks/usePesquisaPagination'
+import usePesquisaSearch from '../hooks/usePesquisaSearch'
+import usePesquisaExport from '../hooks/usePesquisaExport'
+import useAutocomplete from '../hooks/useAutocomplete'
 import { getEmpresas } from '../services/empresas'
 import { getNacionalidades, getConsulados } from '../services/core'
-import * as XLSX from 'xlsx'
-import { saveAs } from 'file-saver'
-import { jsPDF } from 'jspdf';
-import { autoTable } from 'jspdf-autotable';
-const doc = new jsPDF()
+import {
+  buildSearchParams,
+  calcularDiasRestantes,
+  formatDate,
+  getRowClass,
+  getBadgeClass,
+  formatDiasRestantes,
+  getStatusText,
+  getStatusBadgeClass,
+  getTypeText,
+  getTypeBadgeClass,
+} from '../utils/pesquisaHelpers'
+import PesquisaFilters from '../components/PesquisaFilters'
+import PesquisaTable from '../components/PesquisaTable'
+import PesquisaPagination from '../components/PesquisaPagination'
 
+/**
+ * Página de Pesquisa Avançada
+ * Componente puro que orquestra múltiplos hooks
+ * Responsabilidades:
+ * - Coordenar hooks (filtros, paginação, busca, exportação)
+ * - Integrar com autocompletes
+ * - Renderizar componentes de tabela, filtros e paginação
+ */
 function Pesquisa() {
-  // Estados dos filtros
-  const [filters, setFilters] = useState({
-    searchTerm: '',
-    searchField: 'todos',
-    nacionalidade: '',
-    nacionalidadeText: '',
-    consulado: '',
-    consuladoText: '',
-    empresa: '',
-    empresaText: '',
-    tipoVinculo: '',
-    status: '',
-    tipoEvento: '',
-    periodo: '',
-    periodoAnterior: false,
-    periodoPosterior: true,
-    dataDe: '',
-    dataAte: '',
-  })
-  
-  // Estados de paginação
-  const [pagination, setPagination] = useState({
-    page: 1,
-    pageSize: 20,
-    totalPages: 1,
-    totalCount: 0,
-    hasNext: false,
-    hasPrevious: false,
-  })
-  
-  // Estados da página
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [expandedItems, setExpandedItems] = useState({})
-  
-  // Estados para autocomplete com busca no backend
-  const [nacionalidades, setNacionalidades] = useState([])
-  const [consulados, setConsulados] = useState([])
-  const [empresas, setEmpresas] = useState([])
-  const [loadingEmpresas, setLoadingEmpresas] = useState(false)
-  const [loadingNacionalidades, setLoadingNacionalidades] = useState(false)
-  const [loadingConsulados, setLoadingConsulados] = useState(false)
-  
-  // Refs para debounce
-  const empresaDebounceRef = useRef(null)
-  const nacionalidadeDebounceRef = useRef(null)
-  const consuladoDebounceRef = useRef(null)
-  
-  // Função para buscar empresas no backend
-  const searchEmpresas = useCallback(async (searchText) => {
-    if (!searchText || searchText.length < 2) {
-      setEmpresas([])
-      return
-    }
-    
-    setLoadingEmpresas(true)
-    try {
-      const response = await getEmpresas({ search: searchText, page_size: 20 })
-      setEmpresas(response.data.results || response.data || [])
-    } catch (error) {
-      console.error('Erro ao buscar empresas:', error)
-      setEmpresas([])
-    } finally {
-      setLoadingEmpresas(false)
-    }
-  }, [])
-  
-  // Função para buscar nacionalidades no backend
-  const searchNacionalidades = useCallback(async (searchText) => {
-    if (!searchText || searchText.length < 2) {
-      setNacionalidades([])
-      return
-    }
-    
-    setLoadingNacionalidades(true)
-    try {
-      const response = await getNacionalidades({ search: searchText, page_size: 20 })
-      setNacionalidades(response.data.results || response.data || [])
-    } catch (error) {
-      console.error('Erro ao buscar nacionalidades:', error)
-      setNacionalidades([])
-    } finally {
-      setLoadingNacionalidades(false)
-    }
-  }, [])
-  
-  // Função para buscar consulados no backend
-  const searchConsulados = useCallback(async (searchText) => {
-    if (!searchText || searchText.length < 2) {
-      setConsulados([])
-      return
-    }
-    
-    setLoadingConsulados(true)
-    try {
-      const response = await getConsulados({ search: searchText, page_size: 20 })
-      setConsulados(response.data.results || response.data || [])
-    } catch (error) {
-      console.error('Erro ao buscar consulados:', error)
-      setConsulados([])
-    } finally {
-      setLoadingConsulados(false)
-    }
-  }, [])
-  
-  // Handler para mudança no campo empresa com debounce
-  const handleEmpresaChange = useCallback((text) => {
-    setFilters(prev => ({ 
-      ...prev, 
-      empresaText: text,
-      empresa: '' // Limpar ID até selecionar
-    }))
-    
-    // Debounce: aguardar 300ms antes de buscar
-    if (empresaDebounceRef.current) {
-      clearTimeout(empresaDebounceRef.current)
-    }
-    
-    empresaDebounceRef.current = setTimeout(() => {
-      searchEmpresas(text)
-    }, 300)
-  }, [searchEmpresas])
-  
-  // Handler para mudança no campo nacionalidade com debounce
-  const handleNacionalidadeChange = useCallback((text) => {
-    setFilters(prev => ({ 
-      ...prev, 
-      nacionalidadeText: text,
-      nacionalidade: '' // Limpar ID até selecionar
-    }))
-    
-    // Debounce: aguardar 300ms antes de buscar
-    if (nacionalidadeDebounceRef.current) {
-      clearTimeout(nacionalidadeDebounceRef.current)
-    }
-    
-    nacionalidadeDebounceRef.current = setTimeout(() => {
-      searchNacionalidades(text)
-    }, 300)
-  }, [searchNacionalidades])
-  
-  // Handler para mudança no campo consulado com debounce
-  const handleConsuladoChange = useCallback((text) => {
-    setFilters(prev => ({ 
-      ...prev, 
-      consuladoText: text,
-      consulado: '' // Limpar ID até selecionar
-    }))
-    
-    // Debounce: aguardar 300ms antes de buscar
-    if (consuladoDebounceRef.current) {
-      clearTimeout(consuladoDebounceRef.current)
-    }
-    
-    consuladoDebounceRef.current = setTimeout(() => {
-      searchConsulados(text)
-    }, 300)
-  }, [searchConsulados])
-  
-  // Handler para seleção de empresa do datalist
-  const handleEmpresaSelect = useCallback((text) => {
-    const emp = empresas.find(e => e.nome.toLowerCase() === text.toLowerCase())
-    if (emp) {
-      setFilters(prev => ({ 
-        ...prev, 
-        empresaText: emp.nome,
-        empresa: emp.id 
-      }))
-    }
-  }, [empresas])
-  
-  // Handler para seleção de nacionalidade do datalist
-  const handleNacionalidadeSelect = useCallback((text) => {
-    const nac = nacionalidades.find(n => n.nome.toLowerCase() === text.toLowerCase())
-    if (nac) {
-      setFilters(prev => ({ 
-        ...prev, 
-        nacionalidadeText: nac.nome,
-        nacionalidade: nac.id 
-      }))
-    }
-  }, [nacionalidades])
-  
-  // Handler para seleção de consulado do datalist
-  const handleConsuladoSelect = useCallback((text) => {
-    const cons = consulados.find(c => c.pais.toLowerCase() === text.toLowerCase())
-    if (cons) {
-      setFilters(prev => ({ 
-        ...prev, 
-        consuladoText: cons.pais,
-        consulado: cons.id 
-      }))
-    }
-  }, [consulados])
-  
-  // Função para calcular datas do período
-  const calcularDatasDoPerido = useCallback(() => {
-    if (!filters.tipoEvento || !filters.periodo) {
-      return { dataDe: null, dataAte: null }
-    }
-    
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const diasOffset = parseInt(filters.periodo) || 0
-    
-    const dataLimite = new Date(hoje)
-    if (filters.periodoPosterior) {
-      dataLimite.setDate(dataLimite.getDate() + diasOffset)
-    } else {
-      dataLimite.setDate(dataLimite.getDate() - diasOffset)
-    }
-    
-    const hojeStr = hoje.toISOString().split('T')[0]
-    const dataLimiteStr = dataLimite.toISOString().split('T')[0]
-    
-    if (filters.periodoPosterior) {
-      return { dataDe: hojeStr, dataAte: dataLimiteStr }
-    } else {
-      return { dataDe: dataLimiteStr, dataAte: hojeStr }
-    }
-  }, [filters.tipoEvento, filters.periodo, filters.periodoPosterior])
-  
-  // Função de busca paginada
-  const handleSearch = useCallback(async (page = 1, customPageSize = null) => {
-    setLoading(true)
-    
-    try {
-      const params = {
-        page,
-        page_size: customPageSize || pagination.pageSize,
-      }
-      
-      // Adicionar filtro de busca
-      if (filters.searchTerm) {
-        params.search = filters.searchTerm
-      }
-      
-      // Filtro por campo específico ou tipo
-      if (filters.searchField === 'titular') {
-        params.tipo = 'titular'
-      } else if (filters.searchField === 'dependente') {
-        params.tipo = 'dependente'
-      } else if (filters.searchField && filters.searchField !== 'todos') {
-        params.search_field = filters.searchField
-      }
-      
-      // Filtros de titular
-      if (filters.nacionalidade) params.nacionalidade = filters.nacionalidade
-      if (filters.consulado) params.consulado = filters.consulado
-      if (filters.empresa) params.empresa = filters.empresa
-      if (filters.tipoVinculo) params.tipo_vinculo = filters.tipoVinculo
-      if (filters.status) params.vinculo_status = filters.status === 'ativo' ? 'true' : 'false'
-      
-      // Filtros de data
-      if (filters.tipoEvento) {
-        params.tipo_evento = filters.tipoEvento
-        
-        // Se usa período, calcular datas
-        if (filters.periodo) {
-          const { dataDe, dataAte } = calcularDatasDoPerido()
-          if (dataDe) params.data_de = dataDe
-          if (dataAte) params.data_ate = dataAte
-        } else {
-          // Usar datas manuais
-          if (filters.dataDe) params.data_de = filters.dataDe
-          if (filters.dataAte) params.data_ate = filters.dataAte
-        }
-      }
-      
-      // Fazer requisição
-      const response = await pesquisaUnificada(params)
-      const data = response.data
-      
-      setResults(data.results || [])
-      setPagination(prev => ({
-        ...prev,
-        page: data.page,
-        totalPages: data.total_pages,
-        totalCount: data.count,
-        hasNext: data.has_next,
-        hasPrevious: data.has_previous,
-      }))
-      
-      // Limpar expansões ao mudar de página
-      setExpandedItems({})
-      
-    } catch (error) {
-      console.error('Erro na busca:', error)
-      setResults([])
-      setPagination(prev => ({
-        ...prev,
-        page: 1,
-        totalPages: 1,
-        totalCount: 0,
-        hasNext: false,
-        hasPrevious: false,
-      }))
-    } finally {
-      setLoading(false)
-    }
-  }, [filters, pagination.pageSize, calcularDatasDoPerido])
-  
-  // Navegação de páginas
-  const goToPage = (page) => {
-    if (page >= 1 && page <= pagination.totalPages) {
+  const filters = usePesquisaFilters()
+  const pagination = usePesquisaPagination()
+  const search = usePesquisaSearch()
+  const exportFunctions = usePesquisaExport()
+
+  // Autocomplete hooks
+  const empresasAutocomplete = useAutocomplete(
+    (searchText) => getEmpresas({ search: searchText, status: true, page_size: 15 })
+  )
+  const nacionalidadesAutocomplete = useAutocomplete(
+    (searchText) => getNacionalidades({ search: searchText, ativo: true, page_size: 15 })
+  )
+  const consuladosAutocomplete = useAutocomplete(
+    (searchText) => getConsulados({ search: searchText, ativo: true, page_size: 15 })
+  )
+
+  // Handler para buscar
+  const handleSearch = useCallback(
+    async (page = 1) => {
+      const params = buildSearchParams(filters.filters, page, pagination.pagination.pageSize)
+      const result = await search.search(params, page, pagination.pagination.pageSize)
+      pagination.updatePagination(result.pagination)
+    },
+    [filters.filters, pagination, search]
+  )
+
+  // Handler para mudar página
+  const handlePageChange = useCallback(
+    (page) => {
       handleSearch(page)
-    }
-  }
-  
-  const goToNextPage = () => {
-    if (pagination.hasNext) {
-      handleSearch(pagination.page + 1)
-    }
-  }
-  
-  const goToPreviousPage = () => {
-    if (pagination.hasPrevious) {
-      handleSearch(pagination.page - 1)
-    }
-  }
-  
-  // Mudar tamanho da página
-  const handlePageSizeChange = (newSize) => {
-    setPagination(prev => ({ ...prev, pageSize: newSize }))
-    // Rebuscar imediatamente com o novo tamanho
-    handleSearch(1, newSize)
-  }
-  
-  // Função para calcular dias restantes
-  function calcularDiasRestantes(dataFim) {
-    if (!dataFim) return null
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const fim = new Date(dataFim)
-    fim.setHours(0, 0, 0, 0)
-    const diffTime = fim - hoje
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  }
-  
-  // Função para obter classe da linha baseado no vencimento
-  function getRowClass(dataFim, type) {
-    let baseClass = type === 'dependente' ? 'row-dependente' : ''
-    if (type === 'dependente-orphan') baseClass = 'row-dependente row-orphan'
-    
-    const dias = calcularDiasRestantes(dataFim)
-    if (dias === null) return baseClass
-    if (dias < 0) return `${baseClass} row-expired`
-    if (dias <= 60) return `${baseClass} row-warning`
-    return baseClass
-  }
-  
-  // Função para formatar data
-  function formatDate(dateStr) {
-    if (!dateStr) return '-'
-    return new Date(dateStr).toLocaleDateString('pt-BR')
-  }
-  
-  // ====================
-  // FUNÇÕES DE EXPORTAÇÃO
-  // ====================
-  
-  const [exporting, setExporting] = useState(false)
-  
-  // Buscar todos os resultados para exportação
-  async function fetchAllResults() {
-    try {
-      const params = {
-        page: 1,
-        page_size: 1000, // Máximo permitido pela API
-      }
-      
-      // Adicionar filtros atuais
-      if (filters.searchTerm) params.search = filters.searchTerm
-      if (filters.nacionalidade) params.nacionalidade = filters.nacionalidade
-      if (filters.consulado) params.consulado = filters.consulado
-      if (filters.empresa) params.empresa = filters.empresa
-      if (filters.tipoVinculo) params.tipo_vinculo = filters.tipoVinculo
-      if (filters.status) params.vinculo_status = filters.status === 'ativo' ? 'true' : 'false'
-      
-      if (filters.tipoEvento) {
-        params.tipo_evento = filters.tipoEvento
-        if (filters.periodo) {
-          const { dataDe, dataAte } = calcularDatasDoPerido()
-          if (dataDe) params.data_de = dataDe
-          if (dataAte) params.data_ate = dataAte
-        } else {
-          if (filters.dataDe) params.data_de = filters.dataDe
-          if (filters.dataAte) params.data_ate = filters.dataAte
-        }
-      }
-      
-      const response = await pesquisaUnificada(params)
-      return response.data.results || []
-    } catch (error) {
-      console.error('Erro ao buscar dados para exportação:', error)
-      throw error
-    }
-  }
-  
-  // Preparar dados para exportação
-  function prepareExportData(data) {
-    return data.map(item => ({
-      'Nome': item.nome || '-',
-      'Tipo': item.type === 'titular' ? 'Titular' : 'Dependente',
-      'Vínculo/Relação': item.type === 'titular' 
-        ? `${item.tipoVinculo || ''}${item.empresa ? ` ${item.empresa}` : ''}`.trim() || '-'
-        : `${item.tipoDependente || 'Dependente'} de ${item.titularNome}`,
-      'Amparo': item.amparo || '-',
-      'RNM': item.rnm || '-',
-      'CPF': item.cpf || '-',
-      'Passaporte': item.passaporte || '-',
-      'Nacionalidade': item.nacionalidade || '-',
-      'Data Nascimento': formatDate(item.dataNascimento),
-      'Data Fim Vínculo': formatDate(item.dataFimVinculo),
-      'Status': item.type === 'titular' 
-        ? (item.status ? 'Ativo' : item.status === false ? 'Inativo' : 'Sem Vínculo')
-        : 'Ativo',
-      'Email': item.email || '-',
-      'Telefone': item.telefone || '-',
-    }))
-  }
-  
-  // Exportar para CSV
-  async function exportToCSV(exportAll = false) {
-    if (results.length === 0) {
-      alert('Não há dados para exportar.')
-      return
-    }
-    
-    setExporting(true)
-    try {
-      const dataToExport = exportAll ? await fetchAllResults() : results
-      const data = prepareExportData(dataToExport)
-      const headers = Object.keys(data[0])
-      
-      // Criar conteúdo CSV com BOM para UTF-8
-      let csvContent = '\uFEFF' // BOM para Excel reconhecer UTF-8
-      csvContent += headers.join(';') + '\n'
-      
-      data.forEach(row => {
-        const values = headers.map(header => {
-          let value = row[header] || ''
-          // Escapar aspas e envolver em aspas se contiver separador
-          value = String(value).replace(/"/g, '""')
-          if (value.includes(';') || value.includes('"') || value.includes('\n')) {
-            value = `"${value}"`
-          }
-          return value
-        })
-        csvContent += values.join(';') + '\n'
-      })
-      
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' })
-      const timestamp = new Date().toISOString().split('T')[0]
-      const suffix = exportAll ? '_completo' : ''
-      saveAs(blob, `pesquisa_atlas${suffix}_${timestamp}.csv`)
-    } catch (error) {
-      console.error('Erro ao exportar CSV:', error)
-      alert('Erro ao exportar. Tente novamente.')
-    } finally {
-      setExporting(false)
-    }
-  }
-  
-  // Exportar para XLSX
-  async function exportToXLSX(exportAll = false) {
-    if (results.length === 0) {
-      alert('Não há dados para exportar.')
-      return
-    }
-    
-    setExporting(true)
-    try {
-      const dataToExport = exportAll ? await fetchAllResults() : results
-      const data = prepareExportData(dataToExport)
-      
-      // Criar worksheet
-      const ws = XLSX.utils.json_to_sheet(data)
-      
-      // Ajustar largura das colunas
-      const colWidths = Object.keys(data[0]).map(key => ({
-        wch: Math.max(key.length, ...data.map(row => String(row[key] || '').length).slice(0, 50)) + 2
-      }))
-      ws['!cols'] = colWidths
-      
-      // Criar workbook
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Pesquisa')
-      
-      // Gerar arquivo
-      const timestamp = new Date().toISOString().split('T')[0]
-      const suffix = exportAll ? '_completo' : ''
-      XLSX.writeFile(wb, `pesquisa_atlas${suffix}_${timestamp}.xlsx`)
-    } catch (error) {
-      console.error('Erro ao exportar XLSX:', error)
-      alert('Erro ao exportar. Tente novamente.')
-    } finally {
-      setExporting(false)
-    }
-  }
-  
-  // Exportar para PDF
-  async function exportToPDF(exportAll = false) {
-    if (results.length === 0) {
-      alert('Não há dados para exportar.')
-      return
-    }
-    
-    setExporting(true)
-    try {
-      const dataToExport = exportAll ? await fetchAllResults() : results
-      
-      const doc = new jsPDF('landscape', 'mm', 'a4')
-      
-      // Título
-      doc.setFontSize(16)
-      doc.text('Pesquisa Avançada - Atlas', 14, 15)
-      
-      // Info
-      doc.setFontSize(10)
-      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 22)
-      doc.text(`Total de registros: ${dataToExport.length}`, 14, 27)
-      
-      // Preparar dados para tabela
-      const tableColumns = ['Nome', 'Tipo', 'Vínculo/Relação', 'Amparo', 'RNM', 'Fim Vínculo', 'Status']
-      const tableData = dataToExport.map(item => [
-        item.nome || '-',
-        item.type === 'titular' ? 'Titular' : 'Dependente',
-        item.type === 'titular' 
-          ? `${item.tipoVinculo || ''}${item.empresa ? ` ${item.empresa}` : ''}`.trim() || '-'
-          : `${item.tipoDependente || 'Dep.'} de ${item.titularNome?.split(' ')[0] || ''}`,
-        item.amparo || '-',
-        item.rnm || '-',
-        formatDate(item.dataFimVinculo),
-        item.type === 'titular' 
-          ? (item.status ? 'Ativo' : item.status === false ? 'Inativo' : 'Sem Vínculo')
-          : 'Ativo',
-      ])
-      
-      // Gerar tabela
-        autoTable(doc, {
-        head: [tableColumns],
-        body: tableData,
-        startY: 32,
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [59, 130, 246], // Azul
-          textColor: 255,
-          fontStyle: 'bold',
-        },
-        alternateRowStyles: {
-          fillColor: [245, 247, 250],
-        },
-        columnStyles: {
-          0: { cellWidth: 50 }, // Nome
-          1: { cellWidth: 20 }, // Tipo
-          2: { cellWidth: 50 }, // Vínculo
-          3: { cellWidth: 40 }, // Amparo
-          4: { cellWidth: 30 }, // RNM
-          5: { cellWidth: 25 }, // Fim Vínculo
-          6: { cellWidth: 25 }, // Status
-        },
-      })
-      
-      // Rodapé
-      const pageCount = doc.internal.getNumberOfPages()
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i)
-        doc.setFontSize(8)
-        doc.text(
-          `Página ${i} de ${pageCount}`,
-          doc.internal.pageSize.getWidth() / 2,
-          doc.internal.pageSize.getHeight() - 10,
-          { align: 'center' }
-        )
-      }
-      
-      // Salvar
-      const timestamp = new Date().toISOString().split('T')[0]
-      const suffix = exportAll ? '_completo' : ''
-      doc.save(`pesquisa_atlas${suffix}_${timestamp}.pdf`)
-    } catch (error) {
-      console.error('Erro ao exportar PDF:', error)
-      alert('Erro ao exportar. Tente novamente.')
-    } finally {
-      setExporting(false)
-    }
-  }
-  
-  // Handler para mudança de filtro
-  function handleFilterChange(e) {
-    const { name, value } = e.target
-    setFilters(prev => ({ ...prev, [name]: value }))
-  }
-  
-  // Limpar filtros
-  function handleClearFilters() {
-    setFilters({
-      searchTerm: '',
-      searchField: 'todos',
-      nacionalidade: '',
-      nacionalidadeText: '',
-      empresa: '',
-      empresaText: '',
-      tipoVinculo: '',
-      status: '',
-      tipoEvento: '',
-      periodo: '',
-      periodoAnterior: false,
-      periodoPosterior: true,
-      dataDe: '',
-      dataAte: '',
-    })
-  }
-  
-  // Handler para tecla Enter
-  function handleKeyPress(e) {
-    if (e.key === 'Enter') {
+    },
+    [handleSearch]
+  )
+
+  // Handler para mudar tamanho da página
+  const handlePageSizeChange = useCallback(
+    (newSize) => {
+      pagination.setPageSize(newSize)
       handleSearch(1)
-    }
-  }
-  
-  // Toggle expandir detalhes
-  function toggleExpand(id) {
-    setExpandedItems(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }))
-  }
-  
-  // Render detalhes expandidos do titular
-  function renderTitularDetails(item) {
-    return (
-      <tr className="row-details" key={`details-${item.visibleId}`}>
-        <td colSpan="9">
-          <div className="details-content">
-            <div className="details-grid">
-              <div className="details-section">
-                <h4>Dados Pessoais</h4>
-                <p><strong>CPF:</strong> {item.cpf || '-'}</p>
-                <p><strong>Passaporte:</strong> {item.passaporte || '-'}</p>
-                <p><strong>Nacionalidade:</strong> {item.nacionalidade || '-'}</p>
-                <p><strong>Data Nascimento:</strong> {formatDate(item.dataNascimento)}</p>
-              </div>
-              <div className="details-section">
-                <h4>Contato</h4>
-                <p><strong>Email:</strong> {item.email || '-'}</p>
-                <p><strong>Telefone:</strong> {item.telefone || '-'}</p>
-              </div>
-              <div className="details-section">
-                <h4>Filiação</h4>
-                <p><strong>Filiação 1:</strong> {item.filiacao_um || '-'}</p>
-                <p><strong>Filiação 2:</strong> {item.filiacao_dois || '-'}</p>
-              </div>
-            </div>
-          </div>
-        </td>
-      </tr>
-    )
-  }
-  
-  // Render detalhes expandidos do dependente
-  function renderDependenteDetails(item) {
-    return (
-      <tr className="row-details" key={`details-${item.visibleId}`}>
-        <td colSpan="9">
-          <div className="details-content">
-            <div className="details-grid">
-              <div className="details-section">
-                <h4>Dados Pessoais</h4>
-                <p><strong>Passaporte:</strong> {item.passaporte || '-'}</p>
-                <p><strong>Nacionalidade:</strong> {item.nacionalidade || '-'}</p>
-                <p><strong>Data Nascimento:</strong> {formatDate(item.dataNascimento)}</p>
-              </div>
-              <div className="details-section">
-                <h4>Filiação</h4>
-                <p><strong>Filiação 1:</strong> {item.filiacao_um || '-'}</p>
-                <p><strong>Filiação 2:</strong> {item.filiacao_dois || '-'}</p>
-              </div>
-              <div className="details-section">
-                <h4>Titular</h4>
-                <p><strong>Nome:</strong> {item.titularNome}</p>
-                <Link to={`/titulares/${item.titularId}`} className="btn btn-sm btn-outline">
-                  Ver Titular
-                </Link>
-              </div>
-            </div>
-          </div>
-        </td>
-      </tr>
-    )
-  }
-  
-  // Renderizar paginação
-  function renderPagination() {
-    if (pagination.totalPages <= 1) return null
-    
-    const pages = []
-    const maxVisiblePages = 5
-    let startPage = Math.max(1, pagination.page - Math.floor(maxVisiblePages / 2))
-    let endPage = Math.min(pagination.totalPages, startPage + maxVisiblePages - 1)
-    
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1)
-    }
-    
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i)
-    }
-    
-    return (
-      <div className="pagination">
-        <button 
-          className="btn btn-sm btn-outline"
-          onClick={() => goToPage(1)}
-          disabled={pagination.page === 1}
-        >
-          ⏮️
-        </button>
-        <button 
-          className="btn btn-sm btn-outline"
-          onClick={goToPreviousPage}
-          disabled={!pagination.hasPrevious}
-        >
-          ◀️ Anterior
-        </button>
-        
-        <div className="pagination-pages">
-          {startPage > 1 && (
-            <>
-              <button className="btn btn-sm btn-outline" onClick={() => goToPage(1)}>1</button>
-              {startPage > 2 && <span className="pagination-ellipsis">...</span>}
-            </>
-          )}
-          
-          {pages.map(page => (
-            <button
-              key={page}
-              className={`btn btn-sm ${page === pagination.page ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => goToPage(page)}
-            >
-              {page}
-            </button>
-          ))}
-          
-          {endPage < pagination.totalPages && (
-            <>
-              {endPage < pagination.totalPages - 1 && <span className="pagination-ellipsis">...</span>}
-              <button className="btn btn-sm btn-outline" onClick={() => goToPage(pagination.totalPages)}>
-                {pagination.totalPages}
-              </button>
-            </>
-          )}
-        </div>
-        
-        <button 
-          className="btn btn-sm btn-outline"
-          onClick={goToNextPage}
-          disabled={!pagination.hasNext}
-        >
-          Próxima ▶️
-        </button>
-        <button 
-          className="btn btn-sm btn-outline"
-          onClick={() => goToPage(pagination.totalPages)}
-          disabled={pagination.page === pagination.totalPages}
-        >
-          ⏭️
-        </button>
-      </div>
-    )
-  }
-  
+    },
+    [pagination, handleSearch]
+  )
+
+  // Handler para tecla Enter
+  const handleKeyPress = useCallback(
+    (e) => {
+      if (e.key === 'Enter') {
+        handleSearch(1)
+      }
+    },
+    [handleSearch]
+  )
+
+  // Handler para exportar CSV
+  const handleExportCSV = useCallback(
+    async (exportAll = false) => {
+      if (search.results.length === 0) {
+        alert('Não há dados para exportar.')
+        return
+      }
+
+      try {
+        let dataToExport = search.results
+        if (exportAll) {
+          dataToExport = await exportFunctions.fetchAllResults(filters.filters)
+        }
+        await exportFunctions.exportToCSV(dataToExport, 'pesquisa_atlas')
+      } catch (error) {
+        alert('Erro ao exportar. Tente novamente.')
+      }
+    },
+    [search.results, exportFunctions, filters.filters]
+  )
+
+  // Handler para exportar XLSX
+  const handleExportXLSX = useCallback(
+    async (exportAll = false) => {
+      if (search.results.length === 0) {
+        alert('Não há dados para exportar.')
+        return
+      }
+
+      try {
+        let dataToExport = search.results
+        if (exportAll) {
+          dataToExport = await exportFunctions.fetchAllResults(filters.filters)
+        }
+        await exportFunctions.exportToXLSX(dataToExport, 'pesquisa_atlas')
+      } catch (error) {
+        alert('Erro ao exportar. Tente novamente.')
+      }
+    },
+    [search.results, exportFunctions, filters.filters]
+  )
+
+  // Handler para exportar PDF
+  const handleExportPDF = useCallback(
+    async (exportAll = false) => {
+      if (search.results.length === 0) {
+        alert('Não há dados para exportar.')
+        return
+      }
+
+      try {
+        let dataToExport = search.results
+        if (exportAll) {
+          dataToExport = await exportFunctions.fetchAllResults(filters.filters)
+        }
+        await exportFunctions.exportToPDF(dataToExport, 'pesquisa_atlas')
+      } catch (error) {
+        alert('Erro ao exportar. Tente novamente.')
+      }
+    },
+    [search.results, exportFunctions, filters.filters]
+  )
+
   return (
     <div>
       <div className="page-header">
         <h1 className="page-title">🔍 Pesquisa Avançada</h1>
       </div>
-      
+
       {/* Filtros */}
-      <div className="card filter-card">
-        {/* Busca Unificada */}
-        <div className="search-unified">
-          <div className="search-field-selector">
-            <select
-              name="searchField"
-              className="form-select"
-              value={filters.searchField}
-              onChange={handleFilterChange}
-              style={{ border: '0px solid transparent' }}
-            >
-              <option value="todos">Todos os Campos</option>
-              <option value="nome">Nome</option>
-              <option value="rnm">RNM</option>
-              <option value="cpf">CPF</option>
-              <option value="passaporte">Passaporte</option>
-              <option value="titular">Apenas Titulares</option>
-              <option value="dependente">Apenas Dependentes</option>
-            </select>
-          </div>
-          <div className="search-input-wrapper">
-            <input
-              type="text"
-              name="searchTerm"
-              className="form-input search-input"
-              value={filters.searchTerm}
-              onChange={handleFilterChange}
-              onKeyPress={handleKeyPress}
-              placeholder="Buscar titulares e dependentes..."
-              style={{ border: '0px solid transparent' }}
-            />
-          </div>
-          <button className="btn btn-primary" onClick={() => handleSearch(1)}>
-            🔍 Buscar
-          </button>
-        </div>
-        
-        {/* Filtros Adicionais */}
-        <div className="filter-toggle">
-          <details>
-            <summary className="filter-summary">Filtros Avançados</summary>
-            <div className="filter-grid">
-              <div className="form-group">
-                <label className="form-label">Nacionalidade</label>
-                <input
-                  type="text"
-                  name="nacionalidadeText"
-                  className="form-input"
-                  value={filters.nacionalidadeText || ''}
-                  onChange={(e) => handleNacionalidadeChange(e.target.value)}
-                  onBlur={(e) => handleNacionalidadeSelect(e.target.value)}
-                  list="nacionalidades-list"
-                  placeholder={loadingNacionalidades ? 'Buscando...' : 'Digite para buscar...'}
-                />
-                <datalist id="nacionalidades-list">
-                  {nacionalidades.map(nac => (
-                    <option key={nac.id} value={nac.nome} />
-                  ))}
-                </datalist>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Consulado</label>
-                <input
-                  type="text"
-                  name="consuladoText"
-                  className="form-input"
-                  value={filters.consuladoText || ''}
-                  onChange={(e) => handleConsuladoChange(e.target.value)}
-                  onBlur={(e) => handleConsuladoSelect(e.target.value)}
-                  list="consulados-list"
-                  placeholder={loadingConsulados ? 'Buscando...' : 'Digite para buscar...'}
-                />
-                <datalist id="consulados-list">
-                  {consulados.map(cons => (
-                    <option key={cons.id} value={cons.pais} />
-                  ))}
-                </datalist>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Empresa</label>
-                <input
-                  type="text"
-                  name="empresaText"
-                  className="form-input"
-                  value={filters.empresaText || ''}
-                  onChange={(e) => handleEmpresaChange(e.target.value)}
-                  onBlur={(e) => handleEmpresaSelect(e.target.value)}
-                  list="empresas-list"
-                  placeholder={loadingEmpresas ? 'Buscando...' : 'Digite para buscar...'}
-                />
-                <datalist id="empresas-list">
-                  {empresas.map(emp => (
-                    <option key={emp.id} value={emp.nome} />
-                  ))}
-                </datalist>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Tipo Vínculo</label>
-                <select
-                  name="tipoVinculo"
-                  className="form-select"
-                  value={filters.tipoVinculo}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">Todos</option>
-                  <option value="EMPRESA">Empresa</option>
-                  <option value="PARTICULAR">Particular</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Status</label>
-                <select
-                  name="status"
-                  className="form-select"
-                  value={filters.status}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">Todos</option>
-                  <option value="ativo">Ativo</option>
-                  <option value="inativo">Inativo</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Evento</label>
-                <select
-                  name="tipoEvento"
-                  className="form-select"
-                  value={filters.tipoEvento}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="entrada">Entrada</option>
-                  <option value="atualizacao">Atualização</option>
-                  <option value="vencimento">Vencimento</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Período</label>
-                <select
-                  name="periodo"
-                  className="form-select"
-                  value={filters.periodo}
-                  onChange={(e) => setFilters(prev => ({ 
-                    ...prev, 
-                    periodo: e.target.value,
-                    dataDe: e.target.value ? '' : prev.dataDe,
-                    dataAte: e.target.value ? '' : prev.dataAte,
-                  }))}
-                  disabled={!filters.tipoEvento || filters.dataDe || filters.dataAte}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="15">15 dias</option>
-                  <option value="30">30 dias</option>
-                  <option value="60">60 dias</option>
-                  <option value="90">90 dias</option>
-                  <option value="120">120 dias</option>
-                  <option value="180">6 meses</option>
-                  <option value="365">1 ano</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Direção do Período</label>
-                <div className="checkbox-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      name="periodoPosterior"
-                      checked={filters.periodoPosterior}
-                      onChange={(e) => setFilters(prev => ({ 
-                        ...prev, 
-                        periodoPosterior: e.target.checked,
-                        periodoAnterior: e.target.checked ? false : prev.periodoAnterior
-                      }))}
-                      disabled={!filters.tipoEvento || !filters.periodo}
-                    />
-                    Posterior (próximos dias)
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      name="periodoAnterior"
-                      checked={filters.periodoAnterior}
-                      onChange={(e) => setFilters(prev => ({ 
-                        ...prev, 
-                        periodoAnterior: e.target.checked,
-                        periodoPosterior: e.target.checked ? false : prev.periodoPosterior
-                      }))}
-                      disabled={!filters.tipoEvento || !filters.periodo}
-                    />
-                    Anterior (dias passados)
-                  </label>
-                </div>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">De</label>
-                <input
-                  type="date"
-                  name="dataDe"
-                  className="form-input"
-                  value={filters.dataDe}
-                  onChange={(e) => setFilters(prev => ({ 
-                    ...prev, 
-                    dataDe: e.target.value,
-                    periodo: e.target.value ? '' : prev.periodo,
-                  }))}
-                  disabled={!filters.tipoEvento || filters.periodo}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">Até</label>
-                <input
-                  type="date"
-                  name="dataAte"
-                  className="form-input"
-                  value={filters.dataAte}
-                  onChange={(e) => setFilters(prev => ({ 
-                    ...prev, 
-                    dataAte: e.target.value,
-                    periodo: e.target.value ? '' : prev.periodo,
-                  }))}
-                  disabled={!filters.tipoEvento || filters.periodo}
-                />
-              </div>
-            </div>
-            
-            <div className="filter-actions">
-              <button className="btn btn-secondary" onClick={handleClearFilters}>
-                Limpar Filtros
-              </button>
-              <button className="btn btn-primary" onClick={() => handleSearch(1)}>
-                Aplicar Filtros
-              </button>
-            </div>
-          </details>
-        </div>
-      </div>
-      
+      <PesquisaFilters
+        filters={filters}
+        empresasAutocomplete={empresasAutocomplete}
+        nacionalidadesAutocomplete={nacionalidadesAutocomplete}
+        consuladosAutocomplete={consuladosAutocomplete}
+        onSearch={handleSearch}
+        onKeyPress={handleKeyPress}
+      />
+
       {/* Resultados */}
       <div className="card">
         <div className="results-header">
           <span className="results-count">
-            <strong>{results.length}</strong> registro(s) encontrado(s)
-            {pagination.totalPages > 1 && (
-              <span className="text-muted"> — Página {pagination.page} de {pagination.totalPages}</span>
+            <strong>{search.results.length}</strong> registro(s) encontrado(s)
+            {pagination.pagination.totalPages > 1 && (
+              <span className="text-muted">
+                {' '}
+                — Página {pagination.pagination.page} de {pagination.pagination.totalPages}
+              </span>
             )}
           </span>
           <div className="results-options">
             {/* Botões de Exportação */}
             <div className="export-buttons">
               <div className="export-dropdown">
-                <button 
-                  className="btn btn-sm btn-outline" 
-                  disabled={results.length === 0 || exporting}
+                <button
+                  className="btn btn-sm btn-outline"
+                  disabled={search.results.length === 0 || exportFunctions.exporting}
                   title="Exportar para CSV"
                 >
-                  {exporting ? '⏳' : '📄'} CSV ▾
+                  {exportFunctions.exporting ? '⏳' : '📄'} CSV ▾
                 </button>
                 <div className="export-dropdown-content">
-                  <button onClick={() => exportToCSV(false)} disabled={exporting}>
-                    Página atual ({results.length})
+                  <button onClick={() => handleExportCSV(false)} disabled={exportFunctions.exporting}>
+                    Página atual ({search.results.length})
                   </button>
-                  <button onClick={() => exportToCSV(true)} disabled={exporting}>
-                    Todos ({pagination.totalCount})
+                  <button onClick={() => handleExportCSV(true)} disabled={exportFunctions.exporting}>
+                    Todos ({pagination.pagination.totalCount})
                   </button>
                 </div>
               </div>
               <div className="export-dropdown">
-                <button 
-                  className="btn btn-sm btn-outline" 
-                  disabled={results.length === 0 || exporting}
+                <button
+                  className="btn btn-sm btn-outline"
+                  disabled={search.results.length === 0 || exportFunctions.exporting}
                   title="Exportar para Excel"
                 >
-                  {exporting ? '⏳' : '📊'} XLSX ▾
+                  {exportFunctions.exporting ? '⏳' : '📊'} XLSX ▾
                 </button>
                 <div className="export-dropdown-content">
-                  <button onClick={() => exportToXLSX(false)} disabled={exporting}>
-                    Página atual ({results.length})
+                  <button onClick={() => handleExportXLSX(false)} disabled={exportFunctions.exporting}>
+                    Página atual ({search.results.length})
                   </button>
-                  <button onClick={() => exportToXLSX(true)} disabled={exporting}>
-                    Todos ({pagination.totalCount})
+                  <button onClick={() => handleExportXLSX(true)} disabled={exportFunctions.exporting}>
+                    Todos ({pagination.pagination.totalCount})
                   </button>
                 </div>
               </div>
               <div className="export-dropdown">
-                <button 
-                  className="btn btn-sm btn-outline" 
-                  disabled={results.length === 0 || exporting}
+                <button
+                  className="btn btn-sm btn-outline"
+                  disabled={search.results.length === 0 || exportFunctions.exporting}
                   title="Exportar para PDF"
                 >
-                  {exporting ? '⏳' : '📑'} PDF ▾
+                  {exportFunctions.exporting ? '⏳' : '📑'} PDF ▾
                 </button>
                 <div className="export-dropdown-content">
-                  <button onClick={() => exportToPDF(false)} disabled={exporting}>
-                    Página atual ({results.length})
+                  <button onClick={() => handleExportPDF(false)} disabled={exportFunctions.exporting}>
+                    Página atual ({search.results.length})
                   </button>
-                  <button onClick={() => exportToPDF(true)} disabled={exporting}>
-                    Todos ({pagination.totalCount})
+                  <button onClick={() => handleExportPDF(true)} disabled={exportFunctions.exporting}>
+                    Todos ({pagination.pagination.totalCount})
                   </button>
                 </div>
               </div>
             </div>
             <label className="form-label-inline">
               Itens por página:
-              <select 
+              <select
                 className="form-select form-select-sm"
-                value={pagination.pageSize}
+                value={pagination.pagination.pageSize}
                 onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
                 style={{ width: '80px', marginLeft: '0.5rem' }}
               >
@@ -1119,161 +247,40 @@ function Pesquisa() {
             </label>
           </div>
         </div>
-        
-        {loading ? (
+
+        {search.loading ? (
           <div className="loading-inline">Carregando...</div>
-        ) : results.length === 0 ? (
+        ) : search.results.length === 0 ? (
           <div className="empty-state">
             <p>Nenhum resultado encontrado.</p>
             <p>Tente ajustar os filtros de busca.</p>
           </div>
         ) : (
           <>
-          <div className="table-container">
-            <table className="pesquisa-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '30px' }}></th>
-                  <th>Nome</th>
-                  <th>Tipo</th>
-                  <th>Vínculo/Relação</th>
-                  <th>Amparo</th>
-                  <th>RNM</th>
-                  <th>Data Fim Vínculo</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map(item => (
-                  <React.Fragment key={item.visibleId}>
-                    <tr 
-                      className={getRowClass(item.dataFimVinculo, item.type)}
-                    >
-                      <td>
-                        <button 
-                          className="btn-expand"
-                          onClick={() => toggleExpand(item.visibleId)}
-                        >
-                          {expandedItems[item.visibleId] ? '▼' : '▶'}
-                        </button>
-                      </td>
-                      <td>
-                        <strong>{item.nome}</strong>
-                      </td>
-                      <td>
-                        {item.type === 'titular' && (
-                          <span className="tipo-badge tipo-titular">Titular</span>
-                        )}
-                        {(item.type === 'dependente' || item.type === 'dependente-orphan') && (
-                          <span className="tipo-badge tipo-dependente">Dependente</span>
-                        )}
-                      </td>
-                      <td>
-                        {item.type === 'titular' && (
-                          <>
-                            {item.tipoVinculo !== 'Empresa' && (item.tipoVinculo || '-')}
-                            {item.empresa && ` ${item.empresa}`}
-                          </>
-                        )}
-                        {(item.type === 'dependente' || item.type === 'dependente-orphan') && (
-                          <span className="text-small">
-                            {item.tipoDependente || 'Dependente'} de {item.titularNome}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        {item.type === 'titular' ? (item.amparo || '-') : (item.amparo || '-')}
-                      </td>
-                      <td>{item.rnm || '-'}</td>
-                      <td>
-                        {item.type === 'titular' && (
-                          <>
-                            {formatDate(item.dataFimVinculo)}
-                            {(() => {
-                              const dias = calcularDiasRestantes(item.dataFimVinculo)
-                              if (dias !== null) {
-                                let badgeClass = 'badge-success'
-                                if (dias < 0) badgeClass = 'badge-danger'
-                                else if (dias <= 30) badgeClass = 'badge-warning'
-                                else if (dias <= 90) badgeClass = 'badge-info'
-                                
-                                return (
-                                  <span className={`badge ${badgeClass}`} style={{ marginLeft: '0.5rem' }}>
-                                    {dias < 0 ? `${Math.abs(dias)}d atrás` : `${dias}d`}
-                                  </span>
-                                )
-                              }
-                              return null
-                            })()}
-                          </>
-                        )}
-                        {(item.type === 'dependente' || item.type === 'dependente-orphan') && (
-                          <>
-                            {formatDate(item.dataFimVinculo)}
-                            {(() => {
-                              const dias = calcularDiasRestantes(item.dataFimVinculo)
-                              if (dias !== null) {
-                                let badgeClass = 'badge-success'
-                                if (dias < 0) badgeClass = 'badge-danger'
-                                else if (dias <= 30) badgeClass = 'badge-warning'
-                                else if (dias <= 90) badgeClass = 'badge-info'
-                                
-                                return (
-                                  <span className={`badge ${badgeClass}`} style={{ marginLeft: '0.5rem' }}>
-                                    {dias < 0 ? `${Math.abs(dias)}d atrás` : `${dias}d`}
-                                  </span>
-                                )
-                              }
-                              return null
-                            })()}
-                          </>
-                        )}
-                      </td>
-                      <td>
-                        {item.type === 'titular' && (
-                          <span className={`badge ${item.status ? 'badge-success' : item.status === false ? 'badge-danger' : 'badge-secondary'}`}>
-                            {item.status ? 'Ativo' : item.status === false ? 'Inativo' : 'Sem Vínculo'}
-                          </span>
-                        )}
-                        {(item.type === 'dependente' || item.type === 'dependente-orphan') && (
-                          <span className="badge badge-success">Ativo</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="actions-buttons">
-                          <button 
-                            className="btn btn-sm btn-outline"
-                            onClick={() => toggleExpand(item.visibleId)}
-                          >
-                            {expandedItems[item.visibleId] ? 'Ocultar' : 'Ver mais'}
-                          </button>
-                          <Link 
-                            to={item.type === 'titular' ? `/titulares/${item.id}` : `/dependentes/${item.id}`} 
-                            className="btn btn-sm btn-primary"
-                          >
-                            Editar
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                    {expandedItems[item.visibleId] && (
-                      item.type === 'titular' 
-                        ? renderTitularDetails(item) 
-                        : renderDependenteDetails(item)
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Paginação */}
-          {renderPagination()}
+            <PesquisaTable
+              results={search.results}
+              expandedItems={search.expandedItems}
+              onToggleExpand={search.toggleExpand}
+              getRowClass={getRowClass}
+              formatDate={formatDate}
+              calcularDiasRestantes={calcularDiasRestantes}
+              getBadgeClass={getBadgeClass}
+              formatDiasRestantes={formatDiasRestantes}
+              getStatusText={getStatusText}
+              getStatusBadgeClass={getStatusBadgeClass}
+              getTypeText={getTypeText}
+              getTypeBadgeClass={getTypeBadgeClass}
+            />
+
+            {/* Paginação */}
+            <PesquisaPagination
+              pagination={pagination.pagination}
+              onPageChange={handlePageChange}
+            />
           </>
         )}
       </div>
-      
+
       {/* Legenda */}
       <div className="results-legend">
         <span className="legend-item">
