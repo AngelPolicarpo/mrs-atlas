@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import usePesquisaFilters from '../hooks/usePesquisaFilters'
-import usePesquisaPagination from '../hooks/usePesquisaPagination'
+import usePagination from '../hooks/usePagination'
 import usePesquisaSearch from '../hooks/usePesquisaSearch'
 import usePesquisaExport from '../hooks/usePesquisaExport'
 import useAutoComplete from '../hooks/useAutoComplete'
@@ -20,7 +20,7 @@ import {
 } from '../utils/pesquisaHelpers'
 import PesquisaFilters from '../components/PesquisaFilters'
 import PesquisaTable from '../components/PesquisaTable'
-import PesquisaPagination from '../components/PesquisaPagination'
+import Pagination from '../components/Pagination'
 
 /**
  * Página de Pesquisa Avançada
@@ -32,7 +32,7 @@ import PesquisaPagination from '../components/PesquisaPagination'
  */
 function Pesquisa() {
   const filters = usePesquisaFilters()
-  const pagination = usePesquisaPagination()
+  const { pagination, pageSizeOptions, setPage, setPageSize, updateFromResponse } = usePagination({ initialPageSize: 10 })
   const search = usePesquisaSearch()
   const exportFunctions = usePesquisaExport()
 
@@ -44,29 +44,30 @@ function Pesquisa() {
   // Handler para buscar
   const handleSearch = useCallback(
     async (page = 1, customPageSize = null) => {
-      const effectivePageSize = customPageSize || pagination.pagination.pageSize
+      const effectivePageSize = customPageSize || pagination.pageSize
       const params = buildSearchParams(filters.filters, page, effectivePageSize)
       const result = await search.search(params, page, effectivePageSize)
-      pagination.updatePagination(result.pagination)
+      updateFromResponse({ count: result.pagination.totalCount, next: result.pagination.hasNext, previous: result.pagination.hasPrevious }, page, effectivePageSize)
     },
-    [filters.filters, pagination, search]
+    [filters.filters, pagination.pageSize, search, updateFromResponse]
   )
 
   // Handler para mudar página
   const handlePageChange = useCallback(
     (page) => {
+      setPage(page)
       handleSearch(page)
     },
-    [handleSearch]
+    [handleSearch, setPage]
   )
 
   // Handler para mudar tamanho da página
   const handlePageSizeChange = useCallback(
     (newSize) => {
-      pagination.setPageSize(newSize)
+      setPageSize(newSize)
       handleSearch(1, newSize) // Passa o novo tamanho diretamente
     },
-    [pagination, handleSearch]
+    [setPageSize, handleSearch]
   )
 
   // Handler para tecla Enter
@@ -161,10 +162,10 @@ function Pesquisa() {
         <div className="results-header">
           <span className="results-count">
             <strong>{search.results.length}</strong> registro(s) encontrado(s)
-            {pagination.pagination.totalPages > 1 && (
+            {pagination.totalPages > 1 && (
               <span className="text-muted">
                 {' '}
-                — Página {pagination.pagination.page} de {pagination.pagination.totalPages}
+                — Página {pagination.page} de {pagination.totalPages}
               </span>
             )}
           </span>
@@ -184,7 +185,7 @@ function Pesquisa() {
                     Página atual ({search.results.length})
                   </button>
                   <button onClick={() => handleExportCSV(true)} disabled={exportFunctions.exporting}>
-                    Todos ({pagination.pagination.totalCount})
+                    Todos ({pagination.totalCount})
                   </button>
                 </div>
               </div>
@@ -201,7 +202,7 @@ function Pesquisa() {
                     Página atual ({search.results.length})
                   </button>
                   <button onClick={() => handleExportXLSX(true)} disabled={exportFunctions.exporting}>
-                    Todos ({pagination.pagination.totalCount})
+                    Todos ({pagination.totalCount})
                   </button>
                 </div>
               </div>
@@ -218,7 +219,7 @@ function Pesquisa() {
                     Página atual ({search.results.length})
                   </button>
                   <button onClick={() => handleExportPDF(true)} disabled={exportFunctions.exporting}>
-                    Todos ({pagination.pagination.totalCount})
+                    Todos ({pagination.totalCount})
                   </button>
                 </div>
               </div>
@@ -227,7 +228,7 @@ function Pesquisa() {
               Itens por página:
               <select
                 className="form-select form-select-sm"
-                value={pagination.pagination.pageSize}
+                value={pagination.pageSize}
                 onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
                 style={{ width: '80px', marginLeft: '0.5rem' }}
               >
@@ -265,8 +266,8 @@ function Pesquisa() {
             />
 
             {/* Paginação */}
-            <PesquisaPagination
-              pagination={pagination.pagination}
+            <Pagination
+              pagination={pagination}
               onPageChange={handlePageChange}
             />
           </>

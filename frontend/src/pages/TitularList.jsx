@@ -1,12 +1,24 @@
 import { Link } from 'react-router-dom'
 import useTitularList from '../hooks/useTitularList'
+import Pagination from '../components/Pagination'
+import ResultsHeader from '../components/ResultsHeader'
 
 function TitularList() {
-  const { titulares, loading, search, setSearch, error, handleDelete } = useTitularList()
+  const {
+    titulares,
+    loading,
+    search,
+    setSearch,
+    error,
+    handleDelete,
+    // Paginação
+    pagination,
+    pageSizeOptions,
+    goToPage,
+    handlePageSizeChange,
+  } = useTitularList()
   
   return (
-
-
     <div className="page">
       <div className="page-header">
         <h1>📋 Titulares</h1>
@@ -31,6 +43,14 @@ function TitularList() {
         <div className="loading">Carregando...</div>
       ) : (
         <div className="card">
+          <ResultsHeader
+            totalCount={pagination.totalCount}
+            itemLabel="titular"
+            pageSize={pagination.pageSize}
+            onPageSizeChange={handlePageSizeChange}
+            pageSizeOptions={pageSizeOptions}
+          />
+          
           <div className="table-container">
             <table className="table">
               <thead>
@@ -45,7 +65,7 @@ function TitularList() {
               <tbody>
                 {titulares.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center">
+                    <td colSpan="5" className="text-center">
                       Nenhum titular encontrado
                     </td>
                   </tr>
@@ -69,7 +89,7 @@ function TitularList() {
                             className="btn btn-sm btn-outline"
                             title="Editar"
                           >
-                            ✏️ Editar
+                            ✏️
                           </Link>
                           <Link
                             to={`/dependentes/new?titular=${titular.id}`}
@@ -93,6 +113,8 @@ function TitularList() {
               </tbody>
             </table>
           </div>
+          
+          <Pagination pagination={pagination} onPageChange={goToPage} />
         </div>
       )}
     </div>
