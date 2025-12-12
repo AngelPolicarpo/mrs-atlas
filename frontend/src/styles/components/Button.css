@@ -1,0 +1,256 @@
+/**
+ * Button Component Styles
+ * Following BEM methodology
+ */
+
+/* Base Button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  transition: all var(--transition-base);
+}
+
+.btn:focus {
+  outline: none;
+  box-shadow: var(--shadow-ring);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Button Variants */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-color: var(--color-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  color: var(--color-secondary-foreground);
+  border-color: var(--color-secondary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-muted);
+  border-color: var(--color-muted);
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: white;
+  border-color: var(--color-danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: var(--color-danger-dark);
+  border-color: var(--color-danger-dark);
+}
+
+.btn-success {
+  background-color: var(--color-success);
+  color: white;
+  border-color: var(--color-success);
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: var(--color-success-dark);
+  border-color: var(--color-success-dark);
+}
+
+.btn-warning {
+  background-color: var(--color-warning);
+  color: white;
+  border-color: var(--color-warning);
+}
+
+.btn-warning:hover:not(:disabled) {
+  background-color: var(--color-warning-dark);
+  border-color: var(--color-warning-dark);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-text);
+  border-color: transparent;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-secondary);
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--color-background);
+  border-color: var(--color-border-dark);
+}
+
+.btn-outline-primary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-outline-primary:hover:not(:disabled) {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.btn-link {
+  background-color: transparent;
+  color: var(--color-primary);
+  border-color: transparent;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.btn-link:hover:not(:disabled) {
+  color: var(--color-primary-dark);
+}
+
+/* Button Sizes */
+.btn-sm {
+  padding: var(--spacing-1) var(--spacing-3);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-md);
+}
+
+.btn-lg {
+  padding: var(--spacing-3) var(--spacing-6);
+  font-size: var(--font-size-base);
+  border-radius: var(--radius-lg);
+}
+
+.btn-xl {
+  padding: var(--spacing-4) var(--spacing-8);
+  font-size: var(--font-size-lg);
+  border-radius: var(--radius-lg);
+}
+
+/* Icon Button */
+.btn-icon {
+  padding: var(--spacing-2);
+  aspect-ratio: 1;
+}
+
+.btn-icon.btn-sm {
+  padding: var(--spacing-1);
+}
+
+.btn-icon.btn-lg {
+  padding: var(--spacing-3);
+}
+
+/* Full Width Button */
+.btn-block {
+  display: flex;
+  width: 100%;
+}
+
+/* Button Group */
+.btn-group {
+  display: inline-flex;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+
+.btn-group--attached {
+  gap: 0;
+}
+
+.btn-group--attached .btn {
+  border-radius: 0;
+}
+
+.btn-group--attached .btn:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.btn-group--attached .btn:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.btn-group--attached .btn:not(:last-child) {
+  border-right-width: 0;
+}
+
+/* Action Button (for tables) */
+.btn-action {
+  padding: var(--spacing-1) var(--spacing-2);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-light);
+}
+
+.btn-action:hover {
+  background: var(--color-background);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* Expand Button */
+.btn-expand {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--spacing-1);
+  color: var(--color-text-light);
+  font-size: var(--font-size-xs);
+  transition: color var(--transition-fast);
+}
+
+.btn-expand:hover {
+  color: var(--color-primary);
+}
+
+/* Loading State */
+.btn--loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn--loading::after {
+  content: "";
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-full);
+  animation: btn-spin 0.6s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

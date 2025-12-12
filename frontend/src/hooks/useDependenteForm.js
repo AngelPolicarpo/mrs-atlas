@@ -8,7 +8,7 @@ import {
   updateVinculoDependente,
   deleteVinculoDependente,
 } from '../services/titulares'
-import { getAmparosLegais, getConsulados, getNacionalidades, getTiposAtualizacao } from '../services/core'
+import { getAmparosLegais, getTiposAtualizacao } from '../services/core'
 import useAutoComplete from './useAutoComplete'
 import { cleanDataForSubmit, formatters, validateDocuments, validators } from '../utils/validation'
 
@@ -17,7 +17,6 @@ const emptyVinculo = {
   amparo: '',
   amparo_nome: '',
   consulado: '',
-  consulado_nome: '',
   tipo_atualizacao: '',
   data_entrada: '',
   data_fim_vinculo: '',
@@ -58,7 +57,6 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
-  const [nacionalidades, setNacionalidades] = useState([])
   const [tiposAtualizacao, setTiposAtualizacao] = useState([])
 
   const [titularSearchText, setTitularSearchText] = useState('')
@@ -85,11 +83,9 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
 
   const fetchTitulares = useCallback((searchText) => getTitulares({ search: searchText, page_size: 15 }), [])
   const fetchAmparos = useCallback((searchText) => getAmparosLegais({ search: searchText, ativo: true, page_size: 15 }), [])
-  const fetchConsulados = useCallback((searchText) => getConsulados({ search: searchText, ativo: true, page_size: 15 }), [])
 
   const { suggestions: titularSuggestions, search: searchTitulares, clear: clearTitulares } = useAutoComplete(fetchTitulares)
   const { suggestions: amparosSuggestions, search: searchAmparos, clear: clearAmparos } = useAutoComplete(fetchAmparos)
-  const { suggestions: consuladosSuggestions, search: searchConsulados, clear: clearConsulados } = useAutoComplete(fetchConsulados)
 
   const tiposDependenteValidos = useMemo(() => ['CONJUGE', 'FILHO', 'ENTEADO', 'PAI_MAE', 'OUTRO'], [])
   const sexosValidos = useMemo(() => ['M', 'F', 'O'], [])
@@ -100,7 +96,6 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
       const texts = {}
       items.forEach((v, i) => {
         texts[`amparo_${i}`] = v.amparo_nome || ''
-        texts[`consulado_${i}`] = v.consulado_nome || ''
       })
       return texts
     })
@@ -108,11 +103,7 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
 
   const loadDadosBasicos = useCallback(async () => {
     try {
-      const [nacRes, tipoRes] = await Promise.all([
-        getNacionalidades({ ativo: true }),
-        getTiposAtualizacao({ ativo: true }),
-      ])
-      setNacionalidades(nacRes.data.results || nacRes.data || [])
+      const tipoRes = await getTiposAtualizacao({ ativo: true })
       setTiposAtualizacao(tipoRes.data.results || tipoRes.data || [])
 
       if (titularIdFromUrl) {
@@ -165,7 +156,6 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
           amparo: v.amparo || '',
           amparo_nome: v.amparo_nome || '',
           consulado: v.consulado || '',
-          consulado_nome: v.consulado_pais || '',
           tipo_atualizacao: v.tipo_atualizacao || '',
           data_entrada: v.data_entrada || '',
           data_fim_vinculo: v.data_fim_vinculo || '',
@@ -204,10 +194,11 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
     }
   }, [fieldErrors])
 
-  const handleBlur = useCallback((e) => {
+  const handleBlur = useCallback((e, customValidator) => {
     const { name, value } = e.target
-    if (validators[name] && value) {
-      const result = validators[name](value)
+    const validator = customValidator || validators[name]
+    if (validator && value) {
+      const result = validator(value)
       if (!result.valid) {
         setFieldErrors((prev) => ({ ...prev, [name]: result.error }))
       }
@@ -246,21 +237,9 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
     clearAmparos()
   }, [clearAmparos])
 
-  const handleConsuladoSearch = useCallback((index, text) => {
-    setVinculoSearchTexts((prev) => ({ ...prev, [`consulado_${index}`]: text }))
-    setVinculos((prev) => prev.map((v, i) => (i === index ? { ...v, consulado: '', consulado_nome: text } : v)))
-    if (!text) {
-      clearConsulados()
-      return
-    }
-    searchConsulados(text)
-  }, [clearConsulados, searchConsulados])
-
-  const handleConsuladoSelect = useCallback((index, consulado) => {
-    setVinculos((prev) => prev.map((v, i) => (i === index ? { ...v, consulado: consulado.id, consulado_nome: consulado.pais } : v)))
-    setVinculoSearchTexts((prev) => ({ ...prev, [`consulado_${index}`]: consulado.pais }))
-    clearConsulados()
-  }, [clearConsulados])
+  const handleConsuladoChange = useCallback((index, value) => {
+    setVinculos((prev) => prev.map((v, i) => (i === index ? { ...v, consulado: value } : v)))
+  }, [])
 
   const handleVinculoChange = useCallback((index, e) => {
     const { name, value, type, checked } = e.target
@@ -280,7 +259,6 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
       setVinculoSearchTexts((texts) => ({
         ...texts,
         [`amparo_${newIndex}`]: '',
-        [`consulado_${newIndex}`]: '',
       }))
       return [...prev, { ...emptyVinculo, id: `new-${Date.now()}` }]
     })
@@ -403,14 +381,12 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
     success,
     formData,
     fieldErrors,
-    nacionalidades,
     tiposAtualizacao,
     vinculos,
     vinculoSearchTexts,
     titularSearchText,
     titularSuggestions,
     amparosSuggestions,
-    consuladosSuggestions,
     setTitularSearchText,
     setFormData,
     setError,
@@ -420,8 +396,7 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
     handleTitularSelect,
     handleAmparoSearch,
     handleAmparoSelect,
-    handleConsuladoSearch,
-    handleConsuladoSelect,
+    handleConsuladoChange,
     handleVinculoChange,
     toggleVinculoExpanded,
     addVinculo,

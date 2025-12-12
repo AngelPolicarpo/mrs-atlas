@@ -1,0 +1,81 @@
+/**
+ * Pagination Component Styles
+ * Following BEM methodology
+ */
+
+/* Base Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-6);
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+/* Pagination Button */
+.pagination button {
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  transition: all var(--transition-fast);
+}
+
+.pagination button:hover:not(:disabled) {
+  background: var(--color-background);
+  border-color: var(--color-border-dark);
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination button.active {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-color: var(--color-primary);
+}
+
+/* Pagination Pages Container */
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+/* Pagination Ellipsis */
+.pagination-ellipsis {
+  padding: 0 var(--spacing-2);
+  color: var(--color-text-light);
+}
+
+/* Pagination Info */
+.pagination-info {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-light);
+}
+
+/* Pagination Compact (for small screens) */
+.pagination--compact {
+  gap: var(--spacing-1);
+}
+
+.pagination--compact button {
+  padding: var(--spacing-1) var(--spacing-2);
+  font-size: var(--font-size-xs);
+}
+
+/* Pagination Simple (Prev/Next only) */
+.pagination--simple {
+  justify-content: space-between;
+}
+
+.pagination--simple .pagination-pages {
+  display: none;
+}

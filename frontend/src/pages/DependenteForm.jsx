@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import useDependenteForm from '../hooks/useDependenteForm'
 import { formatDate, formatDiasRestantes, getBadgeClass } from '../utils/uiHelpers'
 import { formatters, validators } from '../utils/validation'
+import CountryAutocomplete from '../components/CountryAutocomplete'
 
 function SuggestionBox({ items, onSelect, getLabel, isVisible }) {
   if (!isVisible || !items.length) return null
@@ -42,15 +43,13 @@ function VinculoCard({
   vinculo,
   searchTexts,
   amparosSuggestions,
-  consuladosSuggestions,
   tiposAtualizacao,
   onToggle,
   onRemove,
   onChange,
   onAmparoSearch,
   onAmparoSelect,
-  onConsuladoSearch,
-  onConsuladoSelect,
+  onConsuladoChange,
 }) {
   if (vinculo.isDeleted) return null
   const diasRestantes = formatDiasRestantes(vinculo.data_fim_vinculo)
@@ -134,23 +133,13 @@ function VinculoCard({
               />
             </div>
 
-            <div className="form-group" style={{ position: 'relative' }}>
-              <label>Consulado</label>
-              <input
-                type="text"
-                value={searchTexts[`consulado_${index}`] || vinculo.consulado_nome || ''}
-                onChange={(e) => onConsuladoSearch(index, e.target.value)}
-                className="form-control"
-                placeholder="Digite para buscar..."
-                autoComplete="off"
-              />
-              <SuggestionBox
-                items={consuladosSuggestions}
-                onSelect={(item) => onConsuladoSelect(index, item)}
-                getLabel={(item) => item.pais}
-                isVisible={Boolean(searchTexts[`consulado_${index}`])}
-              />
-            </div>
+            <CountryAutocomplete
+              id={`consulado_dep_${index}`}
+              value={vinculo.consulado || ''}
+              onChange={(value) => onConsuladoChange(index, value)}
+              label="Consulado"
+              placeholder="Digite para buscar país..."
+            />
 
             <div className="form-group">
               <label>Tipo de Atualização</label>
@@ -274,22 +263,19 @@ function DependenteForm() {
     success,
     formData,
     fieldErrors,
-    nacionalidades,
     tiposAtualizacao,
     vinculos,
     vinculoSearchTexts,
     titularSearchText,
     titularSuggestions,
     amparosSuggestions,
-    consuladosSuggestions,
     handleChange,
     handleBlur,
     handleTitularSearch,
     handleTitularSelect,
     handleAmparoSearch,
     handleAmparoSelect,
-    handleConsuladoSearch,
-    handleConsuladoSelect,
+    handleConsuladoChange,
     handleVinculoChange,
     toggleVinculoExpanded,
     addVinculo,
@@ -439,19 +425,13 @@ function DependenteForm() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="nacionalidade" className="form-label">Nacionalidade</label>
-              <select
+              <CountryAutocomplete
                 id="nacionalidade"
-                name="nacionalidade"
                 value={formData.nacionalidade}
-                onChange={handleChange}
-                className="form-input"
-              >
-                <option value="">Selecione...</option>
-                {nacionalidades.map((nac) => (
-                  <option key={nac.id} value={nac.id}>{nac.nome}</option>
-                ))}
-              </select>
+                onChange={(value) => handleChange({ target: { name: 'nacionalidade', value } })}
+                label="Nacionalidade"
+                placeholder="Digite para buscar país..."
+              />
             </div>
           </div>
 
@@ -531,8 +511,10 @@ function DependenteForm() {
                 name="data_nascimento"
                 value={formData.data_nascimento}
                 onChange={handleChange}
-                className="form-input"
+                onBlur={(e) => handleBlur(e, validators.data_nascimento)}
+                className={`form-input ${fieldErrors.data_nascimento ? 'is-invalid' : ''}`}
               />
+              {fieldErrors.data_nascimento && <span className="form-error">{fieldErrors.data_nascimento}</span>}
             </div>
 
             <div className="form-field">
@@ -595,15 +577,13 @@ function DependenteForm() {
                 vinculo={vinculo}
                 searchTexts={vinculoSearchTexts}
                 amparosSuggestions={amparosSuggestions}
-                consuladosSuggestions={consuladosSuggestions}
                 tiposAtualizacao={tiposAtualizacao}
                 onToggle={toggleVinculoExpanded}
                 onRemove={removeVinculo}
                 onChange={handleVinculoChange}
                 onAmparoSearch={handleAmparoSearch}
                 onAmparoSelect={handleAmparoSelect}
-                onConsuladoSearch={handleConsuladoSearch}
-                onConsuladoSelect={handleConsuladoSelect}
+                onConsuladoChange={handleConsuladoChange}
               />
             ))
           )}

@@ -1,0 +1,296 @@
+/**
+ * Search Component Styles
+ * Following BEM methodology
+ */
+
+/* Basic Search Bar */
+.search-bar {
+  display: flex;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-6);
+}
+
+.search-bar .form-control,
+.search-bar .form-input {
+  flex: 1;
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.search-bar .form-control:focus,
+.search-bar .form-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-ring);
+}
+
+/* Unified Search */
+.search-unified {
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--spacing-4);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.search-field-selector {
+  flex: 0 0 180px;
+}
+
+.search-field-selector .form-select {
+  border-radius: var(--radius) 0 0 var(--radius);
+  border-right: none;
+  height: 100%;
+  background-color: var(--color-background);
+}
+
+.search-input-wrapper {
+  flex: 1;
+}
+
+.search-input-wrapper .search-input {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
+.search-input-wrapper .search-input:focus {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+.search-unified .btn-primary {
+  border-radius: 0 var(--radius) var(--radius) 0;
+  white-space: nowrap;
+  padding: var(--spacing-2) var(--spacing-6);
+}
+
+/* Search Header */
+.search-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-4);
+}
+
+.search-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+/* Filters Bar */
+.filters-bar {
+  display: flex;
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-6);
+  flex-wrap: wrap;
+}
+
+.filters-bar .form-control {
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-surface);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.filters-bar .form-control:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-ring);
+}
+
+/* Filter Grid */
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-4);
+}
+
+.filter-grid .form-group {
+  margin-bottom: 0;
+}
+
+.filter-grid .form-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-light);
+  margin-bottom: var(--spacing-1);
+}
+
+.filter-grid .form-select,
+.filter-grid .form-input {
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+/* Filter Actions */
+.filter-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  justify-content: flex-end;
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--spacing-4);
+}
+
+/* Filter Toggle */
+.filter-toggle {
+  margin-top: 0;
+}
+
+.filter-summary {
+  cursor: pointer;
+  padding: var(--spacing-3) 0;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  transition: color var(--transition-fast);
+}
+
+.filter-summary:hover {
+  color: var(--color-primary-dark);
+}
+
+.filter-summary::before {
+  content: '▶';
+  font-size: 0.625rem;
+  transition: transform var(--transition-fast);
+}
+
+details[open] .filter-summary::before {
+  transform: rotate(90deg);
+}
+
+/* Export Buttons */
+.export-buttons {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.export-buttons .btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-3);
+  font-size: var(--font-size-xs);
+  transition: all var(--transition-base);
+}
+
+.export-buttons .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.export-buttons .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Export Dropdown */
+.export-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.export-dropdown-content {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  min-width: 160px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-index-dropdown);
+  overflow: hidden;
+}
+
+.export-dropdown:hover .export-dropdown-content {
+  display: block;
+}
+
+.export-dropdown-content button {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-2) var(--spacing-4);
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition: background-color var(--transition-fast);
+}
+
+.export-dropdown-content button:hover:not(:disabled) {
+  background-color: var(--color-background);
+}
+
+.export-dropdown-content button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-dropdown-content button:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Pesquisa Container */
+.pesquisa-container {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .search-unified {
+    flex-direction: column;
+    gap: var(--spacing-2);
+    box-shadow: none;
+  }
+
+  .search-field-selector {
+    flex: 1;
+  }
+
+  .search-field-selector .form-select,
+  .search-input-wrapper .search-input,
+  .search-unified .btn-primary {
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border);
+  }
+
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions {
+    flex-direction: column;
+  }
+
+  .filter-actions .btn {
+    width: 100%;
+  }
+
+  .search-bar {
+    flex-direction: column;
+  }
+
+  .filters-bar {
+    flex-direction: column;
+  }
+
+  .filters-bar .form-control {
+    width: 100% !important;
+  }
+}

@@ -1,0 +1,58 @@
+/**
+ * Main Stylesheet Entry Point
+ * 
+ * Following ITCSS (Inverted Triangle CSS) methodology:
+ * 
+ * 1. Settings    - Variables, design tokens (lowest specificity)
+ * 2. Generic     - Resets, normalize
+ * 3. Elements    - Base HTML elements styling
+ * 4. Objects     - Layout patterns (OOCSS)
+ * 5. Components  - UI components
+ * 6. Utilities   - Helper classes (highest specificity)
+ * 
+ * This architecture ensures:
+ * - Predictable specificity graph
+ * - No CSS conflicts
+ * - Easy maintenance
+ * - Scalable codebase
+ */
+
+/* ===========================================
+   1. SETTINGS - Design Tokens & Variables
+   =========================================== */
+@import './base/variables.css';
+
+/* ===========================================
+   2. GENERIC - Reset & Normalize
+   =========================================== */
+@import './base/reset.css';
+
+/* ===========================================
+   3. ELEMENTS - Base Typography & HTML
+   =========================================== */
+@import './base/typography.css';
+
+/* ===========================================
+   4. LAYOUT - Structural Components
+   =========================================== */
+@import './layout/Layout.css';
+@import './layout/Sidebar.css';
+@import './layout/Header.css';
+
+/* ===========================================
+   5. COMPONENTS - UI Components
+   =========================================== */
+@import './components/Button.css';
+@import './components/Input.css';
+@import './components/Card.css';
+@import './components/Table.css';
+@import './components/Badge.css';
+@import './components/Alert.css';
+@import './components/Tabs.css';
+@import './components/Pagination.css';
+@import './components/Search.css';
+
+/* ===========================================
+   6. UTILITIES - Helper Classes
+   =========================================== */
+@import './utils/utilities.css';

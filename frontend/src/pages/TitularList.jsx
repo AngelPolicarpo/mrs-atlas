@@ -3,8 +3,10 @@ import useTitularList from '../hooks/useTitularList'
 
 function TitularList() {
   const { titulares, loading, search, setSearch, error, handleDelete } = useTitularList()
-
+  
   return (
+
+
     <div className="page">
       <div className="page-header">
         <h1>📋 Titulares</h1>
@@ -24,7 +26,7 @@ function TitularList() {
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
-
+      
       {loading ? (
         <div className="loading">Carregando...</div>
       ) : (

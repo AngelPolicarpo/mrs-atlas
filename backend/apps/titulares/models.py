@@ -28,12 +28,9 @@ class Titular(models.Model):
     status_visto = models.CharField('Status do Visto', max_length=100, blank=True, null=True)
     ctps = models.CharField('CTPS', max_length=50, blank=True, null=True)
     
-    nacionalidade = models.ForeignKey(
-        'core.Nacionalidade',
-        on_delete=models.PROTECT,
-        related_name='titulares',
-        verbose_name='Nacionalidade',
-        db_column='id_nacionalidade',
+    nacionalidade = models.CharField(
+        'Nacionalidade',
+        max_length=100,
         blank=True,
         null=True
     )
@@ -77,7 +74,7 @@ class Titular(models.Model):
         ordering = ['nome']
         indexes = [
             models.Index(fields=['nome', 'data_nascimento']),
-            models.Index(fields=['nacionalidade']),
+            models.Index(fields=['nacionalidade'], name='titular_nac_text_idx'),
         ]
     
     def __str__(self):
@@ -138,14 +135,11 @@ class VinculoTitular(models.Model):
         db_column='id_amparo'
     )
     
-    consulado = models.ForeignKey(
-        'core.Consulado',
-        on_delete=models.SET_NULL,
-        null=True,
+    consulado = models.CharField(
+        'Consulado',
+        max_length=100,
         blank=True,
-        related_name='vinculos',
-        verbose_name='Consulado',
-        db_column='id_consulado'
+        null=True
     )
     
     tipo_atualizacao = models.ForeignKey(
@@ -200,6 +194,7 @@ class VinculoTitular(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['empresa']),
             models.Index(fields=['data_fim_vinculo']),
+            models.Index(fields=['consulado'], name='vinc_tit_consul_text_idx'),
         ]
     
     def __str__(self):
@@ -247,14 +242,11 @@ class Dependente(models.Model):
     status_visto = models.CharField('Status do Visto', max_length=100, blank=True, null=True)
     ctps = models.CharField('CTPS', max_length=50, blank=True, null=True)
     
-    nacionalidade = models.ForeignKey(
-        'core.Nacionalidade',
-        on_delete=models.SET_NULL,
-        null=True,
+    nacionalidade = models.CharField(
+        'Nacionalidade',
+        max_length=100,
         blank=True,
-        related_name='dependentes',
-        verbose_name='Nacionalidade',
-        db_column='id_nacionalidade'
+        null=True
     )
     
     tipo_dependente = models.CharField(
@@ -301,7 +293,7 @@ class Dependente(models.Model):
         indexes = [
             models.Index(fields=['titular']),
             models.Index(fields=['passaporte']),
-            models.Index(fields=['nacionalidade']),
+            models.Index(fields=['nacionalidade'], name='dependente_nac_text_idx'),
         ]
     
     def __str__(self):
@@ -345,14 +337,11 @@ class VinculoDependente(models.Model):
         db_column='id_amparo'
     )
     
-    consulado = models.ForeignKey(
-        'core.Consulado',
-        on_delete=models.SET_NULL,
-        null=True,
+    consulado = models.CharField(
+        'Consulado',
+        max_length=100,
         blank=True,
-        related_name='vinculos_dependentes',
-        verbose_name='Consulado',
-        db_column='id_consulado'
+        null=True
     )
     
     tipo_atualizacao = models.ForeignKey(
@@ -399,7 +388,7 @@ class VinculoDependente(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['data_fim_vinculo']),
             models.Index(fields=['amparo']),
-            models.Index(fields=['consulado']),
+            models.Index(fields=['consulado'], name='vinc_dep_consul_text_idx'),
             models.Index(fields=['tipo_atualizacao']),
         ]
     

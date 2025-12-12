@@ -1,0 +1,116 @@
+/**
+ * Tabs Component Styles
+ * Following BEM methodology
+ */
+
+/* Base Tabs */
+.tabs {
+  display: flex;
+  gap: var(--spacing-1);
+  margin-bottom: var(--spacing-6);
+  border-bottom: 2px solid var(--color-border);
+  overflow-x: auto;
+}
+
+/* Tab Item */
+.tab {
+  padding: var(--spacing-3) var(--spacing-6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-light);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: all var(--transition-base);
+}
+
+.tab:hover {
+  color: var(--color-primary);
+  background-color: rgba(37, 99, 235, 0.05);
+}
+
+.tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* Tab Content */
+.tab-content {
+  padding-top: var(--spacing-4);
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+/* Tabs Variants */
+.tabs--pills {
+  border-bottom: none;
+  gap: var(--spacing-2);
+}
+
+.tabs--pills .tab {
+  border-bottom: none;
+  border-radius: var(--radius);
+  margin-bottom: 0;
+}
+
+.tabs--pills .tab.active {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.tabs--boxed {
+  background-color: var(--color-muted);
+  padding: var(--spacing-1);
+  border-radius: var(--radius);
+  border-bottom: none;
+}
+
+.tabs--boxed .tab {
+  border-bottom: none;
+  border-radius: var(--radius-md);
+  margin-bottom: 0;
+}
+
+.tabs--boxed .tab.active {
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Vertical Tabs */
+.tabs--vertical {
+  flex-direction: column;
+  border-bottom: none;
+  border-right: 2px solid var(--color-border);
+}
+
+.tabs--vertical .tab {
+  border-bottom: none;
+  border-right: 2px solid transparent;
+  margin-bottom: 0;
+  margin-right: -2px;
+  text-align: left;
+}
+
+.tabs--vertical .tab.active {
+  border-right-color: var(--color-primary);
+}
+
+@media (max-width: 768px) {
+  .tabs {
+    gap: 0;
+  }
+
+  .tab {
+    padding: var(--spacing-3) var(--spacing-4);
+    font-size: var(--font-size-xs);
+  }
+}

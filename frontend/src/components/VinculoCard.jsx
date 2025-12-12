@@ -1,4 +1,5 @@
 import { formatDate, getBadgeClass, formatDiasRestantes, calcularDiasRestantes, getTituloVinculo } from '../utils/uiHelpers'
+import CountryAutocomplete from './CountryAutocomplete'
 
 /**
  * Componente apresenta UI de um vínculo (card expandível/colapsável)
@@ -12,7 +13,6 @@ function VinculoCard({
   vinculoSearchTexts,
   empresasSuggestions,
   amparosSuggestions,
-  consuladosSuggestions,
   onToggleExpanded,
   onRemove,
   onChange,
@@ -20,11 +20,12 @@ function VinculoCard({
   onEmpresaSelect,
   onAmparoSearch,
   onAmparoSelect,
-  onConsuladoSearch,
-  onConsuladoSelect,
+  onConsuladoChange,
 }) {
   const dias = calcularDiasRestantes(vinculo.data_fim_vinculo)
   const tituloVinculo = getTituloVinculo(vinculo)
+  const hoje = new Date().toISOString().split("T")[0];
+
 
   return (
     <div
@@ -149,50 +150,13 @@ function VinculoCard({
               </div>
             )}
 
-            <div className="form-group" style={{ position: 'relative' }}>
-              <label>Consulado</label>
-              <input
-                type="text"
-                value={vinculoSearchTexts[`consulado_${index}`] || vinculo.consulado_nome || ''}
-                onChange={(e) => onConsuladoSearch(index, e.target.value)}
-                className="form-control"
-                placeholder="Digite para buscar..."
-                autoComplete="off"
-              />
-              {consuladosSuggestions.length > 0 && vinculoSearchTexts[`consulado_${index}`] && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    backgroundColor: '#fff',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    maxHeight: '200px',
-                    overflowY: 'auto',
-                    zIndex: 1000,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                  }}
-                >
-                  {consuladosSuggestions.map(cons => (
-                    <div
-                      key={cons.id}
-                      onClick={() => onConsuladoSelect(index, cons)}
-                      style={{
-                        padding: '8px 12px',
-                        cursor: 'pointer',
-                        borderBottom: '1px solid #eee',
-                      }}
-                      onMouseOver={e => (e.target.style.backgroundColor = '#f5f5f5')}
-                      onMouseOut={e => (e.target.style.backgroundColor = '#fff')}
-                    >
-                      {cons.pais}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CountryAutocomplete
+              id={`consulado_${index}`}
+              value={vinculo.consulado || ''}
+              onChange={(value) => onConsuladoChange(index, value)}
+              label="Consulado"
+              placeholder="Digite para buscar país..."
+            />
           </div>
 
           {vinculo.tipo_vinculo && (
@@ -269,14 +233,27 @@ function VinculoCard({
 
                 <div className="form-group">
                   <label>Atualização</label>
-                  <input type="date" name="atualizacao" value={vinculo.atualizacao} onChange={(e) => onChange(index, e)} className="form-control" />
+                  <input type="date" name="atualizacao" value={vinculo.atualizacao || hoje} onChange={(e) => onChange(index, e)} className="form-control" />
                 </div>
 
-                <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: '25px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input type="checkbox" name="status" checked={vinculo.status} onChange={(e) => onChange(index, e)} />
-                    Vínculo Ativo
-                  </label>
+                <div className="form-group">
+                  <label>Status do Vínculo</label>
+                  <select
+                    name="tipo_status"
+                    value={vinculo.tipo_status || "ATIVO"}
+                    onChange={(e) => {
+                      // Atualiza tipo_status e status (boolean) juntos
+                      const tipoStatus = e.target.value
+                      const isAtivo = tipoStatus === "ATIVO"
+                      onChange(index, { target: { name: 'tipo_status', value: tipoStatus } })
+                      onChange(index, { target: { name: 'status', value: isAtivo, type: 'checkbox', checked: isAtivo } })
+                    }}
+                    className="form-control"
+                  >
+                    <option value="ATIVO">ATIVO</option>
+                    <option value="CANCELADO">CANCELADO</option>
+                    <option value="VENCIDO">VENCIDO</option>
+                  </select>
                 </div>
               </div>
 
@@ -284,15 +261,6 @@ function VinculoCard({
                 <div className="form-group" style={{ flex: 1 }}>
                   <label>Observações</label>
                   <textarea name="observacoes" value={vinculo.observacoes} onChange={(e) => onChange(index, e)} className="form-control" rows="2" />
-                </div>
-
-                <div className="form-group">
-                  <label>Tipo Status</label>
-                  <select name="tipo_status" value={vinculo.tipo_status} onChange={(e) => onChange(index, e)} className="form-control">
-                    <option value="">Selecione...</option>
-                    <option value="CANCELADO">Cancelado</option>
-                    <option value="VENCIDO">Vencido</option>
-                  </select>
                 </div>
               </div>
             </>

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { getTitular, createTitular, updateTitular, createVinculoTitular, updateVinculoTitular, deleteVinculoTitular } from '../services/titulares'
-import { getNacionalidades, getTiposAtualizacao } from '../services/core'
+import { getTiposAtualizacao } from '../services/core'
 import { validateDocuments, cleanDataForSubmit } from '../utils/validation'
 
 const emptyFormData = {
@@ -31,7 +31,6 @@ const emptyVinculo = {
   amparo: '',
   amparo_nome: '',
   consulado: '',
-  consulado_nome: '',
   tipo_atualizacao: '',
   tipo_atualizacao_nome: '',
   data_entrada_pais: '',
@@ -73,7 +72,7 @@ const fieldLabels = {
 /**
  * Hook gerencia toda a lógica de estado do formulário de Titulares
  * Responsabilidades:
- * - Carregar dados (titular, nacionalidades, tipos de atualização)
+ * - Carregar dados (titular, tipos de atualização)
  * - Gerenciar estado de formulário e vínculos
  * - Validação de dados
  * - Submissão (criar/editar titular e vínculos)
@@ -92,14 +91,13 @@ function useTitularForm(titularId) {
   const [success, setSuccess] = useState('')
 
   // Dados da aplicação
-  const [nacionalidades, setNacionalidades] = useState([])
   const [tiposAtualizacao, setTiposAtualizacao] = useState([])
 
   // Estado dos vínculos
   const [vinculos, setVinculos] = useState([])
   const [vinculoSearchTexts, setVinculoSearchTexts] = useState({})
 
-  // Carrega dados iniciais (nacionalidades, tipos de atualização)
+  // Carrega dados iniciais (tipos de atualização)
   useEffect(() => {
     loadApplicationData()
     if (isEditing) {
@@ -109,11 +107,7 @@ function useTitularForm(titularId) {
 
   async function loadApplicationData() {
     try {
-      const [nacRes, tipoRes] = await Promise.all([
-        getNacionalidades({ ativo: true }),
-        getTiposAtualizacao({ ativo: true }),
-      ])
-      setNacionalidades(nacRes.data.results || nacRes.data)
+      const tipoRes = await getTiposAtualizacao({ ativo: true })
       setTiposAtualizacao(tipoRes.data.results || tipoRes.data)
     } catch (err) {
       console.error('Erro ao carregar dados da aplicação:', err)
@@ -154,7 +148,6 @@ function useTitularForm(titularId) {
           amparo: v.amparo || '',
           amparo_nome: v.amparo_nome || '',
           consulado: v.consulado || '',
-          consulado_nome: v.consulado_pais || '',
           tipo_atualizacao: v.tipo_atualizacao || '',
           tipo_atualizacao_nome: v.tipo_atualizacao_nome || '',
           data_entrada_pais: v.data_entrada_pais || '',
@@ -173,7 +166,6 @@ function useTitularForm(titularId) {
         vinculosCarregados.forEach((v, i) => {
           searchTexts[`empresa_${i}`] = v.empresa_nome
           searchTexts[`amparo_${i}`] = v.amparo_nome
-          searchTexts[`consulado_${i}`] = v.consulado_nome
         })
         setVinculoSearchTexts(searchTexts)
       }
@@ -400,7 +392,6 @@ function useTitularForm(titularId) {
     success,
 
     // Dados da aplicação
-    nacionalidades,
     tiposAtualizacao,
 
     // Estado e handlers de vínculos

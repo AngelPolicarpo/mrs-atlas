@@ -4,9 +4,7 @@ const initialFilters = {
   searchTerm: '',
   searchField: 'todos',
   nacionalidade: '',
-  nacionalidadeText: '',
   consulado: '',
-  consuladoText: '',
   empresa: '',
   empresaText: '',
   tipoVinculo: '',
@@ -55,11 +53,14 @@ function usePesquisaFilters() {
   }, [])
 
   const handleItemSelect = useCallback((fieldName, name, id) => {
-    setFilters(prev => ({
-      ...prev,
-      [fieldName]: id,
-      [`${fieldName}Text`]: name,
-    }))
+    setFilters(prev => {
+      const updates = { [fieldName]: id }
+      // Só adiciona o campo Text se existir (para empresa)
+      if (fieldName === 'empresa') {
+        updates[`${fieldName}Text`] = name
+      }
+      return { ...prev, ...updates }
+    })
   }, [])
 
   const clearFilters = useCallback(() => {

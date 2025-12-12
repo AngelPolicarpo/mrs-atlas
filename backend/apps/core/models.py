@@ -13,29 +13,6 @@ class BaseModel(models.Model):
         abstract = True
 
 
-class Nacionalidade(BaseModel):
-    """Tabela de nacionalidades."""
-    
-    id = models.UUIDField(
-        'ID',
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        db_column='id_nacionalidade'
-    )
-    nome = models.CharField('Nome', max_length=100, unique=True)
-    codigo_iso = models.CharField('Código ISO', max_length=3, unique=True, blank=True, null=True)
-    
-    class Meta:
-        verbose_name = 'Nacionalidade'
-        verbose_name_plural = 'Nacionalidades'
-        db_table = 'nacionalidade'
-        ordering = ['nome']
-    
-    def __str__(self):
-        return self.nome
-
-
 class AmparoLegal(BaseModel):
     """Tabela de amparos legais."""
     
@@ -57,28 +34,6 @@ class AmparoLegal(BaseModel):
     
     def __str__(self):
         return self.nome
-
-
-class Consulado(BaseModel):
-    """Tabela de consulados."""
-    
-    id = models.UUIDField(
-        'ID',
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        db_column='id_consulado'
-    )
-    pais = models.CharField('País', max_length=100, unique=True)
-    
-    class Meta:
-        verbose_name = 'Consulado'
-        verbose_name_plural = 'Consulados'
-        db_table = 'consulado'
-        ordering = ['pais']
-    
-    def __str__(self):
-        return self.pais
 
 
 class TipoAtualizacao(BaseModel):

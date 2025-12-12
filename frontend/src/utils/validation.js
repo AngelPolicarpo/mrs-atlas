@@ -69,38 +69,28 @@ export function formatCPF(value) {
 }
 
 /**
- * Formata RNM: A000000-0 ou V000000-0 ou G000000-0 (letra + 6 dígitos + hífen + 1 dígito)
+ * Formata RNM: Letra + 6 dígitos + 1 alfanumérico final (sem hífen)
+ * Ex.: A1234567, V654321A
  */
 export function formatRNM(value) {
   if (!value) return ''
 
-  const clean = removeFormatting(value).toUpperCase()
+  // Remove qualquer coisa que não seja A-Z ou 0-9
+  const clean = removeFormatting(value).toUpperCase().replace(/[^A-Z0-9]/g, '')
 
-  // Nova regex: letra + 0–7 alfanuméricos
-  const match = clean.match(/^([A-Z])?([A-Z0-9]{0,6})([A-Z0-9])?$/)
+  // Primeiro caractere deve ser letra
+  const letra = clean.match(/^[A-Z]/)?.[0] || ''
+  const resto = letra ? clean.slice(1) : clean
 
-  if (!match) {
-    // Força extração correta mesmo em entradas "sujas"
-    const letra = clean.match(/^[A-Z]/)?.[0] || ''
-    const resto = clean.replace(/[^A-Z0-9]/g, '').slice(letra ? 1 : 0)
-    
-    const alfanum = resto.slice(0, 7)
+  // Só aceita os próximos 7 caracteres: 6 dígitos + 1 alfanumérico
+  const parte1 = resto.replace(/[^0-9]/g, '').slice(0, 6) // apenas números
+  const parte2 = resto.slice(parte1.length, parte1.length + 1).replace(/[^A-Z0-9]/g, '') // último alfanumérico
 
-    // RNM até 6 caracteres: sem hífen
-    if (alfanum.length <= 6) return letra + alfanum
-
-    // RNM com 7 caracteres: hífen antes do último
-    return `${letra}${alfanum.slice(0, 6)}-${alfanum.slice(6)}`
-  }
-
-  const [, letra = '', parte1 = '', parte2 = ''] = match
-
-  // Se ainda não tem o 7º caractere → sem hífen
-  if (!parte2) return letra + parte1
-
-  // 7 caracteres → insere hífen antes do último
-  return `${letra}${parte1}-${parte2}`
+  // Construção progressiva (durante a digitação)
+  return letra + parte1 + (parte2 || '')
 }
+
+
 
 /**
  * Formata CTPS: 0000000 00000-00 (7 dígitos número + 5 dígitos série + 2 dígitos UF)
@@ -158,6 +148,16 @@ export function formatFiliacao(value) {
     .replace(/[^A-Z\s]/g, '') // Remove tudo exceto letras e espaços
     .replace(/\s{2,}/g, ' ') // Apenas remove espaços DUPLOS
 }
+
+/**
+ * Formata Filiação: mesma regra do Nome (uppercase, apenas letras e espaços)
+ */
+
+const removeHyphen = (value) => {
+  if (!value) return "";
+  return value.replace(/-/g, " ");
+};
+
 
 // ===== FUNÇÕES DE VALIDAÇÃO =====
 
@@ -218,18 +218,20 @@ export function validateRNM(value) {
     }
   }
 
-  // Novo formato válido: letra + 6-7 caracteres alfanuméricos
-  const rnmRegex = /^[A-Z][A-Z0-9]{6,7}$/
+  // Novo formato: Letra + 6 dígitos + alfanumérico final
+  const rnmRegex = /^[A-Z][0-9]{6}[A-Z0-9]$/
 
   if (!rnmRegex.test(clean)) {
     return {
       valid: false,
-      error: 'RNM deve ter formato: letra + 6-7 caracteres alfanuméricos (ex: V1234567 ou V123456A)'
+      error:
+        'RNM deve seguir o formato: letra + 6 dígitos + caractere final alfanumérico (ex: V1234567 ou V123456A)'
     }
   }
 
   return { valid: true, error: null }
 }
+
 
 
 /**
@@ -299,6 +301,26 @@ export function validateCNH(value) {
 }
 
 /**
+ * Valida Data de Nascimento
+ */
+export function validateDataNascimento(value) {
+  if (!value) return { valid: true, error: null } // Campo opcional
+  
+  const dataNascimento = new Date(value)
+  const hoje = new Date()
+  
+  // Remove as horas para comparar apenas as datas
+  hoje.setHours(0, 0, 0, 0)
+  dataNascimento.setHours(0, 0, 0, 0)
+  
+  if (dataNascimento > hoje) {
+    return { valid: false, error: 'Data de nascimento não pode ser futura' }
+  }
+  
+  return { valid: true, error: null }
+}
+
+/**
  * Valida Nome
  */
 export function validateNome(value) {
@@ -340,22 +362,25 @@ export function validateFiliacao(value) {
  * Valida Email
  */
 export function validateEmail(value) {
-  if (!value) return { valid: true, error: null } // Campo opcional
-  
-  const normalized = value.toLowerCase().trim()
-  
-  if (isInvalidPattern(value)) {
-    return { valid: false, error: 'Email inválido' }
+  if (!value) {
+    return { valid: true, error: null } // Campo opcional
   }
-  
-  // Email pattern simples mas eficaz
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  const normalized = value.trim().toLowerCase();
+
+  // Regex oficial equivalente ao HTML5 <input type="email">
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   if (!emailRegex.test(normalized)) {
-    return { valid: false, error: 'Email deve estar no formato correto (ex: usuario@dominio.com)' }
+    return {
+      valid: false,
+      error: "Email inválido. Use o formato nome@dominio.com"
+    };
   }
-  
-  return { valid: true, error: null }
+
+  return { valid: true, error: null };
 }
+
 
 /**
  * Valida Telefone (aceita formato nacional e internacional)
@@ -390,6 +415,7 @@ export const validators = {
   telefone: validateTelefone,
   cpf: validateCPF,
   rnm: validateRNM,
+  data_nascimento: validateDataNascimento,
   passaporte: validatePassaporte,
   ctps: validateCTPS,
   cnh: validateCNH,
@@ -405,6 +431,9 @@ export const formatters = {
   rnm: formatRNM,
   passaporte: formatPassaporte,
   ctps: formatCTPS,
+  nome: (v) => removeHyphen(v.toUpperCase()),
+  filiacao_um: (v) => removeHyphen(v.toUpperCase()),
+  filiacao_dois: (v) => removeHyphen(v.toUpperCase()),
   cnh: formatCNH,
 }
 

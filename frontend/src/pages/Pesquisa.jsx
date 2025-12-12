@@ -6,7 +6,6 @@ import usePesquisaSearch from '../hooks/usePesquisaSearch'
 import usePesquisaExport from '../hooks/usePesquisaExport'
 import useAutoComplete from '../hooks/useAutoComplete'
 import { getEmpresas } from '../services/empresas'
-import { getNacionalidades, getConsulados } from '../services/core'
 import {
   buildSearchParams,
   calcularDiasRestantes,
@@ -40,12 +39,6 @@ function Pesquisa() {
   // Autocomplete hooks
   const empresasAutocomplete = useAutoComplete(
     (searchText) => getEmpresas({ search: searchText, status: true, page_size: 15 })
-  )
-  const nacionalidadesAutocomplete = useAutoComplete(
-    (searchText) => getNacionalidades({ search: searchText, ativo: true, page_size: 15 })
-  )
-  const consuladosAutocomplete = useAutoComplete(
-    (searchText) => getConsulados({ search: searchText, ativo: true, page_size: 15 })
   )
 
   // Handler para buscar
@@ -159,8 +152,6 @@ function Pesquisa() {
       <PesquisaFilters
         filters={filters}
         empresasAutocomplete={empresasAutocomplete}
-        nacionalidadesAutocomplete={nacionalidadesAutocomplete}
-        consuladosAutocomplete={consuladosAutocomplete}
         onSearch={handleSearch}
         onKeyPress={handleKeyPress}
       />

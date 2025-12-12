@@ -1,0 +1,293 @@
+/**
+ * Table Component Styles
+ * Following BEM methodology
+ */
+
+/* Table Container */
+.table-container {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+/* Base Table */
+table,
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+/* Table Header */
+th {
+  position: sticky;
+  top: 0;
+  background: var(--color-background);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wider);
+  color: var(--color-text-light);
+  padding: var(--spacing-3) var(--spacing-4);
+  text-align: left;
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+
+/* Table Cell */
+td {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+  color: var(--color-text);
+}
+
+/* Table Row */
+tbody tr:hover {
+  background-color: var(--color-background);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Sortable Header */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable:hover {
+  background-color: var(--color-muted);
+}
+
+/* Pesquisa Table */
+.pesquisa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.pesquisa-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-background);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wider);
+  color: var(--color-text-light);
+  padding: var(--spacing-3) var(--spacing-4);
+  text-align: left;
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.pesquisa-table td {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.pesquisa-table tbody tr:hover {
+  background-color: var(--color-background);
+}
+
+.pesquisa-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Row Types */
+.row-titular {
+  background: var(--color-surface);
+}
+
+.row-titular:hover {
+  background-color: #f0f9ff !important;
+}
+
+.row-dependente {
+  background-color: #fafafa;
+}
+
+.row-dependente:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.row-dependente td:first-child {
+  padding-left: var(--spacing-6);
+}
+
+.row-orphan {
+  border-left: 3px solid var(--color-secondary);
+}
+
+/* Row States */
+.row-expired {
+  background-color: #fef2f2 !important;
+  border-left: 3px solid var(--color-danger);
+}
+
+.row-expired:hover {
+  background-color: #fee2e2 !important;
+}
+
+.row-warning {
+  background-color: #fffbeb !important;
+  border-left: 3px solid var(--color-warning);
+}
+
+.row-warning:hover {
+  background-color: #fef3c7 !important;
+}
+
+.row-details {
+  background-color: #f1f5f9 !important;
+}
+
+.row-details:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Names in Table */
+.titular-nome {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.dependente-nome {
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-light);
+}
+
+/* Indent Marker */
+.indent-marker {
+  color: var(--color-text-light);
+  font-family: var(--font-family-mono);
+  margin-right: var(--spacing-2);
+  font-size: var(--font-size-xs);
+}
+
+/* Type Badge in Table */
+.tipo-badge {
+  display: inline-block;
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.tipo-titular {
+  background-color: var(--color-info-light);
+  color: var(--color-info-dark);
+}
+
+.tipo-dependente {
+  background-color: #e0e7ff;
+  color: #4338ca;
+}
+
+/* Actions in Table */
+.actions {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.actions-buttons {
+  display: flex;
+  gap: var(--spacing-1);
+}
+
+.action-btn {
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-light);
+  transition: all var(--transition-fast);
+}
+
+.action-btn:hover {
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+/* Results Header */
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-4);
+  padding-bottom: var(--spacing-3);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+  gap: var(--spacing-4);
+}
+
+.results-count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-light);
+  font-weight: var(--font-weight-medium);
+}
+
+.results-count strong {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.results-options {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+/* Legend */
+.legend,
+.results-legend {
+  display: flex;
+  gap: var(--spacing-6);
+  margin-top: var(--spacing-4);
+  padding: var(--spacing-3) var(--spacing-4);
+  background: var(--color-background);
+  border-radius: var(--radius);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-light);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.legend-color {
+  width: 1rem;
+  height: 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.legend-expired {
+  background-color: #fef2f2;
+  border: 2px solid var(--color-danger);
+}
+
+.legend-warning {
+  background-color: #fffbeb;
+  border: 2px solid var(--color-warning);
+}
+
+@media (max-width: 768px) {
+  .results-legend,
+  .legend {
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+}

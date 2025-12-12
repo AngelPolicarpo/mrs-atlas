@@ -1,0 +1,94 @@
+/**
+ * Alert Component Styles
+ * Following BEM methodology
+ */
+
+/* Base Alert */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4) var(--spacing-5);
+  border-radius: var(--radius);
+  margin-bottom: var(--spacing-4);
+  font-size: var(--font-size-sm);
+  border: 1px solid transparent;
+}
+
+/* Alert Variants */
+.alert-success {
+  background-color: #f0fdf4;
+  color: var(--color-success-dark);
+  border-color: #bbf7d0;
+}
+
+.alert-danger,
+.alert-error {
+  background-color: #fef2f2;
+  color: var(--color-danger-dark);
+  border-color: #fecaca;
+}
+
+.alert-warning {
+  background-color: #fffbeb;
+  color: var(--color-warning-dark);
+  border-color: #fde68a;
+}
+
+.alert-info {
+  background-color: #eff6ff;
+  color: var(--color-info-dark);
+  border-color: #bfdbfe;
+}
+
+/* Alert Title */
+.alert-title {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-1);
+}
+
+/* Alert Description */
+.alert-description {
+  line-height: var(--line-height-relaxed);
+}
+
+/* Alert Icon */
+.alert-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Alert Close Button */
+.alert-close {
+  margin-left: auto;
+  padding: var(--spacing-1);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity var(--transition-fast);
+}
+
+.alert-close:hover {
+  opacity: 1;
+}
+
+/* Alert with Actions */
+.alert-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-3);
+}
+
+/* Dismissible Alert */
+.alert-dismissible {
+  padding-right: var(--spacing-10);
+  position: relative;
+}
+
+.alert-dismissible .alert-close {
+  position: absolute;
+  top: var(--spacing-4);
+  right: var(--spacing-4);
+}

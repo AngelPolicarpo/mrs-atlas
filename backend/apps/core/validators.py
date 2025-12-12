@@ -2,6 +2,7 @@
 Validadores customizados para campos de documentos brasileiros e estrangeiros.
 """
 import re
+from datetime import date
 from django.core.exceptions import ValidationError
 
 
@@ -69,18 +70,27 @@ def validate_cpf(value):
 
 
 def validate_rnm(value):
-    """Valida RNM (Registro Nacional Migratório)."""
+    """Valida RNM (Registro Nacional Migratório) no formato: letra + 6 dígitos + 1 alfanumérico."""
     if not value:
         return
-    
+
     if is_invalid_pattern(value):
-        raise ValidationError('Valor inválido. Digite o RNM corretamente ou deixe em branco.')
-    
+        raise ValidationError(
+            'Valor inválido. Digite o RNM corretamente ou deixe em branco.'
+        )
+
     clean = remove_formatting(value).upper()
-    
-    # Formato correto: letra + 6-7 caracteres alfanuméricos
-    if not re.match(r'^[A-Z][A-Z0-9]{6,7}$', clean):
-        raise ValidationError('RNM deve ter formato: letra + 6-7 caracteres alfanuméricos (ex: V1234567 ou V123456A).')
+
+    # Novo formato: letra + 6 dígitos + 1 alfanumérico (total de 8 caracteres)
+    # Primeiro é letra obrigatória
+    # Próximos 6 **somente dígitos**
+    # Último pode ser letra ou número
+    rnm_regex = r'^[A-Z][0-9]{6}[A-Z0-9]$'
+
+    if not re.match(rnm_regex, clean):
+        raise ValidationError(
+            'RNM deve ter formato: letra + 6 dígitos + 1 alfanumérico (ex: V1234567 ou V123456A).'
+        )
 
 
 def validate_passaporte(value):
@@ -131,6 +141,17 @@ def validate_cnh(value):
     # Verifica se todos os dígitos são iguais
     if re.match(r'^(\d)\1+$', clean):
         raise ValidationError('CNH inválida.')
+
+
+def validate_data_nascimento(value):
+    """Valida data de nascimento - não pode ser futura."""
+    if not value:
+        return
+    
+    hoje = date.today()
+    
+    if value > hoje:
+        raise ValidationError('A data de nascimento não pode ser futura.')
 
 
 def normalize_nome(value):

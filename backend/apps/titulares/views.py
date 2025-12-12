@@ -14,7 +14,7 @@ from .serializers import (
     TitularSerializer, TitularListSerializer, TitularCreateUpdateSerializer,
     VinculoTitularSerializer, DependenteSerializer, VinculoDependenteSerializer
 )
-from apps.core.models import Nacionalidade, AmparoLegal
+from apps.core.models import AmparoLegal
 
 
 class TitularFilter(django_filters.FilterSet):
@@ -92,7 +92,7 @@ class TitularViewSet(viewsets.ModelViewSet):
     """ViewSet para gerenciamento de titulares."""
     
     queryset = Titular.objects.select_related(
-        'nacionalidade', 'criado_por', 'atualizado_por'
+        'criado_por', 'atualizado_por'
     ).prefetch_related('vinculos', 'vinculos__empresa', 'vinculos__amparo', 'dependentes')
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -163,8 +163,7 @@ class TitularViewSet(viewsets.ModelViewSet):
                 if header in header_map:
                     col_map[header_map[header]] = idx
             
-            # Cache de nacionalidades e amparos
-            nacionalidades = {n.nome.lower(): n for n in Nacionalidade.objects.all()}
+            # Cache de amparos
             amparos = {a.nome.lower(): a for a in AmparoLegal.objects.all()}
             
             titulares_criados = 0
@@ -181,12 +180,12 @@ class TitularViewSet(viewsets.ModelViewSet):
                         
                         rnm = row[col_map.get('rnm')] if col_map.get('rnm') is not None else None
                         
-                        # Buscar nacionalidade
+                        # Obter nacionalidade como texto
                         nacionalidade = None
                         if col_map.get('nacionalidade') is not None:
                             nac_nome = row[col_map['nacionalidade']]
                             if nac_nome:
-                                nacionalidade = nacionalidades.get(str(nac_nome).lower())
+                                nacionalidade = str(nac_nome).strip().upper()
                         
                         # Buscar ou criar titular
                         titular = None
@@ -288,7 +287,7 @@ class VinculoTitularViewSet(viewsets.ModelViewSet):
     """ViewSet para gerenciamento de vínculos de titulares."""
     
     queryset = VinculoTitular.objects.select_related(
-        'titular', 'empresa', 'amparo', 'consulado', 
+        'titular', 'empresa', 'amparo', 
         'tipo_atualizacao', 'criado_por', 'atualizado_por'
     )
     serializer_class = VinculoTitularSerializer
@@ -317,7 +316,7 @@ class DependenteViewSet(viewsets.ModelViewSet):
     """ViewSet para gerenciamento de dependentes."""
     
     queryset = Dependente.objects.select_related(
-        'titular', 'nacionalidade', 'criado_por', 'atualizado_por'
+        'titular', 'criado_por', 'atualizado_por'
     )
     serializer_class = DependenteSerializer
     permission_classes = [IsAuthenticated]
@@ -338,7 +337,7 @@ class VinculoDependenteViewSet(viewsets.ModelViewSet):
     """ViewSet para gerenciamento de vínculos de dependentes."""
     
     queryset = VinculoDependente.objects.select_related(
-        'dependente', 'amparo', 'consulado', 'tipo_atualizacao',
+        'dependente', 'amparo', 'tipo_atualizacao',
         'criado_por', 'atualizado_por'
     )
     serializer_class = VinculoDependenteSerializer
@@ -402,14 +401,14 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
         data_ate = request.query_params.get('data_ate')
         
         # Query base para titulares
-        titulares_qs = Titular.objects.select_related('nacionalidade').prefetch_related(
+        titulares_qs = Titular.objects.prefetch_related(
             Prefetch(
                 'vinculos',
                 queryset=VinculoTitular.objects.select_related('empresa', 'amparo').order_by('-data_fim_vinculo')
             ),
             Prefetch(
                 'dependentes',
-                queryset=Dependente.objects.select_related('nacionalidade').prefetch_related(
+                queryset=Dependente.objects.prefetch_related(
                     Prefetch(
                         'vinculos',
                         queryset=VinculoDependente.objects.filter(status=True).order_by('-data_fim_vinculo')
@@ -419,7 +418,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
         )
         
         # Query base para dependentes (busca independente)
-        dependentes_qs = Dependente.objects.select_related('titular', 'nacionalidade').prefetch_related(
+        dependentes_qs = Dependente.objects.select_related('titular').prefetch_related(
             Prefetch(
                 'vinculos',
                 queryset=VinculoDependente.objects.filter(status=True).order_by('-data_fim_vinculo')
@@ -455,15 +454,15 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     Q(passaporte__icontains=search)
                 )
         
-        # Filtro de nacionalidade
+        # Filtro de nacionalidade (agora é campo texto)
         if nacionalidade:
-            titulares_qs = titulares_qs.filter(nacionalidade_id=nacionalidade)
-            dependentes_qs = dependentes_qs.filter(nacionalidade_id=nacionalidade)
+            titulares_qs = titulares_qs.filter(nacionalidade__icontains=nacionalidade)
+            dependentes_qs = dependentes_qs.filter(nacionalidade__icontains=nacionalidade)
         
-        # Filtro de consulado (filtra pelo vínculo)
+        # Filtro de consulado (agora é campo texto no vínculo)
         if consulado:
-            titulares_qs = titulares_qs.filter(vinculos__consulado_id=consulado).distinct()
-            dependentes_qs = dependentes_qs.filter(vinculos__consulado_id=consulado).distinct()
+            titulares_qs = titulares_qs.filter(vinculos__consulado__icontains=consulado).distinct()
+            dependentes_qs = dependentes_qs.filter(vinculos__consulado__icontains=consulado).distinct()
         
         # Filtro de empresa (só se aplica a titulares)
         if empresa:
@@ -532,7 +531,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     'nome': dep.nome,
                     'rnm': dep.rnm,
                     'passaporte': dep.passaporte,
-                    'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                    'nacionalidade': dep.nacionalidade,
                     'tipoDependente': dep.get_tipo_dependente_display(),
                     'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
                     'filiacao_um': dep.filiacao_um,
@@ -575,14 +574,9 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
             if tipo_vinculo:
                 vinculos_filtrados = [v for v in vinculos_filtrados if v.tipo_vinculo == tipo_vinculo]
             
-            # Filtro de consulado (consulado_id é UUID)
+            # Filtro de consulado (agora é campo texto)
             if consulado:
-                from uuid import UUID
-                try:
-                    consulado_uuid = UUID(consulado) if isinstance(consulado, str) else consulado
-                    vinculos_filtrados = [v for v in vinculos_filtrados if v.consulado_id == consulado_uuid]
-                except (ValueError, TypeError):
-                    vinculos_filtrados = []
+                vinculos_filtrados = [v for v in vinculos_filtrados if v.consulado and consulado.upper() in v.consulado.upper()]
             
             # Filtro de empresa (empresa_id é UUID)
             if empresa:
@@ -644,7 +638,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     'rnm': titular.rnm,
                     'cpf': titular.cpf,
                     'passaporte': titular.passaporte,
-                    'nacionalidade': titular.nacionalidade.nome if titular.nacionalidade else None,
+                    'nacionalidade': titular.nacionalidade,
                     'tipoVinculo': None,
                     'empresa': None,
                     'amparo': None,
@@ -675,7 +669,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                             'nome': dep.nome,
                             'rnm': dep.rnm,
                             'passaporte': dep.passaporte,
-                            'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                            'nacionalidade': dep.nacionalidade,
                             'tipoDependente': dep.get_tipo_dependente_display(),
                             'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
                             'filiacao_um': dep.filiacao_um,
@@ -696,7 +690,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                         'rnm': titular.rnm,
                         'cpf': titular.cpf,
                         'passaporte': titular.passaporte,
-                        'nacionalidade': titular.nacionalidade.nome if titular.nacionalidade else None,
+                        'nacionalidade': titular.nacionalidade,
                         'tipoVinculo': vinculo.get_tipo_vinculo_display(),
                         'empresa': vinculo.empresa.nome if vinculo.empresa else None,
                         'amparo': vinculo.amparo.nome if vinculo.amparo else None,
@@ -727,7 +721,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                                 'nome': dep.nome,
                                 'rnm': dep.rnm,
                                 'passaporte': dep.passaporte,
-                                'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                                'nacionalidade': dep.nacionalidade,
                                 'tipoDependente': dep.get_tipo_dependente_display(),
                                 'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
                                 'filiacao_um': dep.filiacao_um,
@@ -754,7 +748,7 @@ class PesquisaUnificadaViewSet(viewsets.ViewSet):
                     'nome': dep.nome,
                     'rnm': dep.rnm,
                     'passaporte': dep.passaporte,
-                    'nacionalidade': dep.nacionalidade.nome if dep.nacionalidade else None,
+                    'nacionalidade': dep.nacionalidade,
                     'tipoDependente': dep.get_tipo_dependente_display(),
                     'dataNascimento': str(dep.data_nascimento) if dep.data_nascimento else None,
                     'filiacao_um': dep.filiacao_um,

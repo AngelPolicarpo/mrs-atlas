@@ -1,0 +1,166 @@
+/**
+ * Typography Styles
+ * Following ITCSS methodology - Elements layer
+ * 
+ * Base typography settings and styles
+ */
+
+/* Body */
+body {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text);
+  background-color: var(--color-background);
+}
+
+/* Headings */
+h1, .h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--color-text);
+}
+
+h2, .h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--color-text);
+}
+
+h3, .h3 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+h4, .h4 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+h5, .h5 {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+h6, .h6 {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+/* Paragraphs */
+p {
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--spacing-4);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+/* Links */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
+/* Small text */
+small, .text-sm {
+  font-size: var(--font-size-sm);
+}
+
+.text-xs {
+  font-size: var(--font-size-xs);
+}
+
+.text-lg {
+  font-size: var(--font-size-lg);
+}
+
+.text-xl {
+  font-size: var(--font-size-xl);
+}
+
+/* Strong / Bold */
+strong, b, .font-bold {
+  font-weight: var(--font-weight-bold);
+}
+
+.font-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.font-medium {
+  font-weight: var(--font-weight-medium);
+}
+
+.font-normal {
+  font-weight: var(--font-weight-normal);
+}
+
+/* Emphasis */
+em, i {
+  font-style: italic;
+}
+
+/* Code */
+code, kbd, samp, pre {
+  font-family: var(--font-family-mono);
+}
+
+code {
+  font-size: 0.875em;
+  padding: 0.125em 0.375em;
+  background-color: var(--color-muted);
+  border-radius: var(--radius-sm);
+}
+
+pre {
+  overflow-x: auto;
+  padding: var(--spacing-4);
+  background-color: var(--color-muted);
+  border-radius: var(--radius-md);
+}
+
+pre code {
+  padding: 0;
+  background-color: transparent;
+}
+
+/* Text colors */
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+
+.text-muted {
+  color: var(--color-text-light);
+}
+
+/* Required marker */
+.required {
+  color: var(--color-danger);
+  margin-left: 0.125rem;
+}

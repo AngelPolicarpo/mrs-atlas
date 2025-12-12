@@ -3,9 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useTitularForm from '../hooks/useTitularForm'
 import useAutoComplete from '../hooks/useAutoComplete'
 import { getEmpresas } from '../services/empresas'
-import { getAmparosLegais, getConsulados } from '../services/core'
+import { getAmparosLegais } from '../services/core'
 import { formatters, validators } from '../utils/validation'
 import VinculoCard from '../components/VinculoCard'
+import PhoneInput, { isValidPhoneNumber } from '../components/PhoneInput'
+import CountryAutocomplete from '../components/CountryAutocomplete'
 
 function TitularForm() {
   const navigate = useNavigate()
@@ -20,7 +22,6 @@ function TitularForm() {
     saving,
     error,
     success,
-    nacionalidades,
     tiposAtualizacao,
     vinculos,
     vinculoSearchTexts,
@@ -40,10 +41,6 @@ function TitularForm() {
 
   const { suggestions: amparosSuggestions, search: searchAmparos, clear: clearAmparosSuggestions } = useAutoComplete(
     (searchText) => getAmparosLegais({ search: searchText, ativo: true, page_size: 15 })
-  )
-
-  const { suggestions: consuladosSuggestions, search: searchConsulados, clear: clearConsuladosSuggestions } = useAutoComplete(
-    (searchText) => getConsulados({ search: searchText, ativo: true, page_size: 15 })
   )
 
   // Handlers para autocomplete
@@ -83,22 +80,11 @@ function TitularForm() {
     [clearAmparosSuggestions, setVinculoSearchText, updateVinculoItem]
   )
 
-  const handleConsuladoSearch = useCallback(
-    (index, text) => {
-      setVinculoSearchText(`consulado_${index}`, text)
-      updateVinculoItem(index, v => ({ ...v, consulado: '', consulado_nome: text }))
-      searchConsulados(text)
+  const handleConsuladoChange = useCallback(
+    (index, value) => {
+      updateVinculoItem(index, v => ({ ...v, consulado: value }))
     },
-    [searchConsulados, setVinculoSearchText, updateVinculoItem]
-  )
-
-  const handleConsuladoSelect = useCallback(
-    (index, consulado) => {
-      updateVinculoItem(index, v => ({ ...v, consulado: consulado.id, consulado_nome: consulado.pais }))
-      setVinculoSearchText(`consulado_${index}`, consulado.pais)
-      clearConsuladosSuggestions()
-    },
-    [clearConsuladosSuggestions, setVinculoSearchText, updateVinculoItem]
+    [updateVinculoItem]
   )
 
   // Submit com redirecionamento
@@ -229,23 +215,13 @@ function TitularForm() {
               </select>
             </div>
 
-            <div className="form-field">
-              <label htmlFor="nacionalidade" className="form-label">Nacionalidade</label>
-              <select
-                id="nacionalidade"
-                name="nacionalidade"
-                value={formData.nacionalidade}
-                onChange={handleFormChange}
-                className="form-input"
-              >
-                <option value="">Selecione...</option>
-                {nacionalidades.map(nac => (
-                  <option key={nac.id} value={nac.id}>
-                    {nac.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CountryAutocomplete
+              id="nacionalidade"
+              value={formData.nacionalidade}
+              onChange={(value) => handleFormChange({ target: { name: 'nacionalidade', value } })}
+              label="Nacionalidade"
+              placeholder="Digite para buscar país..."
+            />
           </div>
 
           <div className="form-grid-3">
@@ -322,8 +298,10 @@ function TitularForm() {
                 name="data_nascimento"
                 value={formData.data_nascimento}
                 onChange={handleFormChange}
-                className="form-input"
+                onBlur={(e) => handleFormBlur(e, validators.data_nascimento)}
+                className={`form-input ${fieldErrors.data_nascimento ? 'is-invalid' : ''}`}
               />
+              {fieldErrors.data_nascimento && <span className="form-error">{fieldErrors.data_nascimento}</span>}
             </div>
 
             <div className="form-field">
@@ -360,7 +338,7 @@ function TitularForm() {
         <div className="form-section">
           <h3>Contato</h3>
 
-          <div className="form-grid-3">
+          <div className="form-grid-2">
             <div className="form-field">
               <label htmlFor="email" className="form-label">Email</label>
               <input 
@@ -374,45 +352,14 @@ function TitularForm() {
               />
               {fieldErrors.email && <span className="form-error">{fieldErrors.email}</span>}
             </div>
-
-            <div className="form-field">
-              <label htmlFor="telefone" className="form-label">Telefone</label>
-              <input 
-                type="text" 
-                id="telefone" 
-                name="telefone" 
-                value={formData.telefone} 
-                onChange={(e) => handleFormChange(e, formatters.telefone)}
+              <PhoneInput
+                id="telefone"
+                value={formData.telefone}
+                onChange={(value) => handleFormChange({ target: { name: 'telefone', value: value || '' } })}
                 onBlur={(e) => handleFormBlur(e, validators.telefone)}
-                className={`form-input ${fieldErrors.telefone ? 'is-invalid' : ''}`}
-                placeholder="(00) 00000-0000 ou +55 11 99999-9999" 
+                label="Telefone"
+                error={fieldErrors.telefone}
               />
-              {fieldErrors.telefone && <span className="form-error">{fieldErrors.telefone}</span>}
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="pais_telefone" className="form-label">País (Telefone)</label>
-              <select 
-                id="pais_telefone" 
-                name="pais_telefone" 
-                value={formData.pais_telefone} 
-                onChange={handleFormChange} 
-                className="form-input"
-              >
-                <option value="BR">Brasil (+55)</option>
-                <option value="PT">Portugal (+351)</option>
-                <option value="US">Estados Unidos (+1)</option>
-                <option value="FR">França (+33)</option>
-                <option value="ES">Espanha (+34)</option>
-                <option value="IT">Itália (+39)</option>
-                <option value="DE">Alemanha (+49)</option>
-                <option value="GB">Reino Unido (+44)</option>
-                <option value="CA">Canadá (+1)</option>
-                <option value="AU">Austrália (+61)</option>
-                <option value="JP">Japão (+81)</option>
-                <option value="CN">China (+86)</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -445,7 +392,6 @@ function TitularForm() {
                     vinculoSearchTexts={vinculoSearchTexts}
                     empresasSuggestions={empresasSuggestions}
                     amparosSuggestions={amparosSuggestions}
-                    consuladosSuggestions={consuladosSuggestions}
                     onToggleExpanded={toggleVinculoExpanded}
                     onRemove={removeVinculo}
                     onChange={handleVinculoChange}
@@ -453,8 +399,7 @@ function TitularForm() {
                     onEmpresaSelect={handleEmpresaSelect}
                     onAmparoSearch={handleAmparoSearch}
                     onAmparoSelect={handleAmparoSelect}
-                    onConsuladoSearch={handleConsuladoSearch}
-                    onConsuladoSelect={handleConsuladoSelect}
+                    onConsuladoChange={handleConsuladoChange}
                   />
                 )
             )

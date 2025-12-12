@@ -110,7 +110,7 @@ function Dashboard() {
         const titular = titularesMap[v.titular] || {}
         return {
           'Nome': titular.nome || v.titular_nome || '',
-          'Nacionalidade': titular.nacionalidade_nome || '',
+          'Nacionalidade': titular.nacionalidade || '',
           'Nascimento': titular.data_nascimento || '',
           'Filiação 1': titular.filiacao_um || '',
           'Filiação 2': titular.filiacao_dois || '',
@@ -127,7 +127,7 @@ function Dashboard() {
         if (!titularesComVinculo.has(t.id)) {
           exportData.push({
             'Nome': t.nome,
-            'Nacionalidade': t.nacionalidade_nome || '',
+            'Nacionalidade': t.nacionalidade || '',
             'Nascimento': t.data_nascimento || '',
             'Filiação 1': t.filiacao_um || '',
             'Filiação 2': t.filiacao_dois || '',
@@ -317,7 +317,7 @@ function Dashboard() {
                       </strong>
                     </td>
                     <td>{titular.rnm || '-'}</td>
-                    <td>{titular.nacionalidade_nome || '-'}</td>
+                    <td>{titular.nacionalidade || '-'}</td>
                     <td>{titular.email || '-'}</td>
                   </tr>
                 ))}

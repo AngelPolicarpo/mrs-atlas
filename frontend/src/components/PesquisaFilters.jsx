@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react'
+import CountryAutocomplete from './CountryAutocomplete'
 
 /**
  * Componente puro para renderizar filtros da pesquisa
@@ -10,8 +11,6 @@ import React, { useCallback } from 'react'
 function PesquisaFilters({
   filters,
   empresasAutocomplete,
-  nacionalidadesAutocomplete,
-  consuladosAutocomplete,
   onSearch,
   onKeyPress,
 }) {
@@ -63,59 +62,23 @@ function PesquisaFilters({
           <summary className="filter-summary">Filtros Avançados</summary>
           <div className="filter-grid">
             <div className="form-group">
-              <label className="form-label">Nacionalidade</label>
-              <input
-                type="text"
-                className="form-input"
-                value={filters.filters.nacionalidadeText || ''}
-                onChange={(e) => {
-                  filters.handleTextChange('nacionalidadeText', e.target.value)
-                  nacionalidadesAutocomplete.search(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const nac = nacionalidadesAutocomplete.suggestions.find(
-                    n => n.nome.toLowerCase() === e.target.value.toLowerCase()
-                  )
-                  if (nac) {
-                    filters.handleItemSelect('nacionalidade', nac.nome, nac.id)
-                  }
-                }}
-                list="nacionalidades-list"
-                placeholder="Digite para buscar..."
+              <CountryAutocomplete
+                id="filter-nacionalidade"
+                value={filters.filters.nacionalidade || ''}
+                onChange={(value) => filters.handleItemSelect('nacionalidade', value, value)}
+                label="Nacionalidade"
+                placeholder="Digite para buscar país..."
               />
-              <datalist id="nacionalidades-list">
-                {nacionalidadesAutocomplete.suggestions.map(nac => (
-                  <option key={nac.id} value={nac.nome} />
-                ))}
-              </datalist>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Consulado</label>
-              <input
-                type="text"
-                className="form-input"
-                value={filters.filters.consuladoText || ''}
-                onChange={(e) => {
-                  filters.handleTextChange('consuladoText', e.target.value)
-                  consuladosAutocomplete.search(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const cons = consuladosAutocomplete.suggestions.find(
-                    c => c.pais.toLowerCase() === e.target.value.toLowerCase()
-                  )
-                  if (cons) {
-                    filters.handleItemSelect('consulado', cons.pais, cons.id)
-                  }
-                }}
-                list="consulados-list"
-                placeholder="Digite para buscar..."
+              <CountryAutocomplete
+                id="filter-consulado"
+                value={filters.filters.consulado || ''}
+                onChange={(value) => filters.handleItemSelect('consulado', value, value)}
+                label="Consulado"
+                placeholder="Digite para buscar país..."
               />
-              <datalist id="consulados-list">
-                {consuladosAutocomplete.suggestions.map(cons => (
-                  <option key={cons.id} value={cons.pais} />
-                ))}
-              </datalist>
             </div>
 
             <div className="form-group">

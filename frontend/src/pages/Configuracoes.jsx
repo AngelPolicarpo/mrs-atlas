@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
 import {
-  getNacionalidades, createNacionalidade, updateNacionalidade, deleteNacionalidade,
   getAmparosLegais, createAmparoLegal, updateAmparoLegal, deleteAmparoLegal,
-  getConsulados, createConsulado, updateConsulado, deleteConsulado,
   getTiposAtualizacao, createTipoAtualizacao, updateTipoAtualizacao, deleteTipoAtualizacao
 } from '../services/core'
 
 function Configuracoes() {
-  const [activeTab, setActiveTab] = useState('nacionalidades')
+  const [activeTab, setActiveTab] = useState('amparos')
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -16,9 +14,7 @@ function Configuracoes() {
   const [isCreating, setIsCreating] = useState(false)
 
   const tabs = [
-    { id: 'nacionalidades', label: '🌍 Nacionalidades', fields: ['nome', 'codigo_iso'] },
     { id: 'amparos', label: '⚖️ Amparos Legais', fields: ['nome', 'descricao'] },
-    { id: 'consulados', label: '🏛️ Consulados', fields: ['pais'] },
     { id: 'tipos', label: '📋 Tipos de Atualização', fields: ['nome', 'descricao'] },
   ]
 
@@ -33,14 +29,8 @@ function Configuracoes() {
       let response
       
       switch (activeTab) {
-        case 'nacionalidades':
-          response = await getNacionalidades()
-          break
         case 'amparos':
           response = await getAmparosLegais()
-          break
-        case 'consulados':
-          response = await getConsulados()
           break
         case 'tipos':
           response = await getTiposAtualizacao()
@@ -62,14 +52,8 @@ function Configuracoes() {
       
       if (isCreating) {
         switch (activeTab) {
-          case 'nacionalidades':
-            await createNacionalidade(formData)
-            break
           case 'amparos':
             await createAmparoLegal(formData)
-            break
-          case 'consulados':
-            await createConsulado(formData)
             break
           case 'tipos':
             await createTipoAtualizacao(formData)
@@ -77,14 +61,8 @@ function Configuracoes() {
         }
       } else {
         switch (activeTab) {
-          case 'nacionalidades':
-            await updateNacionalidade(editingId, formData)
-            break
           case 'amparos':
             await updateAmparoLegal(editingId, formData)
-            break
-          case 'consulados':
-            await updateConsulado(editingId, formData)
             break
           case 'tipos':
             await updateTipoAtualizacao(editingId, formData)
@@ -117,14 +95,8 @@ function Configuracoes() {
 
     try {
       switch (activeTab) {
-        case 'nacionalidades':
-          await deleteNacionalidade(id)
-          break
         case 'amparos':
           await deleteAmparoLegal(id)
-          break
-        case 'consulados':
-          await deleteConsulado(id)
           break
         case 'tipos':
           await deleteTipoAtualizacao(id)
@@ -214,7 +186,7 @@ function Configuracoes() {
             <div className="form-row">
               {currentTab?.fields.map(field => (
                 <div key={field} className="form-group">
-                  <label className="form-label">{field === 'codigo_iso' ? 'Código ISO' : field === 'pais' ? 'País' : field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <label className="form-label">{field.charAt(0).toUpperCase() + field.slice(1)}</label>
                   {renderField(field)}
                 </div>
               ))}
@@ -235,9 +207,7 @@ function Configuracoes() {
                 <tr>
                   {currentTab?.fields.map(field => (
                     <th key={field}>
-                      {field === 'codigo_iso' ? 'Código ISO' : 
-                       field === 'pais' ? 'País' : 
-                       field.charAt(0).toUpperCase() + field.slice(1)}
+                      {field.charAt(0).toUpperCase() + field.slice(1)}
                     </th>
                   ))}
                   <th>Status</th>
@@ -299,7 +269,7 @@ function Configuracoes() {
                                 ✏️ Editar
                               </button>
                               <button
-                                onClick={() => handleDelete(item.id, item.nome || item.pais)}
+                                onClick={() => handleDelete(item.id, item.nome)}
                                 className="btn btn-sm btn-danger"
                               >
                                 🗑️

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.core.serializers import NacionalidadeSerializer, AmparoLegalSerializer, ConsuladoSerializer, TipoAtualizacaoSerializer
+from apps.core.serializers import AmparoLegalSerializer, TipoAtualizacaoSerializer
 from apps.empresa.serializers import EmpresaListSerializer
 from .models import Titular, VinculoTitular, Dependente, VinculoDependente
 
@@ -8,7 +8,6 @@ class VinculoDependenteSerializer(serializers.ModelSerializer):
     """Serializer para Vínculo do Dependente."""
     dependente_nome = serializers.CharField(source='dependente.nome', read_only=True)
     amparo_nome = serializers.CharField(source='amparo.nome', read_only=True)
-    consulado_pais = serializers.CharField(source='consulado.pais', read_only=True)
     tipo_atualizacao_nome = serializers.CharField(source='tipo_atualizacao.nome', read_only=True)
     criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
     atualizado_por_nome = serializers.CharField(source='atualizado_por.nome', read_only=True)
@@ -18,7 +17,7 @@ class VinculoDependenteSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'dependente', 'dependente_nome',
             'status', 'tipo_status', 'data_entrada', 'data_fim_vinculo', 'atualizacao', 'observacoes',
-            'amparo', 'amparo_nome', 'consulado', 'consulado_pais',
+            'amparo', 'amparo_nome', 'consulado',
             'tipo_atualizacao', 'tipo_atualizacao_nome',
             'data_criacao', 'ultima_atualizacao',
             'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
@@ -28,7 +27,6 @@ class VinculoDependenteSerializer(serializers.ModelSerializer):
 
 class DependenteSerializer(serializers.ModelSerializer):
     titular_nome = serializers.CharField(source='titular.nome', read_only=True)
-    nacionalidade_nome = serializers.CharField(source='nacionalidade.nome', read_only=True)
     criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
     atualizado_por_nome = serializers.CharField(source='atualizado_por.nome', read_only=True)
     tipo_dependente_display = serializers.CharField(source='get_tipo_dependente_display', read_only=True)
@@ -40,7 +38,7 @@ class DependenteSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'titular', 'titular_nome', 'nome', 'passaporte', 'data_validade_passaporte',
             'rnm', 'cnh', 'status_visto', 'ctps',
-            'nacionalidade', 'nacionalidade_nome',
+            'nacionalidade',
             'tipo_dependente', 'tipo_dependente_display',
             'sexo', 'sexo_display', 'data_nascimento', 'filiacao_um', 'filiacao_dois',
             'data_criacao', 'ultima_atualizacao',
@@ -90,13 +88,20 @@ class DependenteSerializer(serializers.ModelSerializer):
         from apps.core.validators import validate_cnh, clean_document
         validate_cnh(value)
         return clean_document(value, 'cnh')
+    
+    def validate_data_nascimento(self, value):
+        """Valida data de nascimento."""
+        if not value:
+            return value
+        from apps.core.validators import validate_data_nascimento
+        validate_data_nascimento(value)
+        return value
 
 
 class VinculoTitularSerializer(serializers.ModelSerializer):
     titular_nome = serializers.CharField(source='titular.nome', read_only=True)
     empresa_nome = serializers.CharField(source='empresa.nome', read_only=True)
     amparo_nome = serializers.CharField(source='amparo.nome', read_only=True)
-    consulado_pais = serializers.CharField(source='consulado.pais', read_only=True)
     tipo_atualizacao_nome = serializers.CharField(source='tipo_atualizacao.nome', read_only=True)
     tipo_vinculo_display = serializers.CharField(source='get_tipo_vinculo_display', read_only=True)
     criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
@@ -107,7 +112,7 @@ class VinculoTitularSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'titular', 'titular_nome', 'tipo_vinculo', 'tipo_vinculo_display',
             'empresa', 'empresa_nome', 'amparo', 'amparo_nome',
-            'consulado', 'consulado_pais', 'tipo_atualizacao', 'tipo_atualizacao_nome',
+            'consulado', 'tipo_atualizacao', 'tipo_atualizacao_nome',
             'status', 'tipo_status', 'data_entrada_pais', 'data_fim_vinculo', 'atualizacao', 'observacoes',
             'data_criacao', 'ultima_atualizacao',
             'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
@@ -116,7 +121,6 @@ class VinculoTitularSerializer(serializers.ModelSerializer):
 
 
 class TitularSerializer(serializers.ModelSerializer):
-    nacionalidade_nome = serializers.CharField(source='nacionalidade.nome', read_only=True)
     sexo_display = serializers.CharField(source='get_sexo_display', read_only=True)
     criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
     atualizado_por_nome = serializers.CharField(source='atualizado_por.nome', read_only=True)
@@ -127,7 +131,7 @@ class TitularSerializer(serializers.ModelSerializer):
         model = Titular
         fields = [
             'id', 'nome', 'cpf', 'cnh', 'passaporte', 'data_validade_passaporte', 'rnm', 'status_visto', 'ctps',
-            'nacionalidade', 'nacionalidade_nome',
+            'nacionalidade',
             'sexo', 'sexo_display', 'email', 'telefone',
             'filiacao_um', 'filiacao_dois', 'data_nascimento', 'data_validade_cnh',
             'data_criacao', 'ultima_atualizacao',
@@ -151,14 +155,13 @@ class VinculoSimplificadoSerializer(serializers.ModelSerializer):
 
 class TitularListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listagens."""
-    nacionalidade_nome = serializers.CharField(source='nacionalidade.nome', read_only=True)
     vinculos_count = serializers.SerializerMethodField()
     dependentes_count = serializers.SerializerMethodField()
     vinculos = VinculoSimplificadoSerializer(many=True, read_only=True)
     
     class Meta:
         model = Titular
-        fields = ['id', 'nome', 'rnm', 'cpf', 'passaporte', 'nacionalidade_nome', 'email', 'telefone',
+        fields = ['id', 'nome', 'rnm', 'cpf', 'passaporte', 'nacionalidade', 'email', 'telefone',
                   'filiacao_um', 'filiacao_dois', 'data_nascimento', 'vinculos_count', 'dependentes_count', 'vinculos']
     
     def get_vinculos_count(self, obj):
@@ -231,3 +234,11 @@ class TitularCreateUpdateSerializer(serializers.ModelSerializer):
         from apps.core.validators import validate_cnh, clean_document
         validate_cnh(value)
         return clean_document(value, 'cnh')
+    
+    def validate_data_nascimento(self, value):
+        """Valida data de nascimento."""
+        if not value:
+            return value
+        from apps.core.validators import validate_data_nascimento
+        validate_data_nascimento(value)
+        return value
