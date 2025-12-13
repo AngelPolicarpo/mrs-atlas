@@ -13,7 +13,7 @@ urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
     
-    # API Authentication (compatível com dj-rest-auth)
+    # API Authentication
     path('api/auth/', include(auth_urlpatterns)),
     
     # JWT Token endpoints (SimpleJWT direto)

@@ -23,7 +23,7 @@ Este documento contém o backlog de melhorias, refatorações e próximas funcio
 
 | ID | Item | Prioridade | Esforço | Descrição |
 |----|------|------------|---------|-----------|
-| DT-01 | Remover código legado allauth | Alta | Baixo | Remover referências residuais do django-allauth que foi substituído |
+| ~~DT-01~~ | ~~Remover código legado allauth~~ | ~~Alta~~ | ~~Baixo~~ | ✅ **Concluído** - Removido django-allauth, dj-rest-auth e models_old.py |
 | DT-02 | Padronizar serializers | Média | Médio | Criar mixins para campos comuns (created_at, updated_at, ativo) |
 | DT-03 | Adicionar testes unitários | Alta | Alto | Cobertura mínima de 80% nos models e views |
 | DT-04 | Adicionar testes de integração | Média | Alto | Testar fluxos completos de CRUD |

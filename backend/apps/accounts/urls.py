@@ -19,7 +19,7 @@ urlpatterns = [
     path('', include(router.urls)),
 ]
 
-# URLs de autenticação (compatíveis com dj-rest-auth)
+# URLs de autenticação
 auth_urlpatterns = [
     path('login/', views.LoginView.as_view(), name='login'),
     path('logout/', views.LogoutView.as_view(), name='logout'),

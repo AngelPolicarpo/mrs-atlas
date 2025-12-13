@@ -19,12 +19,9 @@ MODEL_TRANSLATIONS = {
     'accounts.user': 'usuário',
     'accounts.sistema': 'sistema',
     'accounts.departamento': 'departamento',
-    'accounts.cargo': 'cargo',
     'accounts.usuariovinculo': 'vínculo de acesso',
-    'accounts.usuariodepartamento': 'vínculo legado',
     'accounts.historicaluser': 'histórico de usuário',
     'accounts.historicalusuariovinculo': 'histórico de vínculo',
-    'accounts.historicalusuariodepartamento': 'histórico de vínculo legado',
     
     # ===== Core =====
     'core.amparolegal': 'amparo legal',
@@ -45,9 +42,6 @@ MODEL_TRANSLATIONS = {
     'empresa.historicalempresa': 'histórico de empresa',
     'empresa.historicalcontatoempresa': 'histórico de contato',
     
-    # ===== Clients =====
-    'clients.client': 'cliente',
-    
     # ===== Auth (Django) =====
     'auth.permission': 'permissão',
     'auth.group': 'grupo',
@@ -64,22 +58,9 @@ MODEL_TRANSLATIONS = {
     # ===== Sites (Django) =====
     'sites.site': 'site',
     
-    # ===== Auth Token =====
-    'authtoken.token': 'token',
-    'authtoken.tokenproxy': 'token proxy',
-    
-    # ===== Token Blacklist =====
+    # ===== Token Blacklist (SimpleJWT) =====
     'token_blacklist.blacklistedtoken': 'token na lista negra',
     'token_blacklist.outstandingtoken': 'token pendente',
-    
-    # ===== Account (Allauth) =====
-    'account.emailaddress': 'endereço de email',
-    'account.emailconfirmation': 'confirmação de email',
-    
-    # ===== Social Account (Allauth) =====
-    'socialaccount.socialaccount': 'conta social',
-    'socialaccount.socialapp': 'aplicação social',
-    'socialaccount.socialtoken': 'token social',
 }
 
 
