@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { PermissionProvider, usePermissions, useNeedsSelection } from './context/PermissionContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -13,6 +14,44 @@ import EmpresaForm from './pages/EmpresaForm'
 import Configuracoes from './pages/Configuracoes'
 import UserList from './pages/UserList'
 import UserForm from './pages/UserForm'
+import SystemSelector from './pages/SystemSelector'
+import NoAccess from './pages/NoAccess'
+
+/**
+ * Wrapper que fornece o PermissionContext após autenticação
+ */
+function PermissionWrapper({ children }) {
+  const { user } = useAuth()
+  return (
+    <PermissionProvider user={user}>
+      {children}
+    </PermissionProvider>
+  )
+}
+
+/**
+ * Componente que verifica se precisa exibir seleção de sistema/departamento
+ * 
+ * Fluxo:
+ * 1. Se NÃO tem acesso a nenhum sistema -> mostra NoAccess
+ * 2. Se precisa selecionar sistema -> mostra SystemSelector
+ * 3. Se contexto completo -> mostra children
+ */
+function SystemCheck({ children }) {
+  const { needsAnySelection, hasAccess } = useNeedsSelection()
+
+  // Usuário sem nenhum vínculo/sistema disponível
+  if (!hasAccess) {
+    return <NoAccess />
+  }
+
+  // Se precisa selecionar sistema, exibe a tela de seleção
+  if (needsAnySelection) {
+    return <SystemSelector />
+  }
+
+  return children
+}
 
 // Componente para rotas protegidas
 function ProtectedRoute({ children }) {
@@ -26,7 +65,13 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />
   }
   
-  return children
+  return (
+    <PermissionWrapper>
+      <SystemCheck>
+        {children}
+      </SystemCheck>
+    </PermissionWrapper>
+  )
 }
 
 // Componente para rotas públicas (redireciona se já logado)

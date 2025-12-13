@@ -3,12 +3,14 @@ import api from './api'
 export const authService = {
   async login(email, password) {
     const response = await api.post('/api/auth/login/', { email, password })
-    const { access, refresh, user } = response.data
+    const { access, refresh } = response.data
     
     localStorage.setItem('access_token', access)
     localStorage.setItem('refresh_token', refresh)
     
-    return user
+    // Busca dados completos do usuário (incluindo permissões)
+    const userResponse = await api.get('/api/v1/users/me/')
+    return userResponse.data
   },
   
   async register(data) {

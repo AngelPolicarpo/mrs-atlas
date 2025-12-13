@@ -1,0 +1,57 @@
+/* ===================================
+   NO ACCESS PAGE - Usuário sem acesso
+   =================================== */
+
+.no-access-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  padding: 2rem;
+}
+
+.no-access-container {
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 3rem 2rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.no-access-icon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+}
+
+.no-access-container h1 {
+  font-size: 1.75rem;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.no-access-container p {
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.no-access-actions {
+  margin-top: 2rem;
+}
+
+.no-access-actions .btn {
+  min-width: 200px;
+}
+
+.no-access-help {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.no-access-help .small {
+  font-size: 0.8rem;
+}

@@ -30,13 +30,20 @@ const api = axios.create({
   withCredentials: true,
 })
 
-// Interceptor para adicionar token de autenticação
+// Interceptor para adicionar token de autenticação e departamento ativo
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    
+    // Adiciona o departamento ativo no header para validação de permissões no backend
+    const activeDepartment = localStorage.getItem('active_department')
+    if (activeDepartment) {
+      config.headers['X-Active-Department'] = activeDepartment
+    }
+    
     return config
   },
   (error) => Promise.reject(error)

@@ -81,19 +81,31 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class CurrentUserView(APIView):
-    """Retorna dados do usuário autenticado."""
+    """
+    Retorna dados do usuário autenticado com informações de permissões.
+    
+    GET /api/v1/me/
+    Retorna:
+        - Dados do usuário
+        - Lista de departamentos vinculados
+        - Sistemas disponíveis (para tela de seleção)
+        - Permissões completas por departamento
+    """
     
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        from .serializers import UserProfileSerializer
+        serializer = UserProfileSerializer(request.user)
         return Response(serializer.data)
     
     def patch(self, request):
         serializer = UserSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+        # Retorna o perfil completo após atualização
+        from .serializers import UserProfileSerializer
+        return Response(UserProfileSerializer(request.user).data)
 
 
 class LGPDDataExportView(APIView):

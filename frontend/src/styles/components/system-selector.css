@@ -1,0 +1,447 @@
+/* ===================================
+   SYSTEM SELECTOR - Tela de Seleção de Sistema
+   =================================== */
+
+.system-selector-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  padding: 2rem;
+}
+
+.system-selector-container {
+  max-width: 800px;
+  width: 100%;
+}
+
+.system-selector-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.system-selector-header h1 {
+  font-size: 2rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.system-selector-header p {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+/* Cards de Sistema */
+.system-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.system-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.system-card:hover {
+  border-color: var(--system-color, var(--primary));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.system-card:focus {
+  outline: none;
+  border-color: var(--system-color, var(--primary));
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.system-icon {
+  font-size: 3rem;
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--system-color, var(--primary)) 0%, color-mix(in srgb, var(--system-color, var(--primary)) 70%, black) 100%);
+  border-radius: var(--radius-md);
+}
+
+.system-info {
+  flex: 1;
+}
+
+.system-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.system-description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.system-cargo {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.system-cargo strong {
+  color: var(--system-color, var(--primary));
+}
+
+.system-arrow {
+  font-size: 1.5rem;
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.system-card:hover .system-arrow {
+  transform: translateX(4px);
+  color: var(--system-color, var(--primary));
+}
+
+.system-selector-footer {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+/* ===================================
+   DEPARTMENT SWITCHER - Dropdown no Header
+   =================================== */
+
+.department-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.department-switcher-compact {
+  display: flex;
+  align-items: center;
+}
+
+.current-department {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ===================================
+   CONTEXT SWITCHER - Sistema + Departamento + Cargo
+   =================================== */
+
+.context-switcher {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.context-switcher-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.context-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.context-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.context-select {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  min-width: 120px;
+}
+
+.context-select:hover {
+  border-color: var(--primary);
+}
+
+.context-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.current-context,
+.current-sistema,
+.current-departamento {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.context-icon,
+.sistema-icon,
+.departamento-icon {
+  font-size: 1rem;
+}
+
+.context-separator {
+  color: var(--text-tertiary);
+  font-weight: 300;
+}
+
+/* Cargo badges */
+.cargo-badge {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.cargo-badge-lg {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+/* Legacy department select */
+.department-icon {
+  font-size: 1.25rem;
+}
+
+.department-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.department-select {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.department-select:hover {
+  border-color: var(--primary);
+}
+
+.department-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* ===================================
+   RESPONSIVE
+   =================================== */
+
+@media (max-width: 640px) {
+  .system-selector-page {
+    padding: 1rem;
+  }
+
+  .system-selector-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .system-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 1.25rem;
+  }
+
+  .system-icon {
+    width: 60px;
+    height: 60px;
+    font-size: 2rem;
+  }
+
+  .system-arrow {
+    display: none;
+  }
+}
+
+/* ===================================
+   DEPARTMENT SELECTION - Segunda etapa
+   =================================== */
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  margin-bottom: 1rem;
+}
+
+.back-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+.selected-system-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--system-color, var(--primary)) 0%, color-mix(in srgb, var(--system-color, var(--primary)) 70%, black) 100%);
+  border-radius: var(--radius-full);
+  color: white;
+  font-weight: 500;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.system-icon-small {
+  font-size: 1.25rem;
+}
+
+/* Cards de Departamento */
+.department-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.department-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.department-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.department-card:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.department-card .department-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.department-card .department-info {
+  flex: 1;
+}
+
+.department-card .department-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.department-arrow {
+  font-size: 1.25rem;
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.department-card:hover .department-arrow {
+  transform: translateX(4px);
+  color: var(--primary);
+}
+
+/* System meta info */
+.system-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.system-dept-count {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  padding: 0.125rem 0.5rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+/* ===================================
+   RESPONSIVE - Department Cards
+   =================================== */
+
+@media (max-width: 640px) {
+  .department-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .department-card {
+    padding: 1rem;
+  }
+
+  .department-card .department-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.5rem;
+  }
+
+  .selected-system-badge {
+    font-size: 0.75rem;
+  }
+}
