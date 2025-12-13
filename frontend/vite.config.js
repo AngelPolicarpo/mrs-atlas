@@ -21,6 +21,10 @@ export default defineConfig({
         target: BACKEND_URL,
         changeOrigin: true,
       },
+      '/static': {
+        target: BACKEND_URL,
+        changeOrigin: true,
+      },
     },
   },
 })
