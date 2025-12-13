@@ -1,28 +1,86 @@
-# 🏛️ Atlas - Sistema de Gestão de Clientes com LGPD
+# 🌐 Atlas - Sistema de Gestão Integrada
 
-Sistema completo de gestão de clientes desenvolvido com foco em conformidade com a LGPD (Lei Geral de Proteção de Dados).
+<p align="center">
+  <strong>Plataforma multimodular para gestão de prazos migratórios, ordens de serviço e processos organizacionais</strong>
+</p>
 
-## 🚀 Stack Tecnológica
+---
 
-- **Backend:** Python 3.12 + Django 5.x + Django REST Framework
-- **Frontend:** Node 24 + React 18 + Vite 6
-- **Banco de Dados:** PostgreSQL 16
-- **Cache/Queue:** Redis 7 (preparado para Celery)
-- **Autenticação:** django-allauth + JWT (SimpleJWT)
-- **Containerização:** Docker + Docker Compose
+## 📋 Visão Geral
 
-## 📋 Pré-requisitos
+O **Atlas** é um sistema web modular desenvolvido para empresas que lidam com gestão de estrangeiros, prazos migratórios, vínculos empresariais e processos administrativos. A plataforma foi projetada para suportar múltiplos módulos (sistemas) e departamentos, com controle de acesso granular baseado em cargos (RBAC).
 
+### 🎯 Objetivo de Negócio
+
+- **Centralizar** a gestão de titulares (estrangeiros) e seus dependentes
+- **Controlar** prazos de documentos, vistos e regularizações
+- **Gerenciar** vínculos com empresas, consulados e amparos legais
+- **Automatizar** alertas de vencimento e atualizações cadastrais
+- **Fornecer** visibilidade multi-departamental com segregação de acesso
+
+---
+
+## 🚀 Status do Projeto
+
+| Módulo | Status | Descrição |
+|--------|--------|-----------|
+| **Sistema de Prazos** | ✅ Concluído | Gestão de titulares, dependentes, vínculos e prazos |
+| **Ordem de Serviço** | 🔄 Planejado | Gestão de OS, tarefas e fluxos de trabalho |
+| **Contratos** | 📋 Planejado | Gestão de contratos e documentos |
+
+### ✅ Funcionalidades Implementadas
+
+- [x] Cadastro completo de Titulares e Dependentes
+- [x] Gestão de Vínculos (Empresa, Consulado, Amparo Legal)
+- [x] Sistema de Permissões RBAC (Consultor, Gestor, Diretor)
+- [x] Autenticação JWT com refresh token
+- [x] Seleção de Sistema e Departamento por usuário
+- [x] Pesquisa unificada com filtros avançados
+- [x] Django Admin customizado com tema dark
+- [x] Histórico de alterações (auditoria via django-simple-history)
+- [x] Conformidade LGPD (exportação e anonimização de dados)
+
+---
+
+## 🛠️ Stack Tecnológica
+
+### Backend
+| Tecnologia | Versão | Uso |
+|------------|--------|-----|
+| Python | 3.12 | Linguagem principal |
+| Django | 5.2.x | Framework web |
+| Django REST Framework | 3.15 | APIs RESTful |
+| PostgreSQL | 16 | Banco de dados |
+| Redis | 7 | Cache (preparado para Celery) |
+| SimpleJWT | 5.x | Autenticação JWT |
+| django-simple-history | 3.x | Auditoria |
+
+### Frontend
+| Tecnologia | Versão | Uso |
+|------------|--------|-----|
+| React | 18 | Framework UI |
+| Vite | 6 | Build tool |
+| React Router DOM | 6 | Roteamento SPA |
+| Axios | 1.x | Cliente HTTP |
+| CSS Modules | - | Estilização |
+
+### Infraestrutura
+- **Docker** + **Docker Compose** para containerização
+- Volumes persistentes para dados do PostgreSQL
+
+---
+
+## ⚡ Quick Start
+
+### Pré-requisitos
 - Docker 24+ e Docker Compose v2
 - Git
-
-## 🏁 Início Rápido
 
 ### 1. Clone o repositório
 
 ```bash
-git clone <seu-repositorio>
-cd Atlas
+git clone https://github.com/seu-usuario/atlas.git
+cd atlas
 ```
 
 ### 2. Configure as variáveis de ambiente
@@ -36,27 +94,33 @@ cp .env.example .env
 ### 3. Inicie todos os serviços
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
-Aguarde todos os containers iniciarem. Na primeira execução, as migrações serão aplicadas automaticamente.
+Aguarde todos os containers iniciarem. Migrations e collectstatic rodam automaticamente.
 
-### 4. Crie um superusuário
-
-Em outro terminal:
+### 4. Configure dados iniciais
 
 ```bash
+# Criar sistemas, departamentos e cargos
+docker compose exec backend python manage.py setup_access
+
+# Configurar permissões dos cargos
+docker compose exec backend python manage.py setup_cargo_permissions
+
+# Criar superusuário
 docker compose exec backend python manage.py createsuperuser
 ```
 
 ### 5. Acesse o sistema
 
-| Serviço | URL |
-|---------|-----|
-| **Frontend (React)** | http://localhost:3000 |
-| **Backend API** | http://localhost:8000/api/ |
-| **Django Admin** | http://localhost:8000/admin/ |
-| **API Docs** | http://localhost:8000/api/v1/ |
+| Serviço | URL | Descrição |
+|---------|-----|-----------|
+| **Frontend** | http://localhost:3000 | Aplicação React |
+| **Backend API** | http://localhost:8000/api/ | REST API |
+| **Django Admin** | http://localhost:8000/admin/ | Painel administrativo |
+
+---
 
 ## 📁 Estrutura do Projeto
 
@@ -64,25 +128,61 @@ docker compose exec backend python manage.py createsuperuser
 Atlas/
 ├── backend/                    # Django Backend
 │   ├── apps/
-│   │   ├── accounts/          # Usuários e autenticação
-│   │   └── clients/           # Gestão de clientes
+│   │   ├── accounts/          # Usuários, Sistemas, Departamentos, Vínculos
+│   │   ├── core/              # Tabelas auxiliares (Amparo, TipoAtualizacao)
+│   │   ├── empresa/           # Gestão de Empresas
+│   │   └── titulares/         # Titulares, Dependentes, VinculoTitular
 │   ├── config/                # Configurações Django
-│   ├── Dockerfile
-│   ├── manage.py
-│   └── requirements.txt
-├── frontend/                   # React Frontend
+│   ├── static/admin/css/      # CSS customizado do Admin
+│   └── manage.py
+├── frontend/                   # React + Vite Frontend
 │   ├── src/
 │   │   ├── components/        # Componentes reutilizáveis
-│   │   ├── context/           # Context API (Auth)
+│   │   ├── context/           # Contexts (Auth, Permission, System)
+│   │   ├── hooks/             # Custom hooks (useModelPermissions)
 │   │   ├── pages/             # Páginas da aplicação
-│   │   └── services/          # Serviços de API
-│   ├── Dockerfile
-│   ├── package.json
+│   │   ├── services/          # Serviços de API (axios)
+│   │   └── utils/             # Utilitários
 │   └── vite.config.js
+├── docs/                       # 📚 Documentação completa
 ├── docker-compose.yml
-├── .env.example
-└── README.md
+└── .env.example
 ```
+
+---
+
+## 📚 Documentação Completa
+
+| Documento | Descrição |
+|-----------|-----------|
+| [Setup](docs/setup.md) | Guia completo de instalação e configuração |
+| [Arquitetura](docs/arquitetura.md) | Visão geral da arquitetura do sistema |
+| [Backend](docs/backend.md) | Estrutura do Django, apps e modelos |
+| [Frontend](docs/frontend.md) | Estrutura do React, componentes e fluxos |
+| [Permissões](docs/permissoes.md) | Sistema RBAC de autenticação e autorização |
+| [Melhorias](docs/melhorias.md) | Backlog de refatorações e melhorias |
+| [Pesquisa Avançada](docs/PESQUISA_AVANCADA.md) | Documentação do módulo de pesquisa |
+
+---
+
+## 🔐 Sistema de Cargos e Permissões
+
+O Atlas utiliza RBAC (Role-Based Access Control) nativo do Django:
+
+| Cargo | Permissões | Descrição |
+|-------|------------|-----------|
+| **Consultor** | `view_*` | Apenas visualização |
+| **Gestor** | `view_*`, `add_*`, `change_*` | Criação e edição |
+| **Diretor** | `view_*`, `add_*`, `change_*`, `delete_*` | Acesso total |
+
+### Modelos Protegidos
+- `titular`, `dependente` (app titulares)
+- `empresa` (app empresa)
+- `usuario`, `usuariovinculo` (app accounts)
+
+> 📖 Veja [docs/permissoes.md](docs/permissoes.md) para detalhes completos.
+
+---
 
 ## 🔐 Endpoints de API
 
@@ -90,30 +190,33 @@ Atlas/
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
 | POST | `/api/auth/login/` | Login (retorna JWT) |
-| POST | `/api/auth/logout/` | Logout |
-| POST | `/api/auth/registration/` | Registro de novo usuário |
-| POST | `/api/token/` | Obter par de tokens JWT |
-| POST | `/api/token/refresh/` | Renovar access token |
-| POST | `/api/token/verify/` | Verificar token |
+| POST | `/api/auth/logout/` | Logout (blacklist refresh) |
+| POST | `/api/auth/refresh/` | Renovar access token |
+| GET | `/api/auth/user/` | Dados do usuário logado |
+| GET | `/api/auth/check-permission/` | Verificar permissão específica |
 
-### Usuário
+### Usuários e Vínculos
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| GET | `/api/v1/users/me/` | Dados do usuário logado |
-| PATCH | `/api/v1/users/me/` | Atualizar perfil |
-| GET | `/api/v1/users/me/export/` | LGPD: Exportar dados |
-| DELETE | `/api/v1/users/me/delete/` | LGPD: Anonimizar conta |
+| GET | `/api/v1/usuarios/` | Listar usuários |
+| GET | `/api/v1/usuarios/me/` | Dados do usuário atual |
+| GET | `/api/v1/sistemas/` | Listar sistemas disponíveis |
+| GET | `/api/v1/departamentos/` | Listar departamentos |
+| POST | `/api/v1/usuarios/set-context/` | Definir sistema/departamento ativo |
 
-### Clientes
+### Titulares e Dependentes
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| GET | `/api/v1/clients/` | Listar clientes |
-| POST | `/api/v1/clients/` | Criar cliente |
-| GET | `/api/v1/clients/{id}/` | Detalhes do cliente |
-| PATCH | `/api/v1/clients/{id}/` | Atualizar cliente |
-| DELETE | `/api/v1/clients/{id}/` | Excluir cliente |
-| POST | `/api/v1/clients/{id}/anonymize/` | LGPD: Anonimizar |
-| GET | `/api/v1/clients/{id}/export/` | LGPD: Exportar dados |
+| GET/POST | `/api/v1/titulares/` | Listar/Criar titulares |
+| GET/PATCH/DELETE | `/api/v1/titulares/{id}/` | Detalhe/Atualizar/Excluir titular |
+| GET/POST | `/api/v1/dependentes/` | Listar/Criar dependentes |
+| GET/PATCH/DELETE | `/api/v1/dependentes/{id}/` | Detalhe/Atualizar/Excluir dependente |
+
+### Empresas
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET/POST | `/api/v1/empresas/` | Listar/Criar empresas |
+| GET/PATCH/DELETE | `/api/v1/empresas/{id}/` | Detalhe/Atualizar/Excluir empresa |
 
 ## 🛡️ Conformidade LGPD
 
@@ -124,6 +227,8 @@ O sistema implementa os principais direitos previstos na LGPD:
 - ✅ **Registro de Consentimento:** Data e hora do consentimento armazenados
 - ✅ **Histórico de Alterações:** Auditoria completa via django-simple-history
 - ✅ **Controle de Marketing:** Consentimento separado para comunicações
+
+---
 
 ## 🛠️ Comandos Úteis
 
@@ -211,10 +316,22 @@ Para produção, recomenda-se:
 6. Usar volumes externos para dados persistentes
 7. Configurar backup automático do PostgreSQL
 
+---
+
+## 🤝 Contribuição
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
+4. Push para a branch (`git push origin feature/nova-feature`)
+5. Abra um Pull Request
+
 ## 📄 Licença
 
-Este projeto está sob a licença MIT.
+Este projeto é proprietário. Todos os direitos reservados.
 
 ---
 
-Desenvolvido com ❤️ para conformidade com LGPD
+<p align="center">
+  Desenvolvido com ❤️ pela equipe Atlas
+</p>
