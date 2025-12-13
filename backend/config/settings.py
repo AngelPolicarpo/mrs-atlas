@@ -34,21 +34,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',
     
     # Third party apps
     'rest_framework',
-    'rest_framework.authtoken',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
     'simple_history',
-    
     'django_filters',
     
     # Local apps
@@ -75,7 +67,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
@@ -154,6 +145,11 @@ TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
 USE_TZ = True
 
+# Diretórios de traduções
+LOCALE_PATHS = [
+    BASE_DIR / 'locale',
+]
+
 # ===========================================
 # STATIC & MEDIA FILES
 # ===========================================
@@ -181,22 +177,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
 
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
+    # Backend customizado do Atlas (usa auth_group nativo para Cargos)
+    'apps.accounts.backends.AtlasPermissionBackend',
 ]
-
-SITE_ID = 1
-
-# ===========================================
-# ALLAUTH SETTINGS
-# ===========================================
-
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'none'
-ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 
 # ===========================================
 # REST FRAMEWORK
@@ -238,18 +221,6 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-}
-
-# ===========================================
-# DJ-REST-AUTH
-# ===========================================
-
-REST_AUTH = {
-    'USE_JWT': True,
-    'JWT_AUTH_COOKIE': 'atlas-auth',
-    'JWT_AUTH_REFRESH_COOKIE': 'atlas-refresh',
-    'JWT_AUTH_HTTPONLY': True,
-    'USER_DETAILS_SERIALIZER': 'apps.accounts.serializers.UserSerializer',
 }
 
 # ===========================================

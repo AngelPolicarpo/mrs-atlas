@@ -1,0 +1,469 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Atlas\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-13 00:00+0000\n"
+"PO-Revision-Date: 2025-12-13 00:00+0000\n"
+"Last-Translator: Atlas Team\n"
+"Language-Team: Portuguese (Brazil)\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# ============================================================
+# Permissões - Ações
+# ============================================================
+
+msgid "Can add"
+msgstr "Pode adicionar"
+
+msgid "Can change"
+msgstr "Pode alterar"
+
+msgid "Can delete"
+msgstr "Pode excluir"
+
+msgid "Can view"
+msgstr "Pode visualizar"
+
+# ============================================================
+# Django Auth - Permission model
+# ============================================================
+
+msgid "permission"
+msgstr "permissão"
+
+msgid "permissions"
+msgstr "permissões"
+
+msgid "name"
+msgstr "nome"
+
+msgid "content type"
+msgstr "tipo de conteúdo"
+
+msgid "codename"
+msgstr "código"
+
+# ============================================================
+# Django Auth - Group model
+# ============================================================
+
+msgid "group"
+msgstr "grupo"
+
+msgid "groups"
+msgstr "grupos"
+
+# ============================================================
+# Django Auth - User related
+# ============================================================
+
+msgid "user"
+msgstr "usuário"
+
+msgid "users"
+msgstr "usuários"
+
+msgid "staff status"
+msgstr "membro da equipe"
+
+msgid "Designates whether the user can log into this admin site."
+msgstr "Indica se o usuário pode acessar o site de administração."
+
+msgid "active"
+msgstr "ativo"
+
+msgid "Designates whether this user should be treated as active. Unselect this instead of deleting accounts."
+msgstr "Indica se este usuário deve ser tratado como ativo. Desmarque isso em vez de excluir contas."
+
+msgid "superuser status"
+msgstr "status de superusuário"
+
+msgid "Designates that this user has all permissions without explicitly assigning them."
+msgstr "Indica que este usuário possui todas as permissões sem precisar atribuí-las explicitamente."
+
+msgid "date joined"
+msgstr "data de cadastro"
+
+msgid "last login"
+msgstr "último acesso"
+
+msgid "email address"
+msgstr "endereço de email"
+
+msgid "password"
+msgstr "senha"
+
+msgid "first name"
+msgstr "nome"
+
+msgid "last name"
+msgstr "sobrenome"
+
+msgid "username"
+msgstr "nome de usuário"
+
+# ============================================================
+# Content Types
+# ============================================================
+
+msgid "content types"
+msgstr "tipos de conteúdo"
+
+msgid "app label"
+msgstr "rótulo do aplicativo"
+
+msgid "model"
+msgstr "modelo"
+
+# ============================================================
+# Sessions
+# ============================================================
+
+msgid "session"
+msgstr "sessão"
+
+msgid "sessions"
+msgstr "sessões"
+
+msgid "session key"
+msgstr "chave da sessão"
+
+msgid "session data"
+msgstr "dados da sessão"
+
+msgid "expire date"
+msgstr "data de expiração"
+
+# ============================================================
+# Log entries (Admin)
+# ============================================================
+
+msgid "log entry"
+msgstr "entrada de log"
+
+msgid "log entries"
+msgstr "entradas de log"
+
+msgid "action time"
+msgstr "hora da ação"
+
+msgid "object id"
+msgstr "ID do objeto"
+
+msgid "object repr"
+msgstr "representação do objeto"
+
+msgid "action flag"
+msgstr "tipo de ação"
+
+msgid "change message"
+msgstr "mensagem de alteração"
+
+# ============================================================
+# Ações do Admin
+# ============================================================
+
+msgid "Addition"
+msgstr "Adição"
+
+msgid "Change"
+msgstr "Alteração"
+
+msgid "Deletion"
+msgstr "Exclusão"
+
+# ============================================================
+# Sites Framework
+# ============================================================
+
+msgid "site"
+msgstr "site"
+
+msgid "sites"
+msgstr "sites"
+
+msgid "domain name"
+msgstr "nome do domínio"
+
+msgid "display name"
+msgstr "nome de exibição"
+
+# ============================================================
+# Token (Auth Token)
+# ============================================================
+
+msgid "token"
+msgstr "token"
+
+msgid "tokens"
+msgstr "tokens"
+
+msgid "key"
+msgstr "chave"
+
+msgid "created"
+msgstr "criado em"
+
+# ============================================================
+# Django Messages
+# ============================================================
+
+msgid "This field is required."
+msgstr "Este campo é obrigatório."
+
+msgid "Enter a valid email address."
+msgstr "Informe um endereço de email válido."
+
+msgid "Enter a valid value."
+msgstr "Informe um valor válido."
+
+msgid "Enter a valid URL."
+msgstr "Informe uma URL válida."
+
+msgid "Enter a valid integer."
+msgstr "Informe um número inteiro válido."
+
+msgid "Enter a valid date."
+msgstr "Informe uma data válida."
+
+msgid "Enter a valid time."
+msgstr "Informe uma hora válida."
+
+msgid "Enter a valid date/time."
+msgstr "Informe uma data/hora válida."
+
+msgid "Enter a whole number."
+msgstr "Informe um número inteiro."
+
+msgid "Enter a number."
+msgstr "Informe um número."
+
+# ============================================================
+# Admin Messages
+# ============================================================
+
+msgid "The %(name)s \"%(obj)s\" was added successfully."
+msgstr "%(name)s \"%(obj)s\" foi adicionado com sucesso."
+
+msgid "The %(name)s \"%(obj)s\" was changed successfully."
+msgstr "%(name)s \"%(obj)s\" foi alterado com sucesso."
+
+msgid "The %(name)s \"%(obj)s\" was deleted successfully."
+msgstr "%(name)s \"%(obj)s\" foi excluído com sucesso."
+
+msgid "Successfully deleted %(count)d %(items)s."
+msgstr "%(count)d %(items)s excluído(s) com sucesso."
+
+msgid "Are you sure you want to delete the selected %(objects_name)s? All of the following objects and their related items will be deleted:"
+msgstr "Você tem certeza que deseja excluir os %(objects_name)s selecionados? Todos os seguintes objetos e seus itens relacionados serão excluídos:"
+
+msgid "Delete selected %(verbose_name_plural)s"
+msgstr "Excluir %(verbose_name_plural)s selecionados"
+
+msgid "Delete?"
+msgstr "Excluir?"
+
+msgid "Yes, I'm sure"
+msgstr "Sim, tenho certeza"
+
+msgid "No, take me back"
+msgstr "Não, voltar"
+
+msgid "Action"
+msgstr "Ação"
+
+msgid "Select all"
+msgstr "Selecionar tudo"
+
+msgid "Clear selection"
+msgstr "Limpar seleção"
+
+# ============================================================
+# Filters
+# ============================================================
+
+msgid "All"
+msgstr "Todos"
+
+msgid "Yes"
+msgstr "Sim"
+
+msgid "No"
+msgstr "Não"
+
+msgid "Unknown"
+msgstr "Desconhecido"
+
+msgid "Any date"
+msgstr "Qualquer data"
+
+msgid "Today"
+msgstr "Hoje"
+
+msgid "Past 7 days"
+msgstr "Últimos 7 dias"
+
+msgid "This month"
+msgstr "Este mês"
+
+msgid "This year"
+msgstr "Este ano"
+
+# ============================================================
+# Pagination
+# ============================================================
+
+msgid "%(total_count)s selected"
+msgstr "%(total_count)s selecionado(s)"
+
+msgid "0 of %(cnt)s selected"
+msgstr "0 de %(cnt)s selecionado(s)"
+
+msgid "Show all"
+msgstr "Mostrar tudo"
+
+# ============================================================
+# Search
+# ============================================================
+
+msgid "Search"
+msgstr "Pesquisar"
+
+msgid "Filter"
+msgstr "Filtro"
+
+msgid "Clear all filters"
+msgstr "Limpar todos os filtros"
+
+# ============================================================
+# Navigation
+# ============================================================
+
+msgid "Home"
+msgstr "Início"
+
+msgid "View site"
+msgstr "Ver site"
+
+msgid "Log out"
+msgstr "Sair"
+
+msgid "Documentation"
+msgstr "Documentação"
+
+msgid "Welcome,"
+msgstr "Bem-vindo,"
+
+# ============================================================
+# History
+# ============================================================
+
+msgid "History"
+msgstr "Histórico"
+
+msgid "View on site"
+msgstr "Ver no site"
+
+# ============================================================
+# Forms
+# ============================================================
+
+msgid "Add"
+msgstr "Adicionar"
+
+msgid "Save"
+msgstr "Salvar"
+
+msgid "Save and continue editing"
+msgstr "Salvar e continuar editando"
+
+msgid "Save and add another"
+msgstr "Salvar e adicionar outro"
+
+msgid "Save as new"
+msgstr "Salvar como novo"
+
+msgid "Delete"
+msgstr "Excluir"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Close"
+msgstr "Fechar"
+
+# ============================================================
+# Recent Actions
+# ============================================================
+
+msgid "Recent actions"
+msgstr "Ações recentes"
+
+msgid "My actions"
+msgstr "Minhas ações"
+
+msgid "None available"
+msgstr "Nenhuma disponível"
+
+# ============================================================
+# Datetime
+# ============================================================
+
+msgid "Date:"
+msgstr "Data:"
+
+msgid "Time:"
+msgstr "Hora:"
+
+msgid "Now"
+msgstr "Agora"
+
+msgid "Midnight"
+msgstr "Meia-noite"
+
+msgid "Noon"
+msgstr "Meio-dia"
+
+msgid "6 a.m."
+msgstr "6h"
+
+msgid "6 p.m."
+msgstr "18h"
+
+# ============================================================
+# Boolean Icons
+# ============================================================
+
+msgid "True"
+msgstr "Verdadeiro"
+
+msgid "False"
+msgstr "Falso"
+
+# ============================================================
+# Simple History
+# ============================================================
+
+msgid "historical"
+msgstr "histórico de"
+
+msgid "history date"
+msgstr "data do histórico"
+
+msgid "history change reason"
+msgstr "motivo da alteração"
+
+msgid "history type"
+msgstr "tipo de histórico"
+
+msgid "history user"
+msgstr "usuário do histórico"

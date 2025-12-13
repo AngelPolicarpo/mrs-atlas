@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import useTitularList from '../hooks/useTitularList'
 import Pagination from '../components/Pagination'
 import ResultsHeader from '../components/ResultsHeader'
+import { usePermissions } from '../context/PermissionContext'
+import { ModelPermissionGuard } from '../components/PermissionGuard'
 
 function TitularList() {
   const {
@@ -18,13 +20,17 @@ function TitularList() {
     handlePageSizeChange,
   } = useTitularList()
   
+  const { canAddModel, canEditModel, canDeleteModel } = usePermissions()
+  
   return (
     <div className="page">
       <div className="page-header">
         <h1>📋 Titulares</h1>
-        <Link to="/titulares/new" className="btn btn-primary">
-          + Novo Titular
-        </Link>
+        <ModelPermissionGuard app="titulares" model="titular" action="add">
+          <Link to="/titulares/new" className="btn btn-primary">
+            + Novo Titular
+          </Link>
+        </ModelPermissionGuard>
       </div>
 
       <div className="search-bar">
@@ -84,27 +90,41 @@ function TitularList() {
                       </td>
                       <td>
                         <div className="btn-group">
-                          <Link
-                            to={`/titulares/${titular.id}`}
-                            className="btn btn-sm btn-outline"
-                            title="Editar"
-                          >
-                            ✏️
-                          </Link>
-                          <Link
-                            to={`/dependentes/new?titular=${titular.id}`}
-                            className="btn btn-sm btn-secondary"
-                            title="Adicionar Dependente"
-                          >
-                            👨‍👧
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(titular.id, titular.nome)}
-                            className="btn btn-sm btn-danger"
-                            title="Excluir"
-                          >
-                            🗑️
-                          </button>
+                          {canEditModel('titulares', 'titular') ? (
+                            <Link
+                              to={`/titulares/${titular.id}`}
+                              className="btn btn-sm btn-outline"
+                              title="Editar"
+                            >
+                              ✏️
+                            </Link>
+                          ) : (
+                            <Link
+                              to={`/titulares/${titular.id}`}
+                              className="btn btn-sm btn-outline"
+                              title="Visualizar"
+                            >
+                              👁️
+                            </Link>
+                          )}
+                          <ModelPermissionGuard app="titulares" model="dependente" action="add">
+                            <Link
+                              to={`/dependentes/new?titular=${titular.id}`}
+                              className="btn btn-sm btn-secondary"
+                              title="Adicionar Dependente"
+                            >
+                              👨‍👧
+                            </Link>
+                          </ModelPermissionGuard>
+                          <ModelPermissionGuard app="titulares" model="titular" action="delete">
+                            <button
+                              onClick={() => handleDelete(titular.id, titular.nome)}
+                              className="btn btn-sm btn-danger"
+                              title="Excluir"
+                            >
+                              🗑️
+                            </button>
+                          </ModelPermissionGuard>
                         </div>
                       </td>
                     </tr>

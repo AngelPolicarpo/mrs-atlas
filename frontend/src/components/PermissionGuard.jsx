@@ -119,6 +119,57 @@ function ContextGuard({ fallback = null, children }) {
   return children
 }
 
+/**
+ * Guard que verifica permissão Django para um modelo específico.
+ * 
+ * Uso:
+ *   <ModelPermissionGuard app="titulares" model="titular" action="delete">
+ *     <button>Excluir</button>
+ *   </ModelPermissionGuard>
+ */
+function ModelPermissionGuard({ 
+  app, 
+  model, 
+  action, 
+  fallback = null, 
+  children 
+}) {
+  const { hasDjangoPermission } = usePermissions()
+
+  if (!hasDjangoPermission(app, model, action)) {
+    return fallback
+  }
+
+  return children
+}
+
+/**
+ * Mensagens de permissão negada em português
+ */
+export const PERMISSION_MESSAGES = {
+  view: 'Você não tem permissão para visualizar este recurso.',
+  add: 'Você não tem permissão para criar novos registros.',
+  change: 'Você não tem permissão para editar este registro.',
+  delete: 'Você não tem permissão para excluir este registro.',
+  default: 'Você não tem permissão para realizar esta ação.',
+}
+
+/**
+ * Componente que exibe uma mensagem de permissão negada
+ */
+function PermissionDeniedMessage({ action, message, className = '' }) {
+  const displayMessage = message || PERMISSION_MESSAGES[action] || PERMISSION_MESSAGES.default
+  
+  return (
+    <div className={`flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 ${className}`}>
+      <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+      <span>{displayMessage}</span>
+    </div>
+  )
+}
+
 export { 
   PermissionGuard, 
   PermissionButton, 
@@ -126,5 +177,7 @@ export {
   PermissionDisable,
   SistemaGuard,
   ContextGuard,
+  ModelPermissionGuard,
+  PermissionDeniedMessage,
 }
 export default PermissionGuard

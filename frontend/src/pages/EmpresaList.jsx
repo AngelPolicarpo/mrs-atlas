@@ -5,12 +5,16 @@ import { useDebounce } from '../hooks/useDebounce'
 import usePagination from '../hooks/usePagination'
 import Pagination from '../components/Pagination'
 import ResultsHeader from '../components/ResultsHeader'
+import { usePermissions } from '../context/PermissionContext'
+import { ModelPermissionGuard } from '../components/PermissionGuard'
 
 function EmpresaList() {
   const [empresas, setEmpresas] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
+  
+  const { canEditModel } = usePermissions()
   
   // Debounce de 300ms para evitar requisições excessivas durante digitação
   const debouncedSearch = useDebounce(search, 300)
@@ -59,7 +63,9 @@ function EmpresaList() {
       await deleteEmpresa(id)
       loadEmpresas(pagination.page, pagination.pageSize)
     } catch (err) {
-      setError('Erro ao excluir empresa')
+      // Mostrar mensagem do servidor se disponível
+      const serverMessage = err.response?.data?.detail
+      setError(serverMessage || 'Erro ao excluir empresa')
       console.error(err)
     }
   }
@@ -80,9 +86,11 @@ function EmpresaList() {
     <div className="page">
       <div className="page-header">
         <h1>🏢 Empresas</h1>
-        <Link to="/empresas/new" className="btn btn-primary">
-          + Nova Empresa
-        </Link>
+        <ModelPermissionGuard app="empresa" model="empresa" action="add">
+          <Link to="/empresas/new" className="btn btn-primary">
+            + Nova Empresa
+          </Link>
+        </ModelPermissionGuard>
       </div>
 
       <div className="search-bar">
@@ -138,18 +146,32 @@ function EmpresaList() {
                       </td>
                       <td>
                         <div className="btn-group">
-                          <Link
-                            to={`/empresas/${empresa.id}`}
-                            className="btn btn-sm btn-outline"
-                          >
-                            ✏️
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(empresa.id, empresa.nome)}
-                            className="btn btn-sm btn-danger"
-                          >
-                            🗑️
-                          </button>
+                          {canEditModel('empresa', 'empresa') ? (
+                            <Link
+                              to={`/empresas/${empresa.id}`}
+                              className="btn btn-sm btn-outline"
+                              title="Editar"
+                            >
+                              ✏️
+                            </Link>
+                          ) : (
+                            <Link
+                              to={`/empresas/${empresa.id}`}
+                              className="btn btn-sm btn-outline"
+                              title="Visualizar"
+                            >
+                              👁️
+                            </Link>
+                          )}
+                          <ModelPermissionGuard app="empresa" model="empresa" action="delete">
+                            <button
+                              onClick={() => handleDelete(empresa.id, empresa.nome)}
+                              className="btn btn-sm btn-danger"
+                              title="Excluir"
+                            >
+                              🗑️
+                            </button>
+                          </ModelPermissionGuard>
                         </div>
                       </td>
                     </tr>

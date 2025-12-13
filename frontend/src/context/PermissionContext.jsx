@@ -59,6 +59,11 @@ export function PermissionProvider({ children, user }) {
   const permissoes = user?.permissoes || {}
   const sistemasDisponiveis = user?.sistemas_disponiveis || []
   const isSuperuser = user?.is_superuser || false
+  
+  // Permissões Django (app.model: {view, add, change, delete})
+  const djangoPermissions = user?.permissoes_django || {}
+  // Lista simplificada de permissões do cargo
+  const cargoPermissions = user?.permissoes_lista || []
 
   // Inicializar sistema ativo
   const [activeSistema, setActiveSistemaState] = useState(() => {
@@ -151,6 +156,28 @@ export function PermissionProvider({ children, user }) {
   }, [isSuperuser, activeSistema, permissoes])
 
   /**
+   * Verifica se o usuário tem permissão Django para um modelo específico.
+   * Usa as permissões do cargo via Django Groups.
+   * 
+   * @param {string} app - App Django (ex: 'titulares', 'empresa')
+   * @param {string} model - Modelo (ex: 'titular', 'dependente')
+   * @param {string} action - Ação: 'view', 'add', 'change', 'delete'
+   */
+  const hasDjangoPermission = useCallback((app, model, action) => {
+    // Superuser tem todas as permissões
+    if (isSuperuser || djangoPermissions?.is_superuser) return true
+    
+    // Verificar nas permissões Django detalhadas
+    const appPerms = djangoPermissions[app]
+    if (appPerms?.[model]?.[action]) {
+      return true
+    }
+    
+    // Fallback: verificar nas permissões do cargo
+    return cargoPermissions.includes(action)
+  }, [isSuperuser, djangoPermissions, cargoPermissions])
+
+  /**
    * Verifica se o usuário tem acesso a um sistema
    */
   const hasSistemaAccess = useCallback((sistemaCode) => {
@@ -184,6 +211,26 @@ export function PermissionProvider({ children, user }) {
   const isAdmin = useCallback(
     (sistema = null) => hasPermission('admin', sistema), 
     [hasPermission]
+  )
+
+  /**
+   * Helpers para permissões Django (modelo específico)
+   */
+  const canViewModel = useCallback(
+    (app, model) => hasDjangoPermission(app, model, 'view'),
+    [hasDjangoPermission]
+  )
+  const canAddModel = useCallback(
+    (app, model) => hasDjangoPermission(app, model, 'add'),
+    [hasDjangoPermission]
+  )
+  const canEditModel = useCallback(
+    (app, model) => hasDjangoPermission(app, model, 'change'),
+    [hasDjangoPermission]
+  )
+  const canDeleteModel = useCallback(
+    (app, model) => hasDjangoPermission(app, model, 'delete'),
+    [hasDjangoPermission]
   )
 
   /**
@@ -258,6 +305,10 @@ export function PermissionProvider({ children, user }) {
     departamentosNoSistemaAtivo,
     isSuperuser,
     
+    // Permissões Django
+    djangoPermissions,
+    cargoPermissions,
+    
     // Flags de estado
     needsSistemaSelection,
     hasCompleteContext,
@@ -267,7 +318,7 @@ export function PermissionProvider({ children, user }) {
     // Ações
     setActiveSistema,
     
-    // Verificações de permissão
+    // Verificações de permissão (sistema)
     hasPermission,
     hasSistemaAccess,
     canView,
@@ -276,6 +327,13 @@ export function PermissionProvider({ children, user }) {
     canDelete,
     canExport,
     isAdmin,
+    
+    // Verificações de permissão (modelo Django)
+    hasDjangoPermission,
+    canViewModel,
+    canAddModel,
+    canEditModel,
+    canDeleteModel,
   }
 
   return (

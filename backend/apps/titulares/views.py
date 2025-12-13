@@ -15,6 +15,7 @@ from .serializers import (
     VinculoTitularSerializer, DependenteSerializer, VinculoDependenteSerializer
 )
 from apps.core.models import AmparoLegal
+from apps.accounts.permissions import CargoBasedPermission, PermissionMessageMixin, IsGestorOuSuperior
 
 
 class TitularFilter(django_filters.FilterSet):
@@ -88,13 +89,20 @@ class TitularFilter(django_filters.FilterSet):
         return queryset
 
 
-class TitularViewSet(viewsets.ModelViewSet):
-    """ViewSet para gerenciamento de titulares."""
+class TitularViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
+    """
+    ViewSet para gerenciamento de titulares.
+    
+    Permissões:
+    - Consultor: Apenas visualização (list, retrieve)
+    - Gestor: CRUD completo (create, update, delete)
+    - Diretor: CRUD + admin
+    """
     
     queryset = Titular.objects.select_related(
         'criado_por', 'atualizado_por'
     ).prefetch_related('vinculos', 'vinculos__empresa', 'vinculos__amparo', 'dependentes')
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = TitularFilter
     search_fields = ['nome', 'rnm', 'cpf', 'passaporte', 'email']
@@ -130,9 +138,13 @@ class TitularViewSet(viewsets.ModelViewSet):
         serializer = DependenteSerializer(dependentes, many=True)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser],
+            permission_classes=[IsAuthenticated, IsGestorOuSuperior])
     def importar(self, request):
-        """Importa titulares de uma planilha Excel."""
+        """
+        Importa titulares de uma planilha Excel.
+        Requer permissão de Gestor ou superior.
+        """
         file = request.FILES.get('file')
         if not file:
             return Response({'error': 'Arquivo não enviado'}, status=status.HTTP_400_BAD_REQUEST)
@@ -283,15 +295,19 @@ class TitularViewSet(viewsets.ModelViewSet):
             return Response({'error': f'Erro ao processar arquivo: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class VinculoTitularViewSet(viewsets.ModelViewSet):
-    """ViewSet para gerenciamento de vínculos de titulares."""
+class VinculoTitularViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
+    """
+    ViewSet para gerenciamento de vínculos de titulares.
+    
+    Permissões baseadas no Cargo do usuário.
+    """
     
     queryset = VinculoTitular.objects.select_related(
         'titular', 'empresa', 'amparo', 
         'tipo_atualizacao', 'criado_por', 'atualizado_por'
     )
     serializer_class = VinculoTitularSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = {
         'titular': ['exact'],
@@ -312,14 +328,18 @@ class VinculoTitularViewSet(viewsets.ModelViewSet):
         serializer.save(atualizado_por=self.request.user)
 
 
-class DependenteViewSet(viewsets.ModelViewSet):
-    """ViewSet para gerenciamento de dependentes."""
+class DependenteViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
+    """
+    ViewSet para gerenciamento de dependentes.
+    
+    Permissões baseadas no Cargo do usuário.
+    """
     
     queryset = Dependente.objects.select_related(
         'titular', 'criado_por', 'atualizado_por'
     )
     serializer_class = DependenteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['titular', 'tipo_dependente', 'nacionalidade', 'sexo']
     search_fields = ['nome', 'rnm', 'passaporte', 'titular__nome']
@@ -333,15 +353,19 @@ class DependenteViewSet(viewsets.ModelViewSet):
         serializer.save(atualizado_por=self.request.user)
 
 
-class VinculoDependenteViewSet(viewsets.ModelViewSet):
-    """ViewSet para gerenciamento de vínculos de dependentes."""
+class VinculoDependenteViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
+    """
+    ViewSet para gerenciamento de vínculos de dependentes.
+    
+    Permissões baseadas no Cargo do usuário.
+    """
     
     queryset = VinculoDependente.objects.select_related(
         'dependente', 'amparo', 'tipo_atualizacao',
         'criado_por', 'atualizado_por'
     )
     serializer_class = VinculoDependenteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['dependente', 'status', 'amparo', 'consulado', 'tipo_atualizacao']
     search_fields = ['dependente__nome', 'observacoes']
@@ -355,12 +379,17 @@ class VinculoDependenteViewSet(viewsets.ModelViewSet):
         serializer.save(atualizado_por=self.request.user)
 
 
-class PesquisaUnificadaViewSet(viewsets.ViewSet):
+class PesquisaUnificadaViewSet(PermissionMessageMixin, viewsets.ViewSet):
     """
     ViewSet para pesquisa unificada de titulares e dependentes com paginação real.
     Retorna titulares com seus vínculos e dependentes de forma paginada.
+    
+    Apenas visualização (não permite criar/editar/deletar).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    
+    # Define o modelo para a verificação de permissões
+    queryset = Titular.objects.none()
     
     def list(self, request):
         """

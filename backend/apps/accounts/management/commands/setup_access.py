@@ -4,17 +4,18 @@ Management command para configurar dados iniciais do sistema de acesso.
 Cria:
 - Sistemas (prazos, ordem_servico)
 - Departamentos (consular, juridico, ti, rh, financeiro, diretoria)
-- Cargos (consultor, gestor, diretor)
+- Cargos (auth_group): consultor, gestor, diretor
 
 Uso:
     python manage.py setup_access
     python manage.py setup_access --force  # Recria mesmo se existir
 """
 
+from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.accounts.models import Cargo, Departamento, Sistema
+from apps.accounts.models import Departamento, Sistema
 
 
 class Command(BaseCommand):
@@ -133,37 +134,20 @@ class Command(BaseCommand):
             self.stdout.write(f'   {status}: {obj.nome}')
     
     def _setup_cargos(self, force):
-        """Cria os cargos."""
-        self.stdout.write(self.style.HTTP_INFO('\n👤 Cargos:'))
+        """Cria os cargos (auth_group)."""
+        self.stdout.write(self.style.HTTP_INFO('\n👤 Cargos (Groups):'))
         
         cargos = [
-            {
-                'codigo': Cargo.Codigo.CONSULTOR,
-                'nome': 'Consultor',
-                'descricao': 'Acesso somente leitura',
-                'nivel': 1,
-            },
-            {
-                'codigo': Cargo.Codigo.GESTOR,
-                'nome': 'Gestor',
-                'descricao': 'CRUD completo no contexto',
-                'nivel': 2,
-            },
-            {
-                'codigo': Cargo.Codigo.DIRETOR,
-                'nome': 'Diretor',
-                'descricao': 'Acesso total + configurações',
-                'nivel': 3,
-            },
+            {'name': 'Consultor'},
+            {'name': 'Gestor'},
+            {'name': 'Diretor'},
         ]
         
         for data in cargos:
-            codigo = data.pop('codigo')
             if force:
-                obj, created = Cargo.objects.update_or_create(codigo=codigo, defaults=data)
+                obj, created = Group.objects.update_or_create(name=data['name'])
             else:
-                obj, created = Cargo.objects.get_or_create(codigo=codigo, defaults=data)
+                obj, created = Group.objects.get_or_create(name=data['name'])
             
-            permissoes = ', '.join(obj.get_permissoes())
             status = '✓ Criado' if created else ('↻ Atualizado' if force else '- Existente')
-            self.stdout.write(f'   {status}: {obj.nome} (nível {obj.nivel}) → [{permissoes}]')
+            self.stdout.write(f'   {status}: {obj.name} (id={obj.id}, perms={obj.permissions.count()})')

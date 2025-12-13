@@ -1,16 +1,18 @@
 """
-Models de Controle de Acesso - RBAC + ABAC Híbrido
+Models de Controle de Acesso - RBAC Simplificado
 
-Estrutura de 3 dimensões:
+Estrutura:
 - Sistema: Aplicação (Prazos, Ordem de Serviço)
 - Departamento: Área organizacional (Consular, Jurídico, TI, RH)
-- Cargo: Nível de acesso (Consultor, Gestor, Diretor)
+- Cargo: Usa auth_group nativo do Django (renomeado no Admin)
+- TipoUsuario: INTERNO ou CLIENTE
 
-Permissões = f(Sistema, Departamento, Cargo)
+Permissões = auth_group.permissions (Django nativo)
+Vínculos = usuario_vinculo (Sistema + Departamento)
 """
 
 import uuid
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Group, PermissionsMixin
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -125,161 +127,6 @@ class Departamento(models.Model):
 
 
 # ============================================================
-# CARGO - Nível de Acesso
-# ============================================================
-
-class Cargo(models.Model):
-    """
-    Define o nível de acesso/permissões.
-    Pode ser customizado por sistema se necessário.
-    
-    Níveis padrão:
-    - Consultor: Apenas leitura (view)
-    - Gestor: CRUD completo (view, add, change, delete, export)
-    - Diretor: Acesso total + admin (view, add, change, delete, export, admin)
-    """
-    
-    class Codigo(models.TextChoices):
-        """Códigos dos cargos disponíveis."""
-        CONSULTOR = 'consultor', 'Consultor'
-        GESTOR = 'gestor', 'Gestor'
-        DIRETOR = 'diretor', 'Diretor'
-    
-    # Permissões padrão por cargo
-    PERMISSOES_PADRAO = {
-        'consultor': ['view'],
-        'gestor': ['view', 'add', 'change', 'delete', 'export'],
-        'diretor': ['view', 'add', 'change', 'delete', 'export', 'admin'],
-    }
-    
-    id = models.UUIDField(
-        'ID',
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        db_column='id_cargo'
-    )
-    nome = models.CharField('Nome', max_length=100)
-    codigo = models.CharField(
-        'Código',
-        max_length=50,
-        unique=True,
-        choices=Codigo.choices,
-        help_text='Identificador único do cargo'
-    )
-    descricao = models.TextField('Descrição', blank=True, default='')
-    nivel = models.PositiveIntegerField(
-        'Nível',
-        default=1,
-        help_text='Nível hierárquico (1=menor, 3=maior)'
-    )
-    ativo = models.BooleanField('Ativo', default=True)
-    
-    # Timestamps
-    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
-    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
-    
-    class Meta:
-        verbose_name = 'Cargo'
-        verbose_name_plural = 'Cargos'
-        db_table = 'cargo'
-        ordering = ['nivel', 'nome']
-    
-    def __str__(self):
-        return self.nome
-    
-    def get_permissoes(self):
-        """Retorna lista de permissões do cargo."""
-        return self.PERMISSOES_PADRAO.get(self.codigo, ['view'])
-
-
-# ============================================================
-# USUÁRIO VÍNCULO - Tabela Pivot (Sistema x Departamento x Cargo)
-# ============================================================
-
-class UsuarioVinculo(models.Model):
-    """
-    Tabela pivot que relaciona Usuário ↔ Sistema ↔ Departamento ↔ Cargo.
-    
-    Cada vínculo define:
-    - Em qual SISTEMA o usuário tem acesso
-    - Em qual DEPARTAMENTO (escopo de dados)
-    - Com qual CARGO (nível de permissão)
-    
-    Um usuário pode ter múltiplos vínculos:
-    - Mesmo sistema, diferentes departamentos
-    - Diferentes sistemas, mesmo departamento
-    - Combinações variadas
-    
-    Exemplo:
-    | Sistema          | Departamento | Cargo     |
-    |------------------|--------------|-----------|
-    | Ordem de Serviço | Consular     | Gestor    |
-    | Prazos           | Jurídico     | Consultor |
-    | Ordem de Serviço | TI           | Diretor   |
-    """
-    
-    id = models.UUIDField(
-        'ID',
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        db_column='id_usuario_vinculo'
-    )
-    usuario = models.ForeignKey(
-        'User',
-        on_delete=models.CASCADE,
-        related_name='vinculos',
-        verbose_name='Usuário',
-        db_column='id_usuario'
-    )
-    sistema = models.ForeignKey(
-        Sistema,
-        on_delete=models.CASCADE,
-        related_name='vinculos',
-        verbose_name='Sistema',
-        db_column='id_sistema'
-    )
-    departamento = models.ForeignKey(
-        Departamento,
-        on_delete=models.CASCADE,
-        related_name='vinculos',
-        verbose_name='Departamento',
-        db_column='id_departamento'
-    )
-    cargo = models.ForeignKey(
-        Cargo,
-        on_delete=models.PROTECT,
-        related_name='vinculos',
-        verbose_name='Cargo',
-        db_column='id_cargo'
-    )
-    ativo = models.BooleanField('Ativo', default=True)
-    
-    # Timestamps
-    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
-    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
-    
-    # Histórico para auditoria
-    history = HistoricalRecords()
-    
-    class Meta:
-        verbose_name = 'Vínculo de Acesso'
-        verbose_name_plural = 'Vínculos de Acesso'
-        db_table = 'usuario_vinculo'
-        # Um usuário só pode ter um vínculo por combinação sistema+departamento
-        unique_together = ['usuario', 'sistema', 'departamento']
-        ordering = ['sistema__ordem', 'departamento__ordem']
-    
-    def __str__(self):
-        return f'{self.usuario.nome} | {self.sistema.nome} | {self.departamento.nome} ({self.cargo.nome})'
-    
-    def get_permissoes(self):
-        """Retorna lista de permissões deste vínculo."""
-        return self.cargo.get_permissoes()
-
-
-# ============================================================
 # USER MANAGER
 # ============================================================
 
@@ -301,6 +148,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('tipo_usuario', User.TipoUsuario.INTERNO)
         
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser precisa ter is_staff=True.')
@@ -318,11 +166,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
     Modelo de usuário customizado usando email como identificador único.
     
-    Relacionamentos de acesso via UsuarioVinculo:
-    - user.vinculos → Todos os vínculos
-    - user.get_sistemas() → Sistemas disponíveis
-    - user.get_departamentos(sistema) → Departamentos em um sistema
+    Estrutura de acesso:
+    - groups (auth_group): Define o CARGO e suas permissões
+    - tipo_usuario: INTERNO ou CLIENTE
+    - empresa: FK para Empresa (apenas se tipo_usuario == CLIENTE)
+    - vinculos: Relacionamento com Sistema + Departamento
     """
+    
+    class TipoUsuario(models.TextChoices):
+        """Tipos de usuário."""
+        INTERNO = 'interno', 'Usuário Interno'
+        CLIENTE = 'cliente', 'Cliente Externo'
     
     id = models.UUIDField(
         'ID',
@@ -339,6 +193,25 @@ class User(AbstractBaseUser, PermissionsMixin):
         error_messages={
             'unique': 'Um usuário com este email já existe.',
         },
+    )
+    
+    # Tipo de usuário e empresa (para clientes)
+    tipo_usuario = models.CharField(
+        'Tipo de Usuário',
+        max_length=20,
+        choices=TipoUsuario.choices,
+        default=TipoUsuario.INTERNO,
+        help_text='Define se é usuário interno ou cliente externo'
+    )
+    empresa = models.ForeignKey(
+        'empresa.Empresa',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuarios',
+        verbose_name='Empresa',
+        db_column='id_empresa',
+        help_text='Empresa do cliente (apenas para tipo_usuario=CLIENTE)'
     )
     
     is_staff = models.BooleanField(
@@ -382,16 +255,41 @@ class User(AbstractBaseUser, PermissionsMixin):
             return self.nome.split()[0]
         return self.email.split('@')[0]
     
-    # ===== Métodos de Acesso (RBAC + ABAC) =====
+    @property
+    def is_cliente(self):
+        """Verifica se é usuário cliente."""
+        return self.tipo_usuario == self.TipoUsuario.CLIENTE
+    
+    @property
+    def is_interno(self):
+        """Verifica se é usuário interno."""
+        return self.tipo_usuario == self.TipoUsuario.INTERNO
+    
+    def get_cargo(self):
+        """
+        Retorna o cargo (group) principal do usuário.
+        Considera o grupo com mais permissões como principal.
+        """
+        groups = self.groups.all()
+        if not groups.exists():
+            return None
+        # Retorna o grupo com mais permissões
+        return max(groups, key=lambda g: g.permissions.count())
+    
+    def get_cargo_nome(self):
+        """Retorna o nome do cargo principal."""
+        cargo = self.get_cargo()
+        return cargo.name if cargo else None
+    
+    # ===== Métodos de Acesso (Sistema + Departamento) =====
     
     def get_vinculos_ativos(self):
         """Retorna todos os vínculos ativos do usuário."""
         return self.vinculos.filter(
             ativo=True,
             sistema__ativo=True,
-            departamento__ativo=True,
-            cargo__ativo=True
-        ).select_related('sistema', 'departamento', 'cargo')
+            departamento__ativo=True
+        ).select_related('sistema', 'departamento')
     
     def get_sistemas(self):
         """Retorna sistemas únicos que o usuário tem acesso."""
@@ -434,11 +332,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         except UsuarioVinculo.DoesNotExist:
             return None
     
-    def get_cargo(self, sistema_codigo, departamento_codigo):
-        """Retorna o cargo do usuário em um contexto específico."""
-        vinculo = self.get_vinculo(sistema_codigo, departamento_codigo)
-        return vinculo.cargo if vinculo else None
-    
     def tem_acesso_sistema(self, sistema_codigo):
         """Verifica se o usuário tem acesso a um sistema."""
         if self.is_superuser:
@@ -465,41 +358,38 @@ class User(AbstractBaseUser, PermissionsMixin):
         
         return self.vinculos.filter(**filtros).exists()
     
-    def tem_permissao(self, sistema_codigo, departamento_codigo, acao):
+    def get_permissoes_list(self):
         """
-        Verifica se o usuário tem permissão para uma ação em um contexto.
-        
-        Args:
-            sistema_codigo: Código do sistema (ex: 'prazos')
-            departamento_codigo: Código do departamento (ex: 'consular')
-            acao: Ação a verificar ('view', 'add', 'change', 'delete', 'export', 'admin')
-        
-        Returns:
-            bool: True se tem permissão
+        Retorna lista de códigos de permissão do usuário.
+        Combina permissões do grupo (cargo) com permissões diretas.
         """
         if self.is_superuser:
-            return True
+            return ['view', 'add', 'change', 'delete', 'export', 'admin']
         
-        vinculo = self.get_vinculo(sistema_codigo, departamento_codigo)
-        if not vinculo:
-            return False
+        # Permissões do cargo (group)
+        cargo = self.get_cargo()
+        if not cargo:
+            return ['view']  # Mínimo: visualização
         
-        return acao in vinculo.get_permissoes()
-    
-    def get_maior_cargo_no_sistema(self, sistema_codigo):
-        """
-        Retorna o cargo de maior nível que o usuário tem em um sistema.
-        Útil para determinar o nível geral de acesso no sistema.
-        """
-        if self.is_superuser:
-            return Cargo.objects.filter(codigo='diretor').first()
+        # Mapear permissões Django para códigos simples
+        perms = set()
+        for perm in cargo.permissions.all():
+            codename = perm.codename
+            if codename.startswith('view_'):
+                perms.add('view')
+            elif codename.startswith('add_'):
+                perms.add('add')
+            elif codename.startswith('change_'):
+                perms.add('change')
+            elif codename.startswith('delete_'):
+                perms.add('delete')
         
-        vinculo = self.vinculos.filter(
-            sistema__codigo=sistema_codigo,
-            ativo=True
-        ).select_related('cargo').order_by('-cargo__nivel').first()
+        # Verificar se tem permissões admin (todas as 4 básicas)
+        if {'view', 'add', 'change', 'delete'}.issubset(perms):
+            perms.add('admin')
+            perms.add('export')
         
-        return vinculo.cargo if vinculo else None
+        return list(perms) or ['view']
     
     def get_todas_permissoes(self):
         """
@@ -516,6 +406,10 @@ class User(AbstractBaseUser, PermissionsMixin):
                 }
             }
         """
+        cargo = self.get_cargo()
+        cargo_nome = cargo.name if cargo else 'Sem Cargo'
+        permissoes = self.get_permissoes_list()
+        
         if self.is_superuser:
             # Superuser tem todas as permissões em todos os contextos
             resultado = {}
@@ -538,9 +432,9 @@ class User(AbstractBaseUser, PermissionsMixin):
                 resultado[sistema_codigo] = {}
             
             resultado[sistema_codigo][dept_codigo] = {
-                'cargo': vinculo.cargo.codigo,
-                'cargo_nome': vinculo.cargo.nome,
-                'permissoes': vinculo.get_permissoes()
+                'cargo': cargo.name.lower() if cargo else 'sem_cargo',
+                'cargo_nome': cargo_nome,
+                'permissoes': permissoes
             }
         
         return resultado
@@ -548,19 +442,19 @@ class User(AbstractBaseUser, PermissionsMixin):
     def get_sistemas_disponiveis(self):
         """
         Retorna lista de sistemas disponíveis para o usuário.
-        Inclui informações resumidas de departamentos e maior cargo.
+        Inclui informações resumidas de departamentos e cargo.
         
         Returns:
             list: Lista de dicts com informações dos sistemas
         """
+        cargo = self.get_cargo()
+        cargo_nome = cargo.name if cargo else None
+        
         sistemas = []
         
         for sistema in self.get_sistemas():
             # Departamentos neste sistema
             departamentos_no_sistema = self.get_departamentos(sistema.codigo)
-            
-            # Maior cargo neste sistema
-            maior_cargo = self.get_maior_cargo_no_sistema(sistema.codigo)
             
             sistemas.append({
                 'id': str(sistema.id),
@@ -578,48 +472,86 @@ class User(AbstractBaseUser, PermissionsMixin):
                     }
                     for d in departamentos_no_sistema
                 ],
-                'maior_cargo': maior_cargo.codigo if maior_cargo else None,
-                'maior_cargo_nome': maior_cargo.nome if maior_cargo else None,
+                'cargo': cargo.name.lower() if cargo else None,
+                'cargo_nome': cargo_nome,
             })
         
         return sistemas
 
 
 # ============================================================
-# MODELO LEGADO - Para compatibilidade durante migração
+# USUÁRIO VÍNCULO - Tabela Pivot (Sistema x Departamento)
 # ============================================================
 
-# Manter UsuarioDepartamento temporariamente para a migration funcionar
-# Será removido após migração de dados
-class UsuarioDepartamento(models.Model):
-    """DEPRECATED - Usar UsuarioVinculo. Mantido para migração."""
+class UsuarioVinculo(models.Model):
+    """
+    Tabela pivot que relaciona Usuário ↔ Sistema ↔ Departamento.
     
-    class Cargo(models.TextChoices):
-        CONSULTOR = 'consultor', 'Consultor'
-        GESTOR = 'gestor', 'Gestor'
-        DIRETOR = 'diretor', 'Diretor'
+    O CARGO vem do grupo (auth_group) do usuário, não deste vínculo.
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    Cada vínculo define:
+    - Em qual SISTEMA o usuário tem acesso
+    - Em qual DEPARTAMENTO (escopo de dados)
+    
+    Um usuário pode ter múltiplos vínculos:
+    - Mesmo sistema, diferentes departamentos
+    - Diferentes sistemas, mesmo departamento
+    - Combinações variadas
+    
+    Exemplo:
+    | Sistema          | Departamento |
+    |------------------|--------------|
+    | Ordem de Serviço | Consular     |
+    | Prazos           | Jurídico     |
+    | Ordem de Serviço | TI           |
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_usuario_vinculo'
+    )
     usuario = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='vinculos_departamento_legacy',
+        related_name='vinculos',
+        verbose_name='Usuário',
         db_column='id_usuario'
+    )
+    sistema = models.ForeignKey(
+        Sistema,
+        on_delete=models.CASCADE,
+        related_name='vinculos',
+        verbose_name='Sistema',
+        db_column='id_sistema'
     )
     departamento = models.ForeignKey(
         Departamento,
         on_delete=models.CASCADE,
-        related_name='vinculos_usuario_legacy',
+        related_name='vinculos',
+        verbose_name='Departamento',
         db_column='id_departamento'
     )
-    cargo = models.CharField(max_length=20, choices=Cargo.choices, default=Cargo.CONSULTOR)
-    ativo = models.BooleanField(default=True)
-    data_criacao = models.DateTimeField(auto_now_add=True)
-    ultima_atualizacao = models.DateTimeField(auto_now=True)
+    ativo = models.BooleanField('Ativo', default=True)
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Histórico para auditoria
     history = HistoricalRecords()
     
     class Meta:
-        verbose_name = 'Vínculo Legado (DEPRECATED)'
-        verbose_name_plural = 'Vínculos Legados (DEPRECATED)'
-        db_table = 'usuario_departamento'
-        unique_together = ['usuario', 'departamento']
+        verbose_name = 'Vínculo de Acesso'
+        verbose_name_plural = 'Vínculos de Acesso'
+        db_table = 'usuario_vinculo'
+        # Um usuário só pode ter um vínculo por combinação sistema+departamento
+        unique_together = ['usuario', 'sistema', 'departamento']
+        ordering = ['sistema__ordem', 'departamento__ordem']
+    
+    def __str__(self):
+        cargo = self.usuario.get_cargo()
+        cargo_nome = cargo.name if cargo else 'Sem Cargo'
+        return f'{self.usuario.nome} | {self.sistema.nome} | {self.departamento.nome} ({cargo_nome})'

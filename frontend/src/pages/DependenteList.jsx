@@ -3,6 +3,8 @@ import useDependenteList from '../hooks/useDependenteList'
 import { formatDate } from '../utils/uiHelpers'
 import Pagination from '../components/Pagination'
 import ResultsHeader from '../components/ResultsHeader'
+import { usePermissions } from '../context/PermissionContext'
+import { ModelPermissionGuard } from '../components/PermissionGuard'
 
 function DependenteList() {
   const [searchParams] = useSearchParams()
@@ -24,13 +26,17 @@ function DependenteList() {
     handlePageSizeChange,
   } = useDependenteList(titularIdFromUrl)
 
+  const { canEditModel } = usePermissions()
+
   return (
     <div className="page">
       <div className="page-header">
         <h1>👨‍👧 Dependentes</h1>
-        <Link to="/dependentes/new" className="btn btn-primary">
-          + Novo Dependente
-        </Link>
+        <ModelPermissionGuard app="titulares" model="dependente" action="add">
+          <Link to="/dependentes/new" className="btn btn-primary">
+            + Novo Dependente
+          </Link>
+        </ModelPermissionGuard>
       </div>
 
       <div className="filters-bar">
@@ -85,18 +91,32 @@ function DependenteList() {
                       <td>{formatDate(dep.data_nascimento)}</td>
                       <td>
                         <div className="btn-group">
-                          <Link
-                            to={`/dependentes/${dep.id}`}
-                            className="btn btn-sm btn-outline"
-                          >
-                            ✏️
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(dep.id, dep.nome)}
-                            className="btn btn-sm btn-danger"
-                          >
-                            🗑️
-                          </button>
+                          {canEditModel('titulares', 'dependente') ? (
+                            <Link
+                              to={`/dependentes/${dep.id}`}
+                              className="btn btn-sm btn-outline"
+                              title="Editar"
+                            >
+                              ✏️
+                            </Link>
+                          ) : (
+                            <Link
+                              to={`/dependentes/${dep.id}`}
+                              className="btn btn-sm btn-outline"
+                              title="Visualizar"
+                            >
+                              👁️
+                            </Link>
+                          )}
+                          <ModelPermissionGuard app="titulares" model="dependente" action="delete">
+                            <button
+                              onClick={() => handleDelete(dep.id, dep.nome)}
+                              className="btn btn-sm btn-danger"
+                              title="Excluir"
+                            >
+                              🗑️
+                            </button>
+                          </ModelPermissionGuard>
                         </div>
                       </td>
                     </tr>

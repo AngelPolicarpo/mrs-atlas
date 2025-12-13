@@ -111,6 +111,7 @@ export function AuthProvider({ children }) {
     register,
     logout,
     updateProfile,
+    isAuthenticated: !!user,
   }
   
   return (

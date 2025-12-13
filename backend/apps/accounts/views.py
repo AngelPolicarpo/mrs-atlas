@@ -1,16 +1,181 @@
+from django.contrib.auth import authenticate
 from django.db.models import Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User
 from .serializers import (
     PasswordResetSerializer,
     UserCreateSerializer,
+    UserProfileSerializer,
     UserSerializer,
     UserUpdateSerializer,
 )
+
+
+# ============================================================
+# AUTHENTICATION VIEWS
+# ============================================================
+
+class LoginView(APIView):
+    """
+    Login do usuário via email/senha.
+    
+    POST /api/auth/login/
+    
+    Body:
+        - email: string
+        - password: string
+    
+    Returns:
+        - access: JWT access token
+        - refresh: JWT refresh token
+        - user: dados do usuário com permissões
+    """
+    
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        email = request.data.get('email', '').lower().strip()
+        password = request.data.get('password', '')
+        
+        if not email or not password:
+            return Response(
+                {'detail': 'Email e senha são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Autenticar usuário
+        user = authenticate(request, username=email, password=password)
+        
+        if user is None:
+            return Response(
+                {'detail': 'Credenciais inválidas.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        if not user.is_active:
+            return Response(
+                {'detail': 'Usuário inativo. Entre em contato com o administrador.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Gerar tokens JWT
+        refresh = RefreshToken.for_user(user)
+        
+        # Serializar dados do usuário
+        user_data = UserProfileSerializer(user).data
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': user_data,
+        })
+
+
+class LogoutView(APIView):
+    """
+    Logout do usuário (blacklist do refresh token).
+    
+    POST /api/auth/logout/
+    
+    Body:
+        - refresh: JWT refresh token
+    """
+    
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            refresh_token = request.data.get('refresh')
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            return Response({'detail': 'Logout realizado com sucesso.'})
+        except Exception:
+            return Response(
+                {'detail': 'Token inválido ou já expirado.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class RegisterView(APIView):
+    """
+    Registro de novo usuário (se habilitado).
+    
+    POST /api/auth/register/
+    
+    Body:
+        - nome: string
+        - email: string
+        - password: string
+    """
+    
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        serializer = UserCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        # Gerar tokens JWT
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserProfileSerializer(user).data,
+        }, status=status.HTTP_201_CREATED)
+
+
+class ChangePasswordView(APIView):
+    """
+    Alteração de senha do usuário autenticado.
+    
+    POST /api/auth/password/change/
+    
+    Body:
+        - old_password: string
+        - new_password: string
+    """
+    
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        old_password = request.data.get('old_password', '')
+        new_password = request.data.get('new_password', '')
+        
+        if not old_password or not new_password:
+            return Response(
+                {'detail': 'Senha atual e nova senha são obrigatórias.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not request.user.check_password(old_password):
+            return Response(
+                {'detail': 'Senha atual incorreta.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(new_password) < 8:
+            return Response(
+                {'detail': 'A nova senha deve ter pelo menos 8 caracteres.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        request.user.set_password(new_password)
+        request.user.save()
+        
+        return Response({'detail': 'Senha alterada com sucesso.'})
+
+
+# ============================================================
+# PERMISSION CLASSES
+# ============================================================
 
 
 class IsAdminUser(permissions.BasePermission):
@@ -18,6 +183,11 @@ class IsAdminUser(permissions.BasePermission):
     
     def has_permission(self, request, view):
         return request.user and request.user.is_staff
+
+
+# ============================================================
+# USER MANAGEMENT VIEWS
+# ============================================================
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -90,6 +260,7 @@ class CurrentUserView(APIView):
         - Lista de departamentos vinculados
         - Sistemas disponíveis (para tela de seleção)
         - Permissões completas por departamento
+        - Permissões Django para controle de UI
     """
     
     permission_classes = [permissions.IsAuthenticated]
@@ -106,6 +277,59 @@ class CurrentUserView(APIView):
         # Retorna o perfil completo após atualização
         from .serializers import UserProfileSerializer
         return Response(UserProfileSerializer(request.user).data)
+
+
+class CheckPermissionView(APIView):
+    """
+    Verifica se o usuário tem uma permissão específica.
+    
+    POST /api/v1/check-permission/
+    
+    Body:
+        - permission: string (ex: 'titulares.delete_titular')
+    
+    Returns:
+        - has_permission: boolean
+        - message: string (mensagem explicativa se não tiver)
+    """
+    
+    permission_classes = [permissions.IsAuthenticated]
+    
+    PERMISSION_MESSAGES = {
+        'view': 'Você não tem permissão para visualizar este recurso.',
+        'add': 'Você não tem permissão para criar novos registros.',
+        'change': 'Você não tem permissão para editar este registro.',
+        'delete': 'Você não tem permissão para excluir este registro.',
+    }
+    
+    def post(self, request):
+        permission = request.data.get('permission', '')
+        
+        if not permission:
+            return Response(
+                {'detail': 'O parâmetro "permission" é obrigatório.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        has_perm = request.user.has_perm(permission)
+        
+        # Determinar mensagem de erro
+        message = None
+        if not has_perm:
+            try:
+                _, codename = permission.split('.')
+                action = codename.split('_')[0]
+                message = self.PERMISSION_MESSAGES.get(
+                    action, 
+                    'Você não tem permissão para realizar esta ação.'
+                )
+            except ValueError:
+                message = 'Você não tem permissão para realizar esta ação.'
+        
+        return Response({
+            'has_permission': has_perm,
+            'message': message,
+        })
 
 
 class LGPDDataExportView(APIView):
