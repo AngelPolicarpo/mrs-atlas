@@ -11,6 +11,10 @@ import DependenteList from './pages/DependenteList'
 import DependenteForm from './pages/DependenteForm'
 import EmpresaList from './pages/EmpresaList'
 import EmpresaForm from './pages/EmpresaForm'
+import ContratoList from './pages/ContratoList'
+import ContratoForm from './pages/ContratoForm'
+import OrdemServicoList from './pages/OrdemServicoList'
+import OrdemServicoForm from './pages/OrdemServicoForm'
 import Configuracoes from './pages/Configuracoes'
 import UserList from './pages/UserList'
 import UserForm from './pages/UserForm'
@@ -118,6 +122,12 @@ function App() {
             <Route path="empresas" element={<EmpresaList />} />
             <Route path="empresas/new" element={<EmpresaForm />} />
             <Route path="empresas/:id" element={<EmpresaForm />} />
+            <Route path="contratos" element={<ContratoList />} />
+            <Route path="contratos/new" element={<ContratoForm />} />
+            <Route path="contratos/:id" element={<ContratoForm />} />
+            <Route path="ordens-servico" element={<OrdemServicoList />} />
+            <Route path="ordens-servico/new" element={<OrdemServicoForm />} />
+            <Route path="ordens-servico/:id" element={<OrdemServicoForm />} />
             <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="users" element={<UserList />} />
             <Route path="users/new" element={<UserForm />} />

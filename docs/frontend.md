@@ -230,9 +230,138 @@ function AppRoutes() {
 
 ---
 
+## 📋 Fluxo de Criação de Contratos (Inline na Página Empresa)
+
+### Versão Anterior (Arquivos Separados)
+
+⚠️ **DESCONTINUADO**: A versão anterior usava redirecionamento para páginas separadas.
+
+---
+
+## 🎯 Nova Arquitetura: Empresa → Contratos (Accordion) → Serviços
+
+### Overview
+
+A tela de **Editar Empresa** foi redesenhada para permitir gestão completa em **uma única página**, sem redirecionamentos:
+
+- **Seção de Dados da Empresa**: Formulário padrão com nome, CNPJ, email, etc.
+- **Seção de Contratos**: Accordion expansível com lista de contratos
+  - Cada contrato é um **item expansível** com seus dados e serviços
+  - Clicando no contrato, expande para edição inline
+  - Dentro dele, há uma **sub-seção de Serviços**
+
+### Campos e Validações
+
+**Contrato:**
+- `numero` *: Texto (ex: CNT-001/2025)
+- `empresa_prestadora` *: Dropdown (lista de empresas ativas)
+- `data_inicio` *: Data
+- `data_fim`: Data (opcional)
+- `status` *: Enum (RASCUNHO, ATIVO, SUSPENSO, ENCERRADO, CANCELADO)
+- `observacao`: Texto livre
+
+**Serviço (dentro do Contrato):**
+- `servico_item` *: Texto (tipo/nome do serviço)
+- `valor` *: Número decimal (R$)
+- ~~quantidade~~: **Removido** (sempre null = ilimitado no backend)
+
+### Workflow de Salvamento (Cascata)
+
+1. **Validação Global**:
+   - Nome e CNPJ da empresa obrigatórios
+   - Para cada contrato: número, prestadora, data_início obrigatórios
+   - Para cada serviço: item e valor obrigatórios
+
+2. **Salvar em Ordem**:
+   ```
+   User clica "Salvar Alterações"
+     ↓
+   Validar Empresa
+     ↓
+   POST/PATCH Empresa → obter empresaId
+     ↓
+   Para cada Contrato:
+     ├─ Se novo: POST com empresaId
+     ├─ Se existente: PATCH
+     ↓
+     └─ Para cada Serviço:
+        ├─ Se novo: POST com contratoId
+        ├─ Se modificado: PATCH
+   
+   ✓ Sucesso → Mensagem de sucesso
+   ✗ Erro → Exibir mensagem (para no ponto de falha)
+   ```
+
+3. **Feedback ao Usuário**:
+   - Desabilita botão "Salvar" durante requisições (`saving` state)
+   - Exibe mensagens de erro em tempo real
+   - Success alert ao final
+   - Auto-recarrega dados após sucesso
+
+### State Management (Local)
+
+Contratos e serviços mantêm **flags internas** para rastrear mudanças:
+
+```javascript
+contrato = {
+  // Dados do backend (se existente)
+  id: 123,
+  numero: 'CNT-001',
+  empresa_prestadora: 5,
+  data_inicio: '2025-01-01',
+  // ...
+  
+  // Flags internas (cliente-side)
+  _id: 'CNT-001' ou '_novo_1704067200000',  // ID único local
+  _isNew: false,     // true se ainda não foi persistido
+  _expanded: true,   // Accordion está expandido?
+  _hasChanges: false,// Houve mudança desde último save?
+  
+  // Sub-seção de serviços
+  _servicos: [
+    {
+      id: 456,  // (se existente)
+      servico_item: 'Manutenção',
+      valor: 500.00,
+      _isNew: false,
+      _hasChanges: false
+    },
+    // ...
+  ]
+}
+```
+
+### Componentes Principais
+
+- **EmpresaForm** (Main):
+  - Gerencia estado global (empresa, contratos, expandidos)
+  - Handle de salvamento cascata
+  - Validações centralizadas
+
+- **ContratoAccordion** (Sub-component):
+  - Renderiza cada contrato como accordion
+  - Header: número, data, status
+  - Body: formulários de contrato + sub-seção de serviços
+  - Callbacks para mudanças (onChange, onAddServico, onRemoveServico, etc.)
+
+### Melhorias vs Versão Anterior
+
+| Feature | Antes | Agora |
+|---------|-------|-------|
+| **Criar Contrato** | Redireciona `/contratos/new` | Inline, expande novo accordion |
+| **Editar Contrato** | Link para `/contratos/:id` | Expand accordion e edita inline |
+| **Adicionar Serviços** | Após criar contrato, redireciona | Dentro do accordion do contrato |
+| **Status Contrato** | Não era exibido | Exibido no header (badge colorido) |
+| **Salvamento** | Endpoints separados | Uma chamada "Salvar" (cascata: empresa → contratos → serviços) |
+| **Validação** | Distribuída por componente | Centralizado em `handleSubmit` |
+| **Sem Sair da Página** | ✗ | ✅ Editar empresa + contratos + serviços tudo em uma página |
+
+---
+
 ## 🎯 Context API
 
 ### AuthContext
+
 
 Gerencia autenticação, tokens e dados do usuário.
 

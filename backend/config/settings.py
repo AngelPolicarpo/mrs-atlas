@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.empresa',
     'apps.titulares',
+    'apps.contratos',
+    'apps.ordem_servico',
 ]
 
 # Debug toolbar only in development

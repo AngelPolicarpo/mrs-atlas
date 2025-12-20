@@ -1,0 +1,646 @@
+import uuid
+from decimal import Decimal
+from django.conf import settings
+from django.db import models
+from django.core.validators import MinValueValidator
+
+
+class EmpresaPrestadora(models.Model):
+    """
+    Empresa prestadora de serviços (CNPJ interno).
+    Representa as empresas do grupo que podem prestar serviços.
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_empresa_prestadora'
+    )
+    cnpj = models.CharField('CNPJ', max_length=18, unique=True)
+    nome_juridico = models.CharField('Razão Social', max_length=255)
+    nome_fantasia = models.CharField('Nome Fantasia', max_length=255, blank=True, null=True)
+    ativo = models.BooleanField('Ativo', default=True)
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Auditoria
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='empresas_prestadoras_criadas',
+        verbose_name='Criado por',
+        db_column='criado_por'
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='empresas_prestadoras_atualizadas',
+        verbose_name='Atualizado por',
+        db_column='atualizado_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Empresa Prestadora'
+        verbose_name_plural = 'Empresas Prestadoras'
+        db_table = 'empresa_prestadora'
+        ordering = ['nome_fantasia', 'nome_juridico']
+    
+    def __str__(self):
+        return self.nome_fantasia or self.nome_juridico
+
+
+class Servico(models.Model):
+    """
+    Catálogo de serviços disponíveis.
+    Define os tipos de serviços que podem ser contratados e seus valores base.
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_servico'
+    )
+    item = models.CharField('Item/Código', max_length=50)
+    descricao = models.TextField('Descrição')
+    valor_base = models.DecimalField(
+        'Valor Base',
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    ativo = models.BooleanField('Ativo', default=True)
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Auditoria
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='servicos_criados',
+        verbose_name='Criado por',
+        db_column='criado_por'
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='servicos_atualizados',
+        verbose_name='Atualizado por',
+        db_column='atualizado_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Serviço'
+        verbose_name_plural = 'Serviços'
+        db_table = 'servico'
+        ordering = ['item']
+    
+    def __str__(self):
+        return f"{self.item} - {self.descricao[:50]}"
+
+
+class OrdemServico(models.Model):
+    """
+    Ordem de Serviço - representa a execução de serviços de um contrato.
+    Vinculada obrigatoriamente a um Contrato ativo.
+    """
+    
+    STATUS_ABERTA = 'ABERTA'
+    STATUS_FINALIZADA = 'FINALIZADA'
+    STATUS_CANCELADA = 'CANCELADA'
+    
+    STATUS_CHOICES = [
+        (STATUS_ABERTA, 'Aberta'),
+        (STATUS_FINALIZADA, 'Finalizada'),
+        (STATUS_CANCELADA, 'Cancelada'),
+    ]
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_ordem_servico'
+    )
+    
+    # Vínculo com Contrato (obrigatório)
+    contrato = models.ForeignKey(
+        'contratos.Contrato',
+        on_delete=models.PROTECT,
+        related_name='ordens_servico',
+        verbose_name='Contrato',
+        db_column='id_contrato'
+    )
+    
+    numero = models.PositiveIntegerField('Número', unique=True, editable=False)
+    data_abertura = models.DateField('Data de Abertura')
+    data_fechamento = models.DateField('Data de Fechamento', blank=True, null=True)
+    status = models.CharField(
+        'Status',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_ABERTA
+    )
+    observacao = models.TextField('Observação', blank=True, null=True)
+    
+    # Centro de Custos (Empresa Prestadora)
+    centro_custos = models.ForeignKey(
+        'ordem_servico.EmpresaPrestadora',
+        on_delete=models.PROTECT,
+        related_name='ordens_servico',
+        verbose_name='Centro de Custos',
+        db_column='id_centro_custos',
+        null=True,
+        blank=True,
+        help_text='Centro de custos (empresa prestadora) responsável'
+    )
+    
+    # Empresas (herdadas do contrato mas podem ser diferentes)
+    empresa_solicitante = models.ForeignKey(
+        'empresa.Empresa',
+        on_delete=models.PROTECT,
+        related_name='ordens_solicitadas',
+        verbose_name='Empresa Solicitante',
+        db_column='id_empresa_solicitante',
+        help_text='Empresa que solicita o serviço (pode ser diferente da contratante)'
+    )
+    empresa_pagadora = models.ForeignKey(
+        'empresa.Empresa',
+        on_delete=models.PROTECT,
+        related_name='ordens_pagas',
+        verbose_name='Empresa Pagadora',
+        db_column='id_empresa_pagadora',
+        help_text='Empresa responsável pelo pagamento'
+    )
+    
+    # Responsável
+    responsavel = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordens_responsavel',
+        verbose_name='Responsável',
+        db_column='id_responsavel'
+    )
+    
+    # Valores (calculados a partir dos itens e despesas)
+    valor_servicos = models.DecimalField(
+        'Valor dos Serviços',
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    valor_despesas = models.DecimalField(
+        'Valor das Despesas',
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    valor_total = models.DecimalField(
+        'Valor Total',
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Auditoria
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordens_criadas',
+        verbose_name='Criado por',
+        db_column='criado_por'
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordens_atualizadas',
+        verbose_name='Atualizado por',
+        db_column='atualizado_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Ordem de Serviço'
+        verbose_name_plural = 'Ordens de Serviço'
+        db_table = 'ordem_servico'
+        ordering = ['-numero']
+        indexes = [
+            models.Index(fields=['numero']),
+            models.Index(fields=['status']),
+            models.Index(fields=['data_abertura']),
+            models.Index(fields=['data_fechamento']),
+            models.Index(fields=['contrato']),
+        ]
+    
+    def __str__(self):
+        return f"OS #{self.numero} - Contrato {self.contrato.numero}"
+    
+    def save(self, *args, **kwargs):
+        # Auto-incremento do número da OS
+        if not self.numero:
+            last_os = OrdemServico.objects.order_by('-numero').first()
+            self.numero = (last_os.numero + 1) if last_os else 1
+        super().save(*args, **kwargs)
+    
+    def calcular_totais(self):
+        """Recalcula os totais baseado nos itens e despesas."""
+        from django.db.models import Sum, F
+        
+        # Soma dos itens da OS (valor_aplicado * quantidade)
+        servicos_total = self.itens.aggregate(
+            total=Sum(F('valor_aplicado') * F('quantidade'))
+        )['total'] or Decimal('0.00')
+        
+        # Soma das despesas ativas
+        despesas_total = self.despesas.filter(ativo=True).aggregate(
+            total=Sum('valor')
+        )['total'] or Decimal('0.00')
+        
+        self.valor_servicos = servicos_total
+        self.valor_despesas = despesas_total
+        self.valor_total = servicos_total + despesas_total
+        self.save(update_fields=['valor_servicos', 'valor_despesas', 'valor_total'])
+
+
+class OrdemServicoItem(models.Model):
+    """
+    Itens de serviço de uma OS - herda do ContratoServico.
+    Vincula serviços contratados à execução na OS.
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_ordem_servico_item'
+    )
+    ordem_servico = models.ForeignKey(
+        OrdemServico,
+        on_delete=models.CASCADE,
+        related_name='itens',
+        verbose_name='Ordem de Serviço',
+        db_column='id_ordem_servico'
+    )
+    contrato_servico = models.ForeignKey(
+        'contratos.ContratoServico',
+        on_delete=models.PROTECT,
+        related_name='itens_os',
+        verbose_name='Serviço do Contrato',
+        db_column='id_contrato_servico'
+    )
+    
+    # Quantidade e valor aplicado nesta OS
+    quantidade = models.PositiveIntegerField(
+        'Quantidade',
+        default=1,
+        validators=[MinValueValidator(1)]
+    )
+    valor_aplicado = models.DecimalField(
+        'Valor Aplicado',
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Valor aplicado nesta OS (herda do contrato por padrão)'
+    )
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Item da OS'
+        verbose_name_plural = 'Itens da OS'
+        db_table = 'ordem_servico_item'
+        ordering = ['data_criacao']
+    
+    def __str__(self):
+        return f"OS #{self.ordem_servico.numero} - {self.contrato_servico.servico.item}"
+    
+    @property
+    def valor_total(self):
+        """Calcula valor_aplicado * quantidade."""
+        return self.valor_aplicado * self.quantidade
+    
+    @property
+    def servico(self):
+        """Atalho para acessar o serviço."""
+        return self.contrato_servico.servico
+    
+    def save(self, *args, **kwargs):
+        # Se valor_aplicado não foi definido, usa o valor do contrato
+        if self.valor_aplicado is None:
+            self.valor_aplicado = self.contrato_servico.valor
+        super().save(*args, **kwargs)
+        # Recalcula totais da OS
+        self.ordem_servico.calcular_totais()
+    
+    def delete(self, *args, **kwargs):
+        os = self.ordem_servico
+        super().delete(*args, **kwargs)
+        os.calcular_totais()
+    
+    def clean(self):
+        """Valida que o serviço pertence ao contrato da OS."""
+        from django.core.exceptions import ValidationError
+        if self.ordem_servico_id and self.contrato_servico_id:
+            if self.contrato_servico.contrato_id != self.ordem_servico.contrato_id:
+                raise ValidationError(
+                    'O serviço deve pertencer ao mesmo contrato da OS.'
+                )
+
+
+class TipoDespesa(models.Model):
+    """
+    Catálogo de tipos de despesas.
+    Define os tipos de despesas disponíveis e seus valores base.
+    Similar ao modelo Servico.
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_tipo_despesa'
+    )
+    item = models.CharField('Item/Código', max_length=50)
+    descricao = models.TextField('Descrição')
+    valor_base = models.DecimalField(
+        'Valor Base',
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    ativo = models.BooleanField('Ativo', default=True)
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Auditoria
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tipos_despesa_criados',
+        verbose_name='Criado por',
+        db_column='criado_por'
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tipos_despesa_atualizados',
+        verbose_name='Atualizado por',
+        db_column='atualizado_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Tipo de Despesa'
+        verbose_name_plural = 'Tipos de Despesa'
+        db_table = 'tipo_despesa'
+        ordering = ['item']
+    
+    def __str__(self):
+        return f"{self.item} - {self.descricao}"
+
+
+class DespesaOrdemServico(models.Model):
+    """
+    Despesas associadas a uma OS.
+    Vincula tipos de despesa (TipoDespesa) a uma Ordem de Serviço.
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_despesa_ordem_servico'
+    )
+    ordem_servico = models.ForeignKey(
+        OrdemServico,
+        on_delete=models.CASCADE,
+        related_name='despesas',
+        verbose_name='Ordem de Serviço',
+        db_column='id_ordem_servico'
+    )
+    tipo_despesa = models.ForeignKey(
+        TipoDespesa,
+        on_delete=models.PROTECT,
+        related_name='despesas_os',
+        verbose_name='Tipo de Despesa',
+        db_column='id_tipo_despesa'
+    )
+    valor = models.DecimalField(
+        'Valor',
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Valor aplicado (herda do tipo de despesa por padrão)'
+    )
+    ativo = models.BooleanField('Ativo', default=True)
+    observacao = models.TextField('Observação', blank=True, null=True)
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Auditoria
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='despesas_os_criadas',
+        verbose_name='Criado por',
+        db_column='criado_por'
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='despesas_os_atualizadas',
+        verbose_name='Atualizado por',
+        db_column='atualizado_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Despesa da OS'
+        verbose_name_plural = 'Despesas da OS'
+        db_table = 'despesa_ordem_servico'
+        ordering = ['tipo_despesa__item', 'data_criacao']
+    
+    def __str__(self):
+        return f"{self.tipo_despesa.item} - R$ {self.valor}"
+    
+    def save(self, *args, **kwargs):
+        # Se valor não foi definido, usa o valor base do tipo de despesa
+        if self.valor is None:
+            self.valor = self.tipo_despesa.valor_base
+        super().save(*args, **kwargs)
+        self.ordem_servico.calcular_totais()
+    
+    def delete(self, *args, **kwargs):
+        os = self.ordem_servico
+        super().delete(*args, **kwargs)
+        os.calcular_totais()
+
+
+class OrdemServicoTitular(models.Model):
+    """
+    Relacionamento entre OS e Titulares.
+    Permite associar múltiplos titulares a uma OS.
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_ordem_servico_titular'
+    )
+    ordem_servico = models.ForeignKey(
+        OrdemServico,
+        on_delete=models.CASCADE,
+        related_name='titulares_vinculados',
+        verbose_name='Ordem de Serviço',
+        db_column='id_ordem_servico'
+    )
+    titular = models.ForeignKey(
+        'titulares.Titular',
+        on_delete=models.CASCADE,
+        related_name='ordens_servico',
+        verbose_name='Titular',
+        db_column='id_titular'
+    )
+    observacao = models.TextField('Observação', blank=True, null=True)
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Auditoria
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='os_titulares_criados',
+        verbose_name='Criado por',
+        db_column='criado_por'
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='os_titulares_atualizados',
+        verbose_name='Atualizado por',
+        db_column='atualizado_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Titular da OS'
+        verbose_name_plural = 'Titulares da OS'
+        db_table = 'ordem_servico_titular'
+        unique_together = ['ordem_servico', 'titular']
+        ordering = ['data_criacao']
+    
+    def __str__(self):
+        return f"OS #{self.ordem_servico.numero} - {self.titular.nome}"
+
+
+class OrdemServicoDependente(models.Model):
+    """
+    Relacionamento entre OS e Dependentes.
+    Permite associar múltiplos dependentes a uma OS.
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_ordem_servico_dependente'
+    )
+    ordem_servico = models.ForeignKey(
+        OrdemServico,
+        on_delete=models.CASCADE,
+        related_name='dependentes_vinculados',
+        verbose_name='Ordem de Serviço',
+        db_column='id_ordem_servico'
+    )
+    dependente = models.ForeignKey(
+        'titulares.Dependente',
+        on_delete=models.CASCADE,
+        related_name='ordens_servico',
+        verbose_name='Dependente',
+        db_column='id_dependente'
+    )
+    observacao = models.TextField('Observação', blank=True, null=True)
+    
+    # Timestamps
+    data_criacao = models.DateTimeField('Data Criação', auto_now_add=True)
+    ultima_atualizacao = models.DateTimeField('Última Atualização', auto_now=True)
+    
+    # Auditoria
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='os_dependentes_criados',
+        verbose_name='Criado por',
+        db_column='criado_por'
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='os_dependentes_atualizados',
+        verbose_name='Atualizado por',
+        db_column='atualizado_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Dependente da OS'
+        verbose_name_plural = 'Dependentes da OS'
+        db_table = 'ordem_servico_dependente'
+        unique_together = ['ordem_servico', 'dependente']
+        ordering = ['data_criacao']
+    
+    def __str__(self):
+        return f"OS #{self.ordem_servico.numero} - {self.dependente.nome}"

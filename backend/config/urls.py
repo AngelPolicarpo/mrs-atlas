@@ -26,6 +26,8 @@ urlpatterns = [
     path('api/v1/', include('apps.core.urls')),
     path('api/v1/', include('apps.empresa.urls')),
     path('api/v1/', include('apps.titulares.urls')),
+    path('api/v1/', include('apps.contratos.urls')),
+    path('api/v1/', include('apps.ordem_servico.urls')),
 ]
 
 # Debug toolbar

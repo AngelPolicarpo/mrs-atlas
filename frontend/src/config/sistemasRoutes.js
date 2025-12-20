@@ -26,8 +26,10 @@ export const SISTEMA_ROUTES = {
     nome: 'Ordens de Serviço',
     rotas: [
       { path: '/', label: 'Dashboard', icon: '📊', end: true },
-      { path: '/ordens', label: 'Ordens de Serviço', icon: '📋' },
-      { path: '/atendimentos', label: 'Atendimentos', icon: '🎫' },
+      { path: '/contratos', label: 'Contratos', icon: '📝' },
+      { path: '/ordens-servico', label: 'Ordens de Serviço', icon: '📋' },
+      { path: '/empresas', label: 'Empresas', icon: '🏢' },
+      { path: '/titulares', label: 'Titulares', icon: '👤' },
     ],
     rotasAdmin: [
       { path: '/configuracoes', label: 'Configurações', icon: '⚙️' },
