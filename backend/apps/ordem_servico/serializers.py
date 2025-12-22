@@ -249,9 +249,10 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
 
 
 class OrdemServicoListSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para listagem de OS."""
+    """Serializer para listagem de OS com dados completos para expansão."""
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     contrato_numero = serializers.CharField(source='contrato.numero', read_only=True)
+    empresa_contratante = serializers.UUIDField(source='contrato.empresa_contratante.id', read_only=True)
     centro_custos_nome = serializers.SerializerMethodField()
     empresa_solicitante_nome = serializers.CharField(source='empresa_solicitante.nome', read_only=True)
     empresa_pagadora_nome = serializers.CharField(source='empresa_pagadora.nome', read_only=True)
@@ -261,18 +262,26 @@ class OrdemServicoListSerializer(serializers.ModelSerializer):
     qtd_dependentes = serializers.SerializerMethodField()
     qtd_itens = serializers.SerializerMethodField()
     
+    # Relacionamentos aninhados para exibição expandida
+    itens = OrdemServicoItemSerializer(many=True, read_only=True)
+    despesas = DespesaOrdemServicoSerializer(many=True, read_only=True)
+    titulares_vinculados = OrdemServicoTitularSerializer(many=True, read_only=True)
+    dependentes_vinculados = OrdemServicoDependenteSerializer(many=True, read_only=True)
+    
     class Meta:
         model = OrdemServico
         fields = [
             'id', 'numero', 'data_abertura', 'data_fechamento', 'status', 'status_display',
-            'contrato', 'contrato_numero',
+            'observacao',
+            'contrato', 'contrato_numero', 'empresa_contratante',
             'centro_custos', 'centro_custos_nome',
             'empresa_solicitante', 'empresa_solicitante_nome',
             'empresa_pagadora', 'empresa_pagadora_nome',
             'empresa_contratante_nome',
             'responsavel', 'responsavel_nome',
-            'valor_total', 'data_criacao',
-            'qtd_titulares', 'qtd_dependentes', 'qtd_itens'
+            'valor_servicos', 'valor_despesas', 'valor_total', 'data_criacao',
+            'qtd_titulares', 'qtd_dependentes', 'qtd_itens',
+            'itens', 'despesas', 'titulares_vinculados', 'dependentes_vinculados'
         ]
     
     def get_centro_custos_nome(self, obj):
@@ -303,8 +312,10 @@ class OrdemServicoCreateUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
     
     def validate_contrato(self, value):
-        """Valida que o contrato está ativo."""
-        if value.status != 'ATIVO':
+        """Valida que o contrato está ativo apenas na criação."""
+        # Na edição (self.instance existe), não revalidar o contrato
+        # pois a OS já foi criada quando o contrato estava ativo
+        if not self.instance and value.status != 'ATIVO':
             raise serializers.ValidationError(
                 'Não é possível criar OS para um contrato que não está ativo.'
             )

@@ -5,6 +5,8 @@ import useAutoComplete from '../hooks/useAutoComplete'
 import { searchContratos } from '../services/contratos'
 import { searchEmpresas } from '../services/empresas'
 import { searchEmpresasPrestadoras, searchTiposDespesa } from '../services/ordemServico'
+import { searchTitulares, searchDependentes } from '../services/titulares'
+import { searchUsers } from '../services/users'
 
 /**
  * Formata valor em reais
@@ -135,6 +137,14 @@ function OrdemServicoForm() {
     removeDespesa,
     updateDespesaItem,
     tiposDespesa,
+    // Titulares da OS
+    osTitulares,
+    addOSTitular,
+    removeOSTitular,
+    // Dependentes da OS
+    osDependentes,
+    addOSDependente,
+    removeOSDependente,
     // Options
     empresas,
     empresasPrestadoras,
@@ -150,12 +160,22 @@ function OrdemServicoForm() {
   const [empresaSolicitanteDisplay, setEmpresaSolicitanteDisplay] = useState('')
   const [empresaPagadoraDisplay, setEmpresaPagadoraDisplay] = useState('')
   const [centroCustosDisplay, setCentroCustosDisplay] = useState('')
+  const [responsavelDisplay, setResponsavelDisplay] = useState('')
 
   // AutoComplete hooks
   const contratoAC = useAutoComplete(searchContratos, { minLength: 1 })
   const empresaSolicitanteAC = useAutoComplete(searchEmpresas, { minLength: 2 })
   const empresaPagadoraAC = useAutoComplete(searchEmpresas, { minLength: 2 })
   const centroCustosAC = useAutoComplete(searchEmpresasPrestadoras, { minLength: 2 })
+  const responsavelAC = useAutoComplete(searchUsers, { minLength: 2 })
+  const titularAC = useAutoComplete(searchTitulares, { minLength: 2 })
+  const dependenteAC = useAutoComplete(searchDependentes, { minLength: 2 })
+
+  // State para AutoComplete de titulares e dependentes
+  const [titularSearchText, setTitularSearchText] = useState('')
+  const [showTitularSuggestions, setShowTitularSuggestions] = useState(false)
+  const [dependenteSearchText, setDependenteSearchText] = useState('')
+  const [showDependenteSuggestions, setShowDependenteSuggestions] = useState(false)
 
   // Atualiza display values quando dados são carregados (edição)
   useEffect(() => {
@@ -164,6 +184,7 @@ function OrdemServicoForm() {
       setEmpresaSolicitanteDisplay(ordemServico.empresa_solicitante_nome || '')
       setEmpresaPagadoraDisplay(ordemServico.empresa_pagadora_nome || '')
       setCentroCustosDisplay(ordemServico.centro_custos_nome || '')
+      setResponsavelDisplay(ordemServico.responsavel_nome || '')
     }
   }, [ordemServico])
 
@@ -351,6 +372,29 @@ function OrdemServicoForm() {
                 ))}
               </select>
             </div>
+
+            <div className="form-field">
+              <label htmlFor="responsavel" className="form-label">
+                Responsável
+              </label>
+              <AutoCompleteInput
+                id="responsavel"
+                name="responsavel"
+                value={formData.responsavel}
+                displayValue={responsavelDisplay}
+                onChange={handleChange}
+                onSelect={(user) => {
+                  handleChange({ target: { name: 'responsavel', value: user.id } })
+                  setResponsavelDisplay(user.nome)
+                }}
+                suggestions={responsavelAC.suggestions}
+                onSearch={responsavelAC.search}
+                onClear={responsavelAC.clear}
+                placeholder="Digite o nome do responsável..."
+                renderSuggestion={(u) => `${u.nome} (${u.email})`}
+                hint="Usuário responsável pela OS"
+              />
+            </div>
           </div>
 
           {/* Centro de Custos e Empresas - na mesma seção */}
@@ -374,13 +418,13 @@ function OrdemServicoForm() {
                 onClear={centroCustosAC.clear}
                 placeholder="Digite para buscar..."
                 renderSuggestion={(ep) => ep.nome_fantasia || ep.nome_juridico}
-                hint="Empresa prestadora responsável"
+                hint="Empresa que fatura os serviços prestados"
               />
             </div>
 
             <div className="form-field">
               <label htmlFor="empresa_solicitante" className="form-label">
-                Empresa Solicitante <span className="required">*</span>
+                Solicitante <span className="required">*</span>
               </label>
               <AutoCompleteInput
                 id="empresa_solicitante"
@@ -404,7 +448,7 @@ function OrdemServicoForm() {
 
             <div className="form-field">
               <label htmlFor="empresa_pagadora" className="form-label">
-                Empresa Pagadora <span className="required">*</span>
+                Faturamento <span className="required">*</span>
               </label>
               <AutoCompleteInput
                 id="empresa_pagadora"
@@ -463,9 +507,9 @@ function OrdemServicoForm() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th style={{ width: '45%' }}>Serviço (do Contrato)</th>
+                    <th style={{ width: '45%' }}>Serviço</th>
                     <th style={{ width: '20%' }}>Valor Unitário</th>
-                    <th style={{ width: '15%' }}>Qtd Executar</th>
+                    <th style={{ width: '15%' }}>QUANTIDADE</th>
                     <th style={{ width: '15%' }}>Subtotal</th>
                     <th style={{ width: '5%' }}></th>
                   </tr>
@@ -563,7 +607,7 @@ function OrdemServicoForm() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th style={{ width: '25%' }}>Tipo de Despesa</th>
+                    <th style={{ width: '25%' }}>Despesa</th>
                     <th style={{ width: '20%' }}>Valor</th>
                     <th style={{ width: '40%' }}>Observação</th>
                     <th style={{ width: '15%' }}></th>
@@ -634,6 +678,235 @@ function OrdemServicoForm() {
                     <td colSpan="3"><strong>{formatCurrency(totais.valor_despesas)}</strong></td>
                   </tr>
                 </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Titulares */}
+        <div className="form-section">
+          <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3>👤 Titulares</h3>
+          </div>
+          
+          <p className="text-muted" style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+            Vincule os titulares beneficiados por esta ordem de serviço.
+          </p>
+          
+          <div style={{ position: 'relative', marginBottom: '1rem' }}>
+            <input
+              type="text"
+              value={titularSearchText}
+              onChange={(e) => {
+                const text = e.target.value
+                setTitularSearchText(text)
+                if (text.length >= 2) {
+                  titularAC.search(text)
+                  setShowTitularSuggestions(true)
+                } else {
+                  titularAC.clear()
+                  setShowTitularSuggestions(false)
+                }
+              }}
+              onFocus={() => titularSearchText.length >= 2 && setShowTitularSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowTitularSuggestions(false), 200)}
+              placeholder="Digite nome ou CPF para buscar titular..."
+              className="form-input"
+              autoComplete="off"
+            />
+            {showTitularSuggestions && titularAC.suggestions.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                backgroundColor: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                zIndex: 1000,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+              }}>
+                {titularAC.suggestions
+                  .filter(t => !osTitulares.some(ot => !ot.isDeleted && ot.titular === t.id))
+                  .map((titular) => (
+                    <div
+                      key={titular.id}
+                      onClick={() => {
+                        const added = addOSTitular(titular)
+                        if (added) {
+                          setTitularSearchText('')
+                          titularAC.clear()
+                          setShowTitularSuggestions(false)
+                        }
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #f3f4f6'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+                    >
+                      <div style={{ fontWeight: 500 }}>{titular.nome}</div>
+                      <div style={{ fontSize: '0.85em', color: '#6b7280' }}>{titular.cpf || 'Sem CPF'}</div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          {osTitulares.filter(t => !t.isDeleted).length === 0 ? (
+            <p className="text-muted">Nenhum titular vinculado. Use a busca acima para adicionar.</p>
+          ) : (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>CPF</th>
+                    <th style={{ width: '80px' }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {osTitulares.map((titular, index) => {
+                    if (titular.isDeleted) return null
+                    return (
+                      <tr key={titular.id || titular._tempId}>
+                        <td>{titular.titular_nome}</td>
+                        <td>{titular.titular_cpf || '-'}</td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => removeOSTitular(index)}
+                            className="btn btn-sm btn-danger"
+                            title="Remover"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Dependentes */}
+        <div className="form-section">
+          <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3>👨‍👩‍👧 Dependentes</h3>
+          </div>
+          
+          <p className="text-muted" style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+            Vincule os dependentes beneficiados por esta ordem de serviço.
+          </p>
+          
+          <div style={{ position: 'relative', marginBottom: '1rem' }}>
+            <input
+              type="text"
+              value={dependenteSearchText}
+              onChange={(e) => {
+                const text = e.target.value
+                setDependenteSearchText(text)
+                if (text.length >= 2) {
+                  dependenteAC.search(text)
+                  setShowDependenteSuggestions(true)
+                } else {
+                  dependenteAC.clear()
+                  setShowDependenteSuggestions(false)
+                }
+              }}
+              onFocus={() => dependenteSearchText.length >= 2 && setShowDependenteSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowDependenteSuggestions(false), 200)}
+              placeholder="Digite nome ou CPF para buscar dependente..."
+              className="form-input"
+              autoComplete="off"
+            />
+            {showDependenteSuggestions && dependenteAC.suggestions.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                backgroundColor: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                zIndex: 1000,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+              }}>
+                {dependenteAC.suggestions
+                  .filter(d => !osDependentes.some(od => !od.isDeleted && od.dependente === d.id))
+                  .map((dependente) => (
+                    <div
+                      key={dependente.id}
+                      onClick={() => {
+                        const added = addOSDependente(dependente)
+                        if (added) {
+                          setDependenteSearchText('')
+                          dependenteAC.clear()
+                          setShowDependenteSuggestions(false)
+                        }
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #f3f4f6'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+                    >
+                      <div style={{ fontWeight: 500 }}>{dependente.nome}</div>
+                      <div style={{ fontSize: '0.85em', color: '#6b7280' }}>
+                        {dependente.cpf || 'Sem CPF'}
+                        {dependente.titular_nome && ` • Titular: ${dependente.titular_nome}`}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          {osDependentes.filter(d => !d.isDeleted).length === 0 ? (
+            <p className="text-muted">Nenhum dependente vinculado. Use a busca acima para adicionar.</p>
+          ) : (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>CPF</th>
+                    <th>Titular</th>
+                    <th style={{ width: '80px' }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {osDependentes.map((dependente, index) => {
+                    if (dependente.isDeleted) return null
+                    return (
+                      <tr key={dependente.id || dependente._tempId}>
+                        <td>{dependente.dependente_nome}</td>
+                        <td>{dependente.dependente_cpf || '-'}</td>
+                        <td>{dependente.titular_nome || '-'}</td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => removeOSDependente(index)}
+                            className="btn btn-sm btn-danger"
+                            title="Remover"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
               </table>
             </div>
           )}

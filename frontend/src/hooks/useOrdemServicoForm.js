@@ -15,7 +15,11 @@ import {
   updateDespesaOS,
   deleteDespesaOS,
   getTiposDespesaAtivos,
-  recalcularOrdemServico
+  recalcularOrdemServico,
+  createOSTitular,
+  deleteOSTitular,
+  createOSDependente,
+  deleteOSDependente
 } from '../services/ordemServico'
 import { getEmpresasPrestadoras } from '../services/ordemServico'
 import { getEmpresas } from '../services/empresas'
@@ -90,6 +94,10 @@ function useOrdemServicoForm(osId) {
   const [dependentes, setDependentes] = useState([])
   const [osItens, setOsItens] = useState([])         // Itens da OS
   const [despesas, setDespesas] = useState([])
+  
+  // Titulares e Dependentes para adicionar/remover (gerenciamento local antes de salvar)
+  const [osTitulares, setOsTitulares] = useState([])       // [{id, titular, titular_nome, ...}]
+  const [osDependentes, setOsDependentes] = useState([])   // [{id, dependente, dependente_nome, ...}]
   
   // Opções para selects
   const [empresas, setEmpresas] = useState([])
@@ -212,6 +220,18 @@ function useOrdemServicoForm(osId) {
         setTitulares(titRes.data || [])
         setDependentes(depRes.data || [])
         
+        // Mapeia titulares e dependentes da OS para gerenciamento local
+        setOsTitulares((titRes.data || []).map(t => ({
+          ...t,
+          isNew: false,
+          isDeleted: false,
+        })))
+        setOsDependentes((depRes.data || []).map(d => ({
+          ...d,
+          isNew: false,
+          isDeleted: false,
+        })))
+        
         // Mapeia itens existentes
         const itensData = (itensRes.data || []).map(item => ({
           ...item,
@@ -330,6 +350,81 @@ function useOrdemServicoForm(osId) {
   }, [])
 
   // =========================================================================
+  // TITULARES DA OS
+  // =========================================================================
+  
+  const addOSTitular = useCallback((titular) => {
+    // Verifica se já está adicionado
+    const jaAdicionado = osTitulares.some(t => 
+      !t.isDeleted && t.titular === titular.id
+    )
+    if (jaAdicionado) return false
+    
+    setOsTitulares(prev => [...prev, {
+      _tempId: Date.now(),
+      titular: titular.id,
+      titular_nome: titular.nome,
+      titular_cpf: titular.cpf,
+      observacao: '',
+      isNew: true,
+      isDeleted: false,
+    }])
+    return true
+  }, [osTitulares])
+
+  const removeOSTitular = useCallback((index) => {
+    setOsTitulares(prev => {
+      const updated = [...prev]
+      if (updated[index].isNew) {
+        // Se é novo, apenas remove
+        updated.splice(index, 1)
+      } else {
+        // Se existente, marca para deleção
+        updated[index] = { ...updated[index], isDeleted: true }
+      }
+      return updated
+    })
+  }, [])
+
+  // =========================================================================
+  // DEPENDENTES DA OS
+  // =========================================================================
+  
+  const addOSDependente = useCallback((dependente) => {
+    // Verifica se já está adicionado
+    const jaAdicionado = osDependentes.some(d => 
+      !d.isDeleted && d.dependente === dependente.id
+    )
+    if (jaAdicionado) return false
+    
+    setOsDependentes(prev => [...prev, {
+      _tempId: Date.now(),
+      dependente: dependente.id,
+      dependente_nome: dependente.nome,
+      dependente_cpf: dependente.cpf,
+      titular_nome: dependente.titular_nome,
+      observacao: '',
+      isNew: true,
+      isDeleted: false,
+    }])
+    return true
+  }, [osDependentes])
+
+  const removeOSDependente = useCallback((index) => {
+    setOsDependentes(prev => {
+      const updated = [...prev]
+      if (updated[index].isNew) {
+        // Se é novo, apenas remove
+        updated.splice(index, 1)
+      } else {
+        // Se existente, marca para deleção
+        updated[index] = { ...updated[index], isDeleted: true }
+      }
+      return updated
+    })
+  }, [])
+
+  // =========================================================================
   // SUBMIT
   // =========================================================================
 
@@ -427,6 +522,32 @@ function useOrdemServicoForm(osId) {
         }
       }
       
+      // Salvar titulares da OS
+      for (const titular of osTitulares) {
+        if (titular.isDeleted && titular.id) {
+          await deleteOSTitular(titular.id)
+        } else if (titular.isNew && !titular.isDeleted && titular.titular) {
+          await createOSTitular({
+            ordem_servico: currentOsId,
+            titular: titular.titular,
+            observacao: titular.observacao || '',
+          })
+        }
+      }
+      
+      // Salvar dependentes da OS
+      for (const dependente of osDependentes) {
+        if (dependente.isDeleted && dependente.id) {
+          await deleteOSDependente(dependente.id)
+        } else if (dependente.isNew && !dependente.isDeleted && dependente.dependente) {
+          await createOSDependente({
+            ordem_servico: currentOsId,
+            dependente: dependente.dependente,
+            observacao: dependente.observacao || '',
+          })
+        }
+      }
+      
       // Recalcula totais
       if (currentOsId) {
         await recalcularOrdemServico(currentOsId)
@@ -456,7 +577,7 @@ function useOrdemServicoForm(osId) {
     } finally {
       setSaving(false)
     }
-  }, [formData, isEditing, osId, osItens, despesas])
+  }, [formData, isEditing, osId, osItens, despesas, osTitulares, osDependentes])
 
   // Calcula totais locais para preview
   const calcularTotaisLocais = useCallback(() => {
@@ -520,6 +641,16 @@ function useOrdemServicoForm(osId) {
     removeDespesa,
     updateDespesaItem,
     tiposDespesa,
+    
+    // Titulares da OS
+    osTitulares,
+    addOSTitular,
+    removeOSTitular,
+    
+    // Dependentes da OS
+    osDependentes,
+    addOSDependente,
+    removeOSDependente,
     
     // Options for selects
     empresas,

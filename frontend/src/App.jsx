@@ -5,14 +5,13 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Pesquisa from './pages/Pesquisa'
+import PesquisaOS from './pages/PesquisaOS'
 import TitularList from './pages/TitularList'
 import TitularForm from './pages/TitularForm'
 import DependenteList from './pages/DependenteList'
 import DependenteForm from './pages/DependenteForm'
 import EmpresaList from './pages/EmpresaList'
 import EmpresaForm from './pages/EmpresaForm'
-import ContratoList from './pages/ContratoList'
-import ContratoForm from './pages/ContratoForm'
 import OrdemServicoList from './pages/OrdemServicoList'
 import OrdemServicoForm from './pages/OrdemServicoForm'
 import Configuracoes from './pages/Configuracoes'
@@ -113,6 +112,7 @@ function App() {
           }>
             <Route index element={<Dashboard />} />
             <Route path="pesquisa" element={<Pesquisa />} />
+            <Route path="pesquisa-os" element={<PesquisaOS />} />
             <Route path="titulares" element={<TitularList />} />
             <Route path="titulares/new" element={<TitularForm />} />
             <Route path="titulares/:id" element={<TitularForm />} />
@@ -122,9 +122,6 @@ function App() {
             <Route path="empresas" element={<EmpresaList />} />
             <Route path="empresas/new" element={<EmpresaForm />} />
             <Route path="empresas/:id" element={<EmpresaForm />} />
-            <Route path="contratos" element={<ContratoList />} />
-            <Route path="contratos/new" element={<ContratoForm />} />
-            <Route path="contratos/:id" element={<ContratoForm />} />
             <Route path="ordens-servico" element={<OrdemServicoList />} />
             <Route path="ordens-servico/new" element={<OrdemServicoForm />} />
             <Route path="ordens-servico/:id" element={<OrdemServicoForm />} />

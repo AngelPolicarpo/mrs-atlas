@@ -385,3 +385,39 @@ class LGPDDeleteAccountView(APIView):
             {'message': 'Conta desativada e dados anonimizados com sucesso.'},
             status=status.HTTP_200_OK
         )
+
+
+class UserSearchView(APIView):
+    """
+    Busca simples de usuários ativos para autocomplete.
+    Acessível por qualquer usuário autenticado.
+    
+    GET /api/v1/users/search/?search=termo
+    """
+    
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        search = request.query_params.get('search', '').strip()
+        
+        queryset = User.objects.filter(is_active=True).order_by('nome')
+        
+        if search:
+            queryset = queryset.filter(
+                Q(nome__icontains=search) |
+                Q(email__icontains=search)
+            )
+        
+        # Limita resultados para autocomplete
+        queryset = queryset[:20]
+        
+        data = [
+            {
+                'id': str(user.id),
+                'nome': user.nome,
+                'email': user.email,
+            }
+            for user in queryset
+        ]
+        
+        return Response(data)

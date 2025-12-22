@@ -21,11 +21,8 @@ function formatCurrency(value) {
  */
 function StatusBadge({ status, statusDisplay }) {
   const statusColors = {
-    RASCUNHO: 'badge-secondary',
     ABERTA: 'badge-info',
-    EM_ANDAMENTO: 'badge-warning',
-    AGUARDANDO: 'badge-warning',
-    CONCLUIDA: 'badge-success',
+    FINALIZADA: 'badge-success',
     CANCELADA: 'badge-danger',
   }
   
@@ -107,11 +104,11 @@ function OrdemServicoList() {
               <thead>
                 <tr>
                   <th>Número</th>
-                  <th>Data Abertura</th>
+                  <th>Abertura</th>
                   <th>Contrato</th>
                   <th>Status</th>
-                  <th>Empresa Solicitante</th>
-                  <th>Valor Total</th>
+                  <th>Solicitante</th>
+                  <th>Total</th>
                   <th>Ações</th>
                 </tr>
               </thead>
@@ -129,7 +126,11 @@ function OrdemServicoList() {
                       <td>{os.data_abertura ? new Date(os.data_abertura).toLocaleDateString('pt-BR') : '-'}</td>
                       <td>
                         {os.contrato_numero ? (
-                          <Link to={`/contratos/${os.contrato}`} className="link">
+                          <Link 
+                            to={`/empresas/${os.empresa_contratante}#contrato-${os.contrato}`} 
+                            className="link"
+                            title={`Ver contrato na empresa ${os.empresa_contratante_nome || ''}`}
+                          >
                             {os.contrato_numero}
                           </Link>
                         ) : '-'}
@@ -163,7 +164,7 @@ function OrdemServicoList() {
                               onClick={() => handleDelete(os.id, os.numero)}
                               className="btn btn-sm btn-danger"
                               title="Excluir"
-                              disabled={os.status === 'CONCLUIDA'}
+                              disabled={os.status === 'FINALIZADA'}
                             >
                               🗑️
                             </button>

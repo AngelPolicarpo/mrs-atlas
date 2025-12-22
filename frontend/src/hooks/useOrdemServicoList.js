@@ -77,11 +77,8 @@ function useOrdemServicoList() {
   // Status disponíveis para filtro
   const statusOptions = [
     { value: '', label: 'Todos' },
-    { value: 'RASCUNHO', label: 'Rascunho' },
     { value: 'ABERTA', label: 'Aberta' },
-    { value: 'EM_ANDAMENTO', label: 'Em Andamento' },
-    { value: 'AGUARDANDO', label: 'Aguardando' },
-    { value: 'CONCLUIDA', label: 'Concluída' },
+    { value: 'FINALIZADA', label: 'Concluída' },
     { value: 'CANCELADA', label: 'Cancelada' },
   ]
 

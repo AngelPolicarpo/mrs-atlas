@@ -11,6 +11,7 @@ router.register(r'users', views.UserViewSet, basename='user')
 
 urlpatterns = [
     # Rotas específicas devem vir ANTES do router
+    path('users/search/', views.UserSearchView.as_view(), name='user-search'),
     path('users/me/', views.CurrentUserView.as_view(), name='current-user'),
     path('users/me/export/', views.LGPDDataExportView.as_view(), name='lgpd-export'),
     path('users/me/delete/', views.LGPDDeleteAccountView.as_view(), name='lgpd-delete'),

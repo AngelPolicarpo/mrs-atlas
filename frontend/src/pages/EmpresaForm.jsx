@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { getEmpresa, createEmpresa, updateEmpresa } from '../services/empresas'
 import { getContratos, createContrato, updateContrato, getContratoServicos, createContratoServico, updateContratoServico, deleteContratoServico, cancelarContrato, finalizarContrato } from '../services/contratos'
 import { getServicosAtivos, getEmpresasPrestadoras } from '../services/ordemServico'
@@ -14,6 +14,7 @@ import useAutoComplete from '../hooks/useAutoComplete'
  */
 function EmpresaForm() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams()
   const isEditing = Boolean(id)
 
@@ -45,6 +46,27 @@ function EmpresaForm() {
       loadEmpresasPrestadoras()
     }
   }, [id])
+
+  // Efeito para expandir contrato via hash da URL (ex: #contrato-uuid)
+  useEffect(() => {
+    if (contratos.length > 0 && location.hash) {
+      const hashMatch = location.hash.match(/^#contrato-(.+)$/)
+      if (hashMatch) {
+        const contratoId = hashMatch[1]
+        const contrato = contratos.find(c => c.id === contratoId || c._id === contratoId)
+        if (contrato) {
+          setExpandedContrato(contrato._id)
+          // Scroll para o contrato após um pequeno delay
+          setTimeout(() => {
+            const element = document.getElementById(`contrato-${contrato._id}`)
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+          }, 100)
+        }
+      }
+    }
+  }, [contratos, location.hash])
 
   async function loadEmpresa() {
     try {
@@ -477,21 +499,22 @@ function EmpresaForm() {
             ) : (
               <div className="contratos-list">
                 {contratos.map((contrato, idx) => (
-                  <ContratoAccordion
-                    key={contrato._id}
-                    contrato={contrato}
-                    index={idx}
-                    isExpanded={expandedContrato === contrato._id}
-                    onToggle={() => toggleContratoExpanded(contrato._id)}
-                    onChange={(field, value) => handleContratoChange(contrato._id, field, value)}
-                    onAddServico={() => handleAddServico(contrato._id)}
-                    onServicoChange={(sIdx, field, value) => handleServicoChange(contrato._id, sIdx, field, value)}
-                    onRemoveServico={(sIdx) => handleRemoveServico(contrato._id, sIdx)}
-                    onReload={loadEmpresa}
-                    setError={setError}
-                    setSuccess={setSuccess}
-                    empresasPrestadoras={empresasPrestadoras}
-                  />
+                  <div key={contrato._id} id={`contrato-${contrato._id}`}>
+                    <ContratoAccordion
+                      contrato={contrato}
+                      index={idx}
+                      isExpanded={expandedContrato === contrato._id}
+                      onToggle={() => toggleContratoExpanded(contrato._id)}
+                      onChange={(field, value) => handleContratoChange(contrato._id, field, value)}
+                      onAddServico={() => handleAddServico(contrato._id)}
+                      onServicoChange={(sIdx, field, value) => handleServicoChange(contrato._id, sIdx, field, value)}
+                      onRemoveServico={(sIdx) => handleRemoveServico(contrato._id, sIdx)}
+                      onReload={loadEmpresa}
+                      setError={setError}
+                      setSuccess={setSuccess}
+                      empresasPrestadoras={empresasPrestadoras}
+                    />
+                  </div>
                 ))}
               </div>
             )}

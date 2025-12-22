@@ -33,4 +33,23 @@ export const userService = {
   },
 }
 
+/**
+ * Busca usuários para autocomplete (nome e email)
+ * @param {string} query - Termo de busca
+ * @returns {Promise<{data: Array}>} Lista de usuários
+ */
+export async function searchUsers(query) {
+  const response = await api.get('/api/v1/users/search/', { 
+    params: { search: query } 
+  })
+  return {
+    data: (response.data || []).map(u => ({
+      id: u.id,
+      nome: u.nome,
+      email: u.email,
+      label: `${u.nome} (${u.email})`
+    }))
+  }
+}
+
 export default userService

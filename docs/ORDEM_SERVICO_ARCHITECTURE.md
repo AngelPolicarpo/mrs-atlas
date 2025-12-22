@@ -183,15 +183,12 @@ frontend/src/
 │   └── ordemServico.js     # API calls para OS, tipos despesa
 │
 ├── hooks/
-│   ├── useContratoForm.js  # Hook do formulário de contrato
 │   └── useOrdemServicoForm.js  # Hook do formulário de OS
 │
 └── pages/
-    ├── ContratoList.jsx
-    ├── ContratoForm.jsx
     ├── OrdemServicoList.jsx
     ├── OrdemServicoForm.jsx
-    └── EmpresaForm.jsx     # Gerencia contratos da empresa
+    └── EmpresaForm.jsx     # Gerencia contratos, titulares e dependentes da empresa
 ```
 
 ## Endpoints da API
@@ -205,7 +202,7 @@ frontend/src/
 | GET | `/api/v1/contratos/{id}/` | Detalhe do contrato |
 | PATCH | `/api/v1/contratos/{id}/` | Atualiza contrato |
 | GET | `/api/v1/contratos/{id}/servicos/` | Lista serviços do contrato |
-| GET | `/api/v1/contratos/{id}/servicos-disponiveis/` | Lista serviços COM SALDO |
+| GET | `/api/v1/contratos/{id}/servicos-disponiveis/` | Lista serviços disponíveis |
 | GET | `/api/v1/contratos/{id}/ordens-servico/` | Lista OS do contrato |
 | GET | `/api/v1/contratos/ativos/` | Lista contratos ativos |
 | POST | `/api/v1/contratos/{id}/ativar/` | Ativa contrato |

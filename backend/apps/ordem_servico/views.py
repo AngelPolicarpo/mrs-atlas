@@ -38,16 +38,29 @@ class OrdemServicoFilter(django_filters.FilterSet):
     contrato = django_filters.UUIDFilter(field_name='contrato__id')
     empresa_solicitante = django_filters.UUIDFilter(field_name='empresa_solicitante__id')
     empresa_pagadora = django_filters.UUIDFilter(field_name='empresa_pagadora__id')
+    centro_custos = django_filters.UUIDFilter(field_name='centro_custos__id')
+    responsavel = django_filters.UUIDFilter(field_name='responsavel__id')
     titular = django_filters.UUIDFilter(method='filter_by_titular')
     dependente = django_filters.UUIDFilter(method='filter_by_dependente')
-    data_gte = django_filters.DateFilter(field_name='data', lookup_expr='gte')
-    data_lte = django_filters.DateFilter(field_name='data', lookup_expr='lte')
-    valor_total_gte = django_filters.NumberFilter(field_name='valor_total', lookup_expr='gte')
-    valor_total_lte = django_filters.NumberFilter(field_name='valor_total', lookup_expr='lte')
+    
+    # Filtros de data de abertura
+    data_abertura_after = django_filters.DateFilter(field_name='data_abertura', lookup_expr='gte')
+    data_abertura_before = django_filters.DateFilter(field_name='data_abertura', lookup_expr='lte')
+    
+    # Filtros de data de fechamento
+    data_fechamento_after = django_filters.DateFilter(field_name='data_fechamento', lookup_expr='gte')
+    data_fechamento_before = django_filters.DateFilter(field_name='data_fechamento', lookup_expr='lte')
+    
+    # Filtros de valor total
+    valor_total_min = django_filters.NumberFilter(field_name='valor_total', lookup_expr='gte')
+    valor_total_max = django_filters.NumberFilter(field_name='valor_total', lookup_expr='lte')
     
     class Meta:
         model = OrdemServico
-        fields = ['numero', 'status', 'contrato', 'empresa_solicitante', 'empresa_pagadora']
+        fields = [
+            'numero', 'status', 'contrato', 'empresa_solicitante', 'empresa_pagadora',
+            'centro_custos', 'responsavel'
+        ]
     
     def filter_by_titular(self, queryset, name, value):
         """Filtra OS que têm o titular especificado."""
