@@ -3,6 +3,8 @@
  * Funções puras sem estado - formatação, cálculos e processamento de dados
  */
 
+import { formatLocalDate } from './dateUtils'
+
 /**
  * Formata uma data no formato ISO para formato brasileiro
  */
@@ -80,8 +82,8 @@ export function calcularDatasDoPerido(filters) {
     dataLimite.setDate(dataLimite.getDate() - diasOffset)
   }
 
-  const hojeStr = hoje.toISOString().split('T')[0]
-  const dataLimiteStr = dataLimite.toISOString().split('T')[0]
+  const hojeStr = formatLocalDate(hoje)
+  const dataLimiteStr = formatLocalDate(dataLimite)
 
   if (filters.periodoPosterior) {
     return { dataDe: hojeStr, dataAte: dataLimiteStr }

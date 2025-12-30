@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf'
 import { autoTable } from 'jspdf-autotable'
 import { pesquisaUnificada } from '../services/titulares'
 import { prepareExportData, formatDate } from '../utils/pesquisaHelpers'
+import { formatLocalDate } from '../utils/dateUtils'
 
 /**
  * Hook para gerenciar exportações (CSV, XLSX, PDF)
@@ -52,7 +53,7 @@ function usePesquisaExport() {
       })
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' })
-      const timestamp = new Date().toISOString().split('T')[0]
+      const timestamp = formatLocalDate()
       saveAs(blob, `${filename}_${timestamp}.csv`)
     } catch (error) {
       console.error('Erro ao exportar CSV:', error)
@@ -78,7 +79,7 @@ function usePesquisaExport() {
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Pesquisa')
 
-      const timestamp = new Date().toISOString().split('T')[0]
+      const timestamp = formatLocalDate()
       XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`)
     } catch (error) {
       console.error('Erro ao exportar XLSX:', error)
@@ -160,7 +161,7 @@ function usePesquisaExport() {
         )
       }
 
-      const timestamp = new Date().toISOString().split('T')[0]
+      const timestamp = formatLocalDate()
       doc.save(`${filename}_${timestamp}.pdf`)
     } catch (error) {
       console.error('Erro ao exportar PDF:', error)
@@ -224,8 +225,8 @@ function calculatePeriodDates(filters) {
     dataLimite.setDate(dataLimite.getDate() - diasOffset)
   }
 
-  const hojeStr = hoje.toISOString().split('T')[0]
-  const dataLimiteStr = dataLimite.toISOString().split('T')[0]
+  const hojeStr = formatLocalDate(hoje)
+  const dataLimiteStr = formatLocalDate(dataLimite)
 
   if (filters.periodoPosterior) {
     return { dataDe: hojeStr, dataAte: dataLimiteStr }

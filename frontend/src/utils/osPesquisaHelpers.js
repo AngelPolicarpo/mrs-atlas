@@ -9,11 +9,14 @@
 
 /**
  * Formata data para exibição pt-BR
+ * Usa timeZone: 'UTC' para evitar conversão que causa diferença de dia
  */
 export function formatDate(dateString) {
   if (!dateString) return '-'
   try {
-    return new Date(dateString).toLocaleDateString('pt-BR')
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      timeZone: 'UTC'
+    })
   } catch {
     return dateString
   }

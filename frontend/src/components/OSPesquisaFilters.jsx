@@ -110,7 +110,7 @@ function OSPesquisaFilters({
 
             {/* Empresa Solicitante */}
             <div className="form-group">
-              <label className="form-label">Empresa Solicitante</label>
+              <label className="form-label">Solicitante</label>
               <input
                 type="text"
                 className="form-input"
@@ -168,7 +168,7 @@ function OSPesquisaFilters({
 
             {/* Titular Vinculado */}
             <div className="form-group">
-              <label className="form-label">Titular Vinculado</label>
+              <label className="form-label">Titular</label>
               <input
                 type="text"
                 className="form-input"
@@ -199,7 +199,7 @@ function OSPesquisaFilters({
 
             {/* Dependente Vinculado */}
             <div className="form-group">
-              <label className="form-label">Dependente Vinculado</label>
+              <label className="form-label">Dependente</label>
               <input
                 type="text"
                 className="form-input"

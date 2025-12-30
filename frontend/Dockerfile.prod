@@ -1,0 +1,89 @@
+# ===================================
+# Frontend React - Build Stage
+# ===================================
+FROM node:24-alpine as builder
+
+WORKDIR /app
+
+# Dependências do sistema
+RUN apk add --no-cache libc6-compat
+
+# Dependências npm (cache layer)
+COPY package*.json ./
+RUN npm ci
+
+# Copiar código fonte
+COPY . .
+
+# Build argument para URL da API
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+# Build de produção
+RUN npm run build
+
+# ===================================
+# Nginx para servir arquivos estáticos
+# ===================================
+FROM nginx:alpine
+
+# Remover config padrão
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copiar arquivos buildados
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Configuração nginx otimizada para SPA
+RUN cat > /etc/nginx/conf.d/default.conf << 'EOF'
+server {
+    listen 3000;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied expired no-cache no-store private auth;
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml application/javascript application/json;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # SPA routing - sempre retorna index.html para rotas não encontradas
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache agressivo para assets estáticos (versionados pelo Vite)
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # Não cachear index.html
+    location = /index.html {
+        expires -1;
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}
+EOF
+
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

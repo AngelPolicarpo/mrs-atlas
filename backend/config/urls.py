@@ -4,12 +4,25 @@ URL configuration for Atlas project.
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
 
 from apps.accounts.urls import auth_urlpatterns
 
+
+def health_check(request):
+    """Health check endpoint para Azure Container Apps e load balancers."""
+    return JsonResponse({
+        'status': 'healthy',
+        'service': 'atlas-backend'
+    })
+
+
 urlpatterns = [
+    # Health check (sem autenticação)
+    path('api/health/', health_check, name='health_check'),
+    
     # Admin
     path('admin/', admin.site.urls),
     

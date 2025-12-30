@@ -24,9 +24,10 @@ import {
 import { getEmpresasPrestadoras } from '../services/ordemServico'
 import { getEmpresas } from '../services/empresas'
 import { getContratosAtivos, getContrato, getContratoServicos, getContratoServicosDisponiveis } from '../services/contratos'
+import { formatLocalDate } from '../utils/dateUtils'
 
 const emptyFormData = {
-  data_abertura: new Date().toISOString().split('T')[0],
+  data_abertura: formatLocalDate(),
   data_fechamento: '',
   status: 'ABERTA',
   observacao: '',

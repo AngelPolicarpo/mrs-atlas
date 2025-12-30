@@ -123,7 +123,7 @@ function OrdemServicoList() {
                   ordensServico.map((os) => (
                     <tr key={os.id}>
                       <td><strong>#{os.numero}</strong></td>
-                      <td>{os.data_abertura ? new Date(os.data_abertura).toLocaleDateString('pt-BR') : '-'}</td>
+                      <td>{os.data_abertura ? new Date(os.data_abertura).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</td>
                       <td>
                         {os.contrato_numero ? (
                           <Link 

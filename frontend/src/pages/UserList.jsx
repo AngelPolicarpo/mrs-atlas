@@ -103,7 +103,7 @@ function UserList() {
                       </span>
                     </td>
                     <td>
-                      {user.data_criacao ? new Date(user.data_criacao).toLocaleDateString('pt-BR') : '-'}
+                      {user.data_criacao ? new Date(user.data_criacao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </td>
                     <td>
                       <div className="btn-group">

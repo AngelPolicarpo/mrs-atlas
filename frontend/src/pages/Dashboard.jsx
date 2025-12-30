@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { getTitulares, getVinculosTitular, importarTitulares } from '../services/titulares'
 import { getEmpresas } from '../services/empresas'
+import { formatLocalDate } from '../utils/dateUtils'
 import * as XLSX from 'xlsx'
 
 function Dashboard() {
@@ -85,7 +86,7 @@ function Dashboard() {
   
   function formatDate(dateStr) {
     if (!dateStr) return '-'
-    return new Date(dateStr).toLocaleDateString('pt-BR')
+    return new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
   }
   
   async function handleExportExcel() {
@@ -145,7 +146,7 @@ function Dashboard() {
       XLSX.utils.book_append_sheet(wb, ws, 'Titulares')
       
       // Gerar arquivo e fazer download
-      const hoje = new Date().toISOString().split('T')[0]
+      const hoje = formatLocalDate()
       XLSX.writeFile(wb, `atlas_dados_${hoje}.xlsx`)
       
     } catch (error) {

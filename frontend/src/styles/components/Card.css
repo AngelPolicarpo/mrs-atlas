@@ -276,6 +276,99 @@
   font-size: var(--font-size-sm);
 }
 
+/* Details Subsection */
+.details-subsection {
+  margin-top: var(--spacing-5);
+  padding: var(--spacing-4);
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+}
+
+.details-subsection h5 {
+  margin: 0 0 var(--spacing-3) 0;
+  padding-bottom: var(--spacing-2);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+/* Tags List */
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.tag:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.tag-primary {
+  background-color: var(--color-info-light);
+  color: var(--color-info-dark);
+}
+
+.tag-primary:hover {
+  background-color: #bfdbfe;
+}
+
+.tag-secondary {
+  background-color: #e0e7ff;
+  color: #4338ca;
+}
+
+.tag-secondary:hover {
+  background-color: #c7d2fe;
+}
+
+/* Inline Table */
+.table-inline {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+  margin-top: var(--spacing-2);
+}
+
+.table-inline th {
+  background: var(--color-background);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  color: var(--color-text-light);
+  padding: var(--spacing-2) var(--spacing-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table-inline td {
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.table-inline tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-inline tbody tr:hover {
+  background-color: var(--color-background);
+}
+
 /* Section Header */
 .section-header {
   display: flex;

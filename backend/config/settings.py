@@ -209,6 +209,11 @@ REST_FRAMEWORK = {
         'anon': '100/hour',
         'user': '1000/hour'
     },
+    # Date formats - ISO 8601 sem timezone para DateField
+    'DATE_FORMAT': '%Y-%m-%d',
+    'DATE_INPUT_FORMATS': ['%Y-%m-%d', '%d/%m/%Y'],
+    'DATETIME_FORMAT': '%Y-%m-%dT%H:%M:%S%z',
+    'DATETIME_INPUT_FORMATS': ['%Y-%m-%dT%H:%M:%S%z', '%Y-%m-%dT%H:%M:%S'],
 }
 
 # ===========================================

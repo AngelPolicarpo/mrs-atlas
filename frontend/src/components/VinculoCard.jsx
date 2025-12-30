@@ -1,4 +1,5 @@
 import { formatDate, getBadgeClass, formatDiasRestantes, calcularDiasRestantes, getTituloVinculo } from '../utils/uiHelpers'
+import { formatLocalDate } from '../utils/dateUtils'
 import CountryAutocomplete from './CountryAutocomplete'
 
 /**
@@ -24,7 +25,7 @@ function VinculoCard({
 }) {
   const dias = calcularDiasRestantes(vinculo.data_fim_vinculo)
   const tituloVinculo = getTituloVinculo(vinculo)
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = formatLocalDate();
 
 
   return (

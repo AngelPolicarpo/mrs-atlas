@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf'
 import { autoTable } from 'jspdf-autotable'
 import { getOrdensServico } from '../services/ordemServico'
 import { prepareOSExportData, formatDate, formatCurrency, buildOSSearchParams } from '../utils/osPesquisaHelpers'
+import { formatLocalDate } from '../utils/dateUtils'
 
 /**
  * Hook para gerenciar exportações de OS (CSV, XLSX, PDF)
@@ -52,7 +53,7 @@ function useOSPesquisaExport() {
       })
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' })
-      const timestamp = new Date().toISOString().split('T')[0]
+      const timestamp = formatLocalDate()
       saveAs(blob, `${filename}_${timestamp}.csv`)
     } catch (error) {
       console.error('Erro ao exportar CSV:', error)
@@ -78,7 +79,7 @@ function useOSPesquisaExport() {
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Ordens de Serviço')
 
-      const timestamp = new Date().toISOString().split('T')[0]
+      const timestamp = formatLocalDate()
       XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`)
     } catch (error) {
       console.error('Erro ao exportar XLSX:', error)
@@ -127,7 +128,7 @@ function useOSPesquisaExport() {
         margin: { top: 28 },
       })
 
-      const timestamp = new Date().toISOString().split('T')[0]
+      const timestamp = formatLocalDate()
       doc.save(`${filename}_${timestamp}.pdf`)
     } catch (error) {
       console.error('Erro ao exportar PDF:', error)
