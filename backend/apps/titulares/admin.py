@@ -29,10 +29,13 @@ class TitularAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Identificação', {
-            'fields': ('nome', 'rnm', 'cpf', 'cnh', 'passaporte', 'nacionalidade')
+            'fields': ('nome', 'rnm', 'cpf', 'cnh', 'passaporte', 'data_validade_passaporte', 'nacionalidade')
+        }),
+        ('Documentos', {
+            'fields': ('ctps', 'status_visto', 'data_validade_cnh')
         }),
         ('Dados Pessoais', {
-            'fields': ('sexo', 'data_nascimento', 'pai', 'mae', 'data_validade_cnh')
+            'fields': ('sexo', 'data_nascimento', 'filiacao_um', 'filiacao_dois')
         }),
         ('Contato', {
             'fields': ('email', 'telefone')
@@ -96,10 +99,13 @@ class DependenteAdmin(admin.ModelAdmin):
             'fields': ('titular', 'tipo_dependente')
         }),
         ('Identificação', {
-            'fields': ('nome', 'rnm', 'passaporte', 'nacionalidade')
+            'fields': ('nome', 'rnm', 'passaporte', 'data_validade_passaporte', 'nacionalidade')
+        }),
+        ('Documentos', {
+            'fields': ('cnh', 'ctps', 'status_visto')
         }),
         ('Dados Pessoais', {
-            'fields': ('sexo', 'data_nascimento', 'pai', 'mae')
+            'fields': ('sexo', 'data_nascimento', 'filiacao_um', 'filiacao_dois')
         }),
         ('Auditoria', {
             'fields': ('criado_por', 'atualizado_por', 'data_criacao', 'ultima_atualizacao'),

@@ -44,6 +44,9 @@ COPY . .
 # Criar diretórios
 RUN mkdir -p /app/staticfiles /app/media
 
+# Coletar arquivos estáticos (admin, DRF, etc.)
+RUN python manage.py collectstatic --noinput
+
 # Usuário não-root
 RUN adduser --disabled-password --gecos '' appuser && \
     chown -R appuser:appuser /app

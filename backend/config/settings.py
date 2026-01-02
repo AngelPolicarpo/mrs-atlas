@@ -105,16 +105,33 @@ DATABASES = {
 }
 
 # ===========================================
-# CACHE (Redis)
+# CACHE
 # ===========================================
+# Para produção sem VNET no Azure Container Apps, usamos cache local em memória.
+# Redis só funciona com VNET configurada ou usando Azure Cache for Redis.
+# Para 10 usuários simultâneos, cache local é suficiente.
 
-REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': REDIS_URL,
+REDIS_URL = os.environ.get('REDIS_URL', '')
+
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'socket_connect_timeout': 5,
+                'socket_timeout': 5,
+            }
+        }
     }
-}
+else:
+    # Fallback: cache local em memória (adequado para poucos usuários)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'atlas-cache',
+        }
+    }
 
 # ===========================================
 # CELERY (preparado para futuro)

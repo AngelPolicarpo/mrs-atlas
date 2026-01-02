@@ -402,25 +402,18 @@ az containerapp env show \
   --output table
 ```
 
-### 4.2 Criar Container App do Redis
+### 4.2 Sobre o Redis (Cache)
 
-```bash
-az containerapp create \
-  --name atlas-redis \
-  --resource-group $RESOURCE_GROUP \
-  --environment $ENVIRONMENT_NAME \
-  --image redis:7-alpine \
-  --target-port 6379 \
-  --ingress internal \
-  --min-replicas 1 \
-  --max-replicas 1 \
-  --cpu 0.25 \
-  --memory 0.5Gi
-
-# Obter FQDN interno do Redis
-export REDIS_HOST="atlas-redis.internal.${ENVIRONMENT_NAME}.brazilsouth.azurecontainerapps.io"
-echo "📮 Redis Host: $REDIS_HOST"
-```
+> ⚠️ **IMPORTANTE**: O Azure Container Apps **sem VNET** não suporta comunicação TCP interna entre containers (necessário para Redis). Para usar Redis em container, você precisa:
+> 1. Criar o environment com VNET configurada (aumenta complexidade e custo), ou
+> 2. Usar **Azure Cache for Redis** (serviço gerenciado, ~$15-50/mês adicional)
+>
+> **Para 10 usuários simultâneos, o cache local em memória é suficiente.** O backend do Atlas detecta automaticamente se `REDIS_URL` está configurado e usa cache local como fallback. Isso é adequado para:
+> - Rate limiting/throttling
+> - Cache de sessões
+> - Cache de consultas
+>
+> Se você precisar de Redis no futuro (para Celery, websockets, etc.), considere o Azure Cache for Redis.
 
 ### 4.3 Gerar SECRET_KEY segura
 
@@ -451,8 +444,9 @@ az containerapp create \
     SECRET_KEY="$DJANGO_SECRET_KEY" \
     ALLOWED_HOSTS="*" \
     CORS_ALLOWED_ORIGINS="*" \
-    DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=require" \
-    REDIS_URL="redis://${REDIS_HOST}:6379/0"
+    DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=require"
+
+# Nota: REDIS_URL não é configurado - o backend usará cache local em memória
 
 # Obter URL do backend
 export BACKEND_URL=$(az containerapp show \
@@ -697,13 +691,14 @@ az containerapp revision restart \
 |---------|-----|-------------------|
 | Container Apps (Backend) | 0.5 vCPU, 1GB | ~$15 |
 | Container Apps (Frontend) | 0.25 vCPU, 0.5GB | ~$8 |
-| Container Apps (Redis) | 0.25 vCPU, 0.5GB | ~$8 |
 | PostgreSQL Flexible | B1ms (1 vCPU, 2GB) | ~$15 |
 | Container Registry | Basic | ~$5 |
 | Storage (logs) | Mínimo | ~$2 |
-| **TOTAL** | | **~$53/mês** |
+| **TOTAL** | | **~$45/mês** |
 
 > 💡 Com **Scale to Zero**, quando ninguém estiver usando, os Container Apps param e você paga quase nada pelo compute.
+
+> 📝 **Nota**: Redis não é necessário para 10 usuários. O backend usa cache local em memória. Se precisar de Redis no futuro (Azure Cache for Redis), adicione ~$15-50/mês.
 
 ---
 
@@ -762,14 +757,785 @@ az containerapp revision list \
 ## 🔟 Próximos Passos (Melhorias Futuras)
 
 1. **Custom Domain**: Adicionar domínio próprio (ex: atlas.suaempresa.com)
-2. **CI/CD**: Configurar GitHub Actions para deploy automático
+2. ~~**CI/CD**: Configurar GitHub Actions para deploy automático~~ ✅ Documentado abaixo
 3. **Backup Automático**: Configurar backups do PostgreSQL
 4. **WAF**: Adicionar Web Application Firewall para segurança extra
 5. **CDN**: Azure CDN para assets estáticos do frontend
 
 ---
 
-## 📝 Resumo das URLs e Credenciais
+# 🔄 CI/CD com GitHub Actions
+
+## 📐 Arquitetura de Repositório e Branches
+
+### ❓ Preciso de dois repositórios (frontend e backend)?
+
+**Resposta: NÃO.** Para o projeto Atlas, um **monorepo** (repositório único) é a melhor escolha.
+
+#### Comparativo: Monorepo vs Multi-repo
+
+| Critério | Monorepo (Recomendado) | Multi-repo |
+|----------|------------------------|------------|
+| **Complexidade** | ⭐ Simples | ⭐⭐⭐ Complexo |
+| **Versionamento** | Unificado | Precisa sincronizar |
+| **CI/CD** | 1 workflow inteligente | 2+ workflows separados |
+| **PRs e Code Review** | Contexto completo | Fragmentado |
+| **Indicado para** | Times pequenos/médios | Times grandes independentes |
+| **Seu caso (1 dev)** | ✅ Perfeito | ❌ Overhead desnecessário |
+
+### 🌳 Estratégia de Branches Recomendada
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │            REPOSITÓRIO ATLAS            │
+                    └─────────────────────────────────────────┘
+                                        │
+        ┌───────────────────────────────┼───────────────────────────────┐
+        │                               │                               │
+        ▼                               ▼                               ▼
+   ┌─────────┐                    ┌─────────┐                    ┌─────────────┐
+   │  main   │ ◀── PR ──────────  │  dev    │ ◀── PR ──────────  │ feature/xxx │
+   │(produção)│                   │(staging)│                    │ (trabalho)  │
+   └────┬────┘                    └────┬────┘                    └─────────────┘
+        │                              │
+        │ Deploy                       │ Deploy
+        │ Automático                   │ Automático
+        ▼                              ▼
+   ┌─────────────┐              ┌─────────────┐
+   │  PRODUÇÃO   │              │   STAGING   │
+   │ (Azure Prod)│              │  (Azure Dev)│
+   └─────────────┘              └─────────────┘
+```
+
+### Fluxo de Trabalho
+
+1. **Desenvolva** em branches `feature/xxx` ou `fix/xxx`
+2. **Abra PR** para `dev` → Deploy automático no ambiente de **staging**
+3. **Teste** no ambiente de staging
+4. **Abra PR** de `dev` para `main` → Deploy automático em **produção**
+
+---
+
+## 🔐 Configuração de Secrets no GitHub
+
+### Passo 1: Criar Service Principal no Azure
+
+O GitHub precisa de credenciais para acessar sua conta Azure.
+
+```bash
+# Login no Azure
+az login
+
+# Obter ID da subscription
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+# Criar Service Principal com permissões de Contributor
+az ad sp create-for-rbac \
+  --name "github-actions-atlas" \
+  --role Owner \
+  --scopes /subscriptions/$SUBSCRIPTION_ID/resourceGroups/rg-atlas-prod \
+  --sdk-auth
+
+# ⚠️ COPIE TODO O JSON RETORNADO - você vai precisar!
+```
+
+O comando retorna algo assim:
+```json
+{
+  "clientId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "clientSecret": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "subscriptionId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "tenantId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "activeDirectoryEndpointUrl": "https://login.microsoftonline.com",
+  "resourceManagerEndpointUrl": "https://management.azure.com/",
+  ...
+}
+```
+
+### Passo 2: Adicionar Secrets no GitHub
+
+1. Acesse seu repositório no GitHub
+2. Vá em **Settings** → **Secrets and variables** → **Actions**
+3. Clique em **New repository secret**
+
+Adicione os seguintes secrets:
+
+| Nome do Secret | Valor |
+|----------------|-------|
+| `AZURE_CREDENTIALS` | O JSON completo retornado pelo comando acima |
+| `AZURE_ACR_NAME` | Nome do seu ACR (ex: `atlascontainerreg1234`) |
+| `AZURE_ACR_USERNAME` | Username do ACR |
+| `AZURE_ACR_PASSWORD` | Password do ACR |
+| `AZURE_RESOURCE_GROUP` | `rg-atlas-prod` |
+| `BACKEND_URL` | URL do backend (ex: `atlas-backend.brazilsouth.azurecontainerapps.io`) |
+
+#### Como obter as credenciais do ACR:
+
+```bash
+# Nome do ACR
+echo $ACR_NAME
+
+# Username e Password
+az acr credential show --name $ACR_NAME
+```
+
+---
+
+## 📄 Workflow do GitHub Actions
+
+### Estrutura de Arquivos
+
+```
+.github/
+└── workflows/
+    ├── ci.yml           # Testes (roda em todo PR)
+    ├── deploy-staging.yml    # Deploy para staging (branch dev)
+    └── deploy-production.yml # Deploy para produção (branch main)
+```
+
+### Arquivo 1: CI - Testes Automatizados (`.github/workflows/ci.yml`)
+
+```yaml
+name: CI - Testes
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+
+jobs:
+  # =====================
+  # Testes do Backend
+  # =====================
+  test-backend:
+    name: 🐍 Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 📦 Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest pytest-django pytest-cov
+
+      - name: 🧪 Run tests
+        env:
+          DATABASE_URL: postgres://test_user:test_pass@localhost:5432/test_db
+          SECRET_KEY: test-secret-key-for-ci
+          DEBUG: 'False'
+        run: |
+          cd backend
+          python manage.py migrate
+          pytest --cov=apps --cov-report=xml -v
+
+      - name: 📊 Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: backend/coverage.xml
+          fail_ci_if_error: false
+
+  # =====================
+  # Testes do Frontend
+  # =====================
+  test-frontend:
+    name: ⚛️ Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: 🔍 Lint
+        run: |
+          cd frontend
+          npm run lint || true  # Não falhar por lint (ajuste depois)
+
+      - name: 🏗️ Build test
+        run: |
+          cd frontend
+          npm run build
+        env:
+          VITE_API_URL: https://api.example.com
+
+  # =====================
+  # Build Docker (validação)
+  # =====================
+  build-docker:
+    name: 🐳 Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🏗️ Build Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.prod
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 🏗️ Build Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          push: false
+          build-args: |
+            VITE_API_URL=https://api.example.com
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+```
+
+### Arquivo 2: Deploy Staging (`.github/workflows/deploy-staging.yml`)
+
+```yaml
+name: 🚀 Deploy Staging
+
+on:
+  push:
+    branches: [dev]
+
+env:
+  AZURE_RESOURCE_GROUP: rg-atlas-staging
+  ENVIRONMENT_NAME: atlas-env-staging
+  ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}
+
+jobs:
+  # =====================
+  # Detectar mudanças
+  # =====================
+  changes:
+    name: 🔍 Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  # =====================
+  # Deploy Backend
+  # =====================
+  deploy-backend:
+    name: 🐍 Deploy Backend
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🔐 Login ACR
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+
+      - name: 🐳 Build and Push
+        run: |
+          IMAGE=${{ env.ACR_NAME }}.azurecr.io/atlas-backend:staging-${{ github.sha }}
+          docker build -t $IMAGE -f backend/Dockerfile.prod ./backend
+          docker push $IMAGE
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: 🚀 Deploy to Container Apps
+        run: |
+          az containerapp update \
+            --name atlas-backend-staging \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.IMAGE }}
+
+      - name: 🧪 Run Migrations
+        run: |
+          az containerapp exec \
+            --name atlas-backend-staging \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --command "python manage.py migrate --noinput"
+
+  # =====================
+  # Deploy Frontend
+  # =====================
+  deploy-frontend:
+    name: ⚛️ Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🔐 Login ACR
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+
+      - name: 🐳 Build and Push
+        run: |
+          IMAGE=${{ env.ACR_NAME }}.azurecr.io/atlas-frontend:staging-${{ github.sha }}
+          docker build \
+            -t $IMAGE \
+            -f frontend/Dockerfile.prod \
+            --build-arg VITE_API_URL=https://atlas-backend-staging.brazilsouth.azurecontainerapps.io \
+            ./frontend
+          docker push $IMAGE
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: 🚀 Deploy to Container Apps
+        run: |
+          az containerapp update \
+            --name atlas-frontend-staging \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.IMAGE }}
+
+  # =====================
+  # Notificação
+  # =====================
+  notify:
+    name: 📢 Notify
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+
+    steps:
+      - name: 📢 Deployment Status
+        run: |
+          echo "## 🚀 Staging Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** dev" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Frontend: https://atlas-frontend-staging.brazilsouth.azurecontainerapps.io" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔧 Backend: https://atlas-backend-staging.brazilsouth.azurecontainerapps.io" >> $GITHUB_STEP_SUMMARY
+```
+
+### Arquivo 3: Deploy Produção (`.github/workflows/deploy-production.yml`)
+
+```yaml
+name: 🚀 Deploy Production
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AZURE_RESOURCE_GROUP: rg-atlas-prod
+  ENVIRONMENT_NAME: atlas-env
+  ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}
+
+jobs:
+  # =====================
+  # Detectar mudanças
+  # =====================
+  changes:
+    name: 🔍 Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  # =====================
+  # Deploy Backend
+  # =====================
+  deploy-backend:
+    name: 🐍 Deploy Backend
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    environment: production  # Requer aprovação manual (opcional)
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🔐 Login ACR
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+
+      - name: 🐳 Build and Push
+        run: |
+          # Tag com SHA e também como latest
+          IMAGE_SHA=${{ env.ACR_NAME }}.azurecr.io/atlas-backend:${{ github.sha }}
+          IMAGE_LATEST=${{ env.ACR_NAME }}.azurecr.io/atlas-backend:latest
+          
+          docker build -t $IMAGE_SHA -t $IMAGE_LATEST -f backend/Dockerfile.prod ./backend
+          docker push $IMAGE_SHA
+          docker push $IMAGE_LATEST
+          
+          echo "IMAGE=$IMAGE_SHA" >> $GITHUB_ENV
+
+      - name: 🚀 Deploy to Container Apps
+        run: |
+          az containerapp update \
+            --name atlas-backend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.IMAGE }}
+
+      - name: 🧪 Run Migrations
+        run: |
+          az containerapp exec \
+            --name atlas-backend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --command "python manage.py migrate --noinput"
+
+      - name: 🧪 Health Check
+        run: |
+          BACKEND_URL=$(az containerapp show \
+            --name atlas-backend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          
+          # Aguardar até 60s pela resposta
+          for i in {1..12}; do
+            if curl -sf "https://$BACKEND_URL/api/health/" > /dev/null; then
+              echo "✅ Backend is healthy!"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/12)"
+            sleep 5
+          done
+          echo "❌ Backend health check failed"
+          exit 1
+
+  # =====================
+  # Deploy Frontend
+  # =====================
+  deploy-frontend:
+    name: ⚛️ Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [changes, deploy-backend]
+    if: always() && needs.changes.outputs.frontend == 'true'
+    environment: production
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🔐 Login ACR
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+
+      - name: 📍 Get Backend URL
+        run: |
+          BACKEND_URL=$(az containerapp show \
+            --name atlas-backend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          echo "BACKEND_URL=https://$BACKEND_URL" >> $GITHUB_ENV
+
+      - name: 🐳 Build and Push
+        run: |
+          IMAGE_SHA=${{ env.ACR_NAME }}.azurecr.io/atlas-frontend:${{ github.sha }}
+          IMAGE_LATEST=${{ env.ACR_NAME }}.azurecr.io/atlas-frontend:latest
+          
+          docker build \
+            -t $IMAGE_SHA \
+            -t $IMAGE_LATEST \
+            -f frontend/Dockerfile.prod \
+            --build-arg VITE_API_URL=${{ env.BACKEND_URL }} \
+            ./frontend
+          
+          docker push $IMAGE_SHA
+          docker push $IMAGE_LATEST
+          
+          echo "IMAGE=$IMAGE_SHA" >> $GITHUB_ENV
+
+      - name: 🚀 Deploy to Container Apps
+        run: |
+          az containerapp update \
+            --name atlas-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.IMAGE }}
+
+  # =====================
+  # Notificação Final
+  # =====================
+  notify:
+    name: 📢 Notify
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+
+    steps:
+      - name: 🔐 Login Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 📢 Create Summary
+        run: |
+          FRONTEND_URL=$(az containerapp show \
+            --name atlas-frontend \
+            --resource-group rg-atlas-prod \
+            --query properties.configuration.ingress.fqdn -o tsv 2>/dev/null || echo "N/A")
+          
+          BACKEND_URL=$(az containerapp show \
+            --name atlas-backend \
+            --resource-group rg-atlas-prod \
+            --query properties.configuration.ingress.fqdn -o tsv 2>/dev/null || echo "N/A")
+          
+          echo "## 🚀 Production Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | https://$FRONTEND_URL |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend API | https://$BACKEND_URL |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health Check | https://$BACKEND_URL/api/health/ |" >> $GITHUB_STEP_SUMMARY
+```
+
+---
+
+## 🏗️ Criando Ambiente de Staging na Azure
+
+Para ter um ambiente de staging separado, execute:
+
+```bash
+# Variáveis para staging
+export RESOURCE_GROUP_STAGING="rg-atlas-staging"
+export ENVIRONMENT_NAME_STAGING="atlas-env-staging"
+export POSTGRES_SERVER_STAGING="atlas-postgres-staging-$(openssl rand -hex 4)"
+
+# Criar Resource Group
+az group create --name $RESOURCE_GROUP_STAGING --location brazilsouth
+
+# Criar Container Apps Environment
+az containerapp env create \
+  --name $ENVIRONMENT_NAME_STAGING \
+  --resource-group $RESOURCE_GROUP_STAGING \
+  --location brazilsouth
+
+# Criar PostgreSQL para staging (pode ser menor/mais barato)
+az postgres flexible-server create \
+  --resource-group $RESOURCE_GROUP_STAGING \
+  --name $POSTGRES_SERVER_STAGING \
+  --location brazilsouth \
+  --admin-user atlas_admin \
+  --admin-password "$(openssl rand -base64 24)" \
+  --sku-name Standard_B1ms \
+  --tier Burstable \
+  --storage-size 32 \
+  --version 16 \
+  --public-access 0.0.0.0-255.255.255.255
+
+# Criar containers de staging
+# (Use comandos similares ao deploy principal, mas com -staging no nome)
+```
+
+---
+
+## 🔒 Proteção de Branches (Recomendado)
+
+Configure no GitHub para evitar deploys acidentais:
+
+1. Vá em **Settings** → **Branches**
+2. Clique em **Add branch protection rule**
+
+### Para branch `main`:
+- ✅ Require a pull request before merging
+- ✅ Require approvals: 1
+- ✅ Require status checks to pass (selecione os jobs de CI)
+- ✅ Require branches to be up to date
+
+### Para branch `dev`:
+- ✅ Require a pull request before merging
+- ✅ Require status checks to pass
+
+---
+
+## 📊 Diagrama de Fluxo CI/CD
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           GITHUB ACTIONS PIPELINE                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Developer                                                           Azure
+     │                                                                  │
+     │ git push feature/xxx                                            │
+     ▼                                                                  │
+┌─────────┐     PR      ┌─────────┐                                    │
+│ feature │────────────▶│   dev   │                                    │
+└─────────┘             └────┬────┘                                    │
+                             │                                          │
+                             │ push                                     │
+                             ▼                                          │
+                    ┌────────────────┐                                  │
+                    │  CI Workflow   │                                  │
+                    │  - Run Tests   │                                  │
+                    │  - Build Check │                                  │
+                    └───────┬────────┘                                  │
+                            │ ✅ Pass                                   │
+                            ▼                                          │
+                    ┌────────────────┐     Build & Push      ┌─────────┐
+                    │ Deploy Staging │──────────────────────▶│   ACR   │
+                    │   Workflow     │                       │ Staging │
+                    └───────┬────────┘                       └────┬────┘
+                            │                                     │
+                            │                                     │ Deploy
+                            │                                     ▼
+                            │                              ┌─────────────┐
+                            │                              │  STAGING    │
+                            │                              │ Environment │
+                            │                              └─────────────┘
+                            │
+                            │ PR (after testing)
+                            ▼
+                    ┌─────────────┐
+                    │    main     │
+                    └──────┬──────┘
+                           │ push
+                           ▼
+                   ┌────────────────┐     Build & Push      ┌─────────┐
+                   │Deploy Production───────────────────────▶│   ACR   │
+                   │   Workflow     │                       │  Prod   │
+                   └───────┬────────┘                       └────┬────┘
+                           │                                     │
+                           │                                     │ Deploy
+                           │                                     ▼
+                           │                              ┌─────────────┐
+                           │                              │ PRODUCTION  │
+                           │                              │ Environment │
+                           │                              └─────────────┘
+                           │
+                           ▼
+                    📢 Notification
+                    (Slack/Email/Teams)
+```
+
+---
+
+## ✅ Checklist de Implementação
+
+### Pré-requisitos
+- [ ] Conta Azure com recursos provisionados
+- [ ] Conta GitHub com repositório configurado
+- [ ] Azure CLI instalado localmente
+
+### Configuração Única
+- [ ] Criar Service Principal no Azure
+- [ ] Adicionar secrets no GitHub
+- [ ] Criar branch `dev`
+- [ ] Configurar branch protection rules
+
+### Arquivos a Criar
+- [ ] `.github/workflows/ci.yml`
+- [ ] `.github/workflows/deploy-staging.yml`
+- [ ] `.github/workflows/deploy-production.yml`
+
+### Validação
+- [ ] Fazer push para `dev` e verificar deploy staging
+- [ ] Abrir PR de `dev` para `main`
+- [ ] Verificar deploy produção após merge
+
+---
+
+## ❓ FAQ sobre CI/CD
+
+**P: Os workflows consomem minutos do GitHub Actions?**
+R: Sim, mas repositórios públicos têm minutos ilimitados. Privados têm 2000 min/mês no plano gratuito.
+
+**P: Posso fazer deploy manual quando precisar?**
+R: Sim! Adicione `workflow_dispatch` no `on:` do workflow para permitir trigger manual.
+
+**P: E se o deploy falhar no meio?**
+R: O Azure Container Apps mantém a versão anterior rodando. Você pode fazer rollback manualmente.
+
+**P: Como faço rollback?**
+```bash
+# Listar revisões
+az containerapp revision list --name atlas-backend --resource-group rg-atlas-prod
+
+# Ativar revisão anterior
+az containerapp revision activate --revision <nome-da-revisao-anterior>
+```
+
+
 
 Ao final do deploy, você terá:
 
