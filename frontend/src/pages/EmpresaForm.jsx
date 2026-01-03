@@ -4,6 +4,7 @@ import { getEmpresa, createEmpresa, updateEmpresa } from '../services/empresas'
 import { getContratos, createContrato, updateContrato, getContratoServicos, createContratoServico, updateContratoServico, deleteContratoServico, cancelarContrato, finalizarContrato } from '../services/contratos'
 import { getServicosAtivos, getEmpresasPrestadoras } from '../services/ordemServico'
 import useAutoComplete from '../hooks/useAutoComplete'
+import { formatNomeInput, normalizeNome, formatCNPJ, validateCNPJ, removeFormatting } from '../utils/validation'
 
 /**
  * EmpresaForm com arquitetura:
@@ -38,6 +39,9 @@ function EmpresaForm() {
   const [contratos, setContratos] = useState([])
   const [expandedContrato, setExpandedContrato] = useState(null)
   const [empresasPrestadoras, setEmpresasPrestadoras] = useState([])
+  
+  // Estado para erros de validação de campos
+  const [fieldErrors, setFieldErrors] = useState({})
 
   useEffect(() => {
     if (isEditing) {
@@ -140,9 +144,25 @@ function EmpresaForm() {
 
   function handleEmpresaChange(e) {
     const { name, value, type, checked } = e.target
+    
+    let formattedValue = value
+    
+    // Aplicar formatação específica por campo
+    if (name === 'nome') {
+      formattedValue = formatNomeInput(value)
+    } else if (name === 'cnpj') {
+      formattedValue = formatCNPJ(value)
+      // Validar CNPJ
+      const validation = validateCNPJ(formattedValue)
+      setFieldErrors(prev => ({
+        ...prev,
+        cnpj: validation.valid ? null : validation.error
+      }))
+    }
+    
     setEmpresaData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : formattedValue
     }))
   }
 
@@ -254,10 +274,30 @@ function EmpresaForm() {
         setSaving(false)
         return
       }
+      
+      // Validar CNPJ antes de enviar
+      const cnpjValidation = validateCNPJ(empresaData.cnpj)
+      if (!cnpjValidation.valid) {
+        setError(cnpjValidation.error)
+        setSaving(false)
+        return
+      }
+      
+      // Validar nome (mínimo 3 caracteres)
+      const nomeNormalizado = normalizeNome(empresaData.nome)
+      if (nomeNormalizado.length < 3) {
+        setError('Nome da empresa deve ter pelo menos 3 caracteres')
+        setSaving(false)
+        return
+      }
 
       // 2. Salvar ou atualizar empresa
       let empresaId = id
-      const empresaPayload = { ...empresaData }
+      const empresaPayload = { 
+        ...empresaData,
+        nome: nomeNormalizado, // Nome normalizado (uppercase, sem acentos)
+        cnpj: removeFormatting(empresaData.cnpj) // CNPJ sem formatação
+      }
       Object.keys(empresaPayload).forEach(key => {
         if (empresaPayload[key] === '') {
           empresaPayload[key] = null
@@ -360,8 +400,30 @@ function EmpresaForm() {
       }, 1500)
     } catch (err) {
       console.error('Erro ao salvar:', err)
-      const msg = err.response?.data?.detail || err.message || 'Erro ao salvar'
-      setError(msg)
+      // Tratamento de erros do backend
+      const errorData = err.response?.data
+      if (errorData) {
+        // Formatar mensagens de erro do backend
+        if (typeof errorData === 'object' && !errorData.detail) {
+          const messages = Object.entries(errorData)
+            .map(([field, errors]) => {
+              const fieldLabel = {
+                nome: 'Nome',
+                cnpj: 'CNPJ',
+                email: 'Email',
+                telefone: 'Telefone'
+              }[field] || field
+              const errorMsg = Array.isArray(errors) ? errors.join(', ') : errors
+              return `${fieldLabel}: ${errorMsg}`
+            })
+            .join('\n')
+          setError(messages)
+        } else {
+          setError(errorData.detail || errorData.error || 'Erro ao salvar')
+        }
+      } else {
+        setError(err.message || 'Erro ao salvar')
+      }
     } finally {
       setSaving(false)
     }
@@ -396,7 +458,11 @@ function EmpresaForm() {
                 onChange={handleEmpresaChange}
                 required
                 className="form-control"
+                placeholder="NOME DA EMPRESA"
               />
+              <small style={{ color: '#6b7280', fontSize: '0.8em' }}>
+                Apenas letras e espaços. Será convertido para maiúsculas.
+              </small>
             </div>
             
             <div className="form-group">
@@ -408,9 +474,13 @@ function EmpresaForm() {
                 value={empresaData.cnpj}
                 onChange={handleEmpresaChange}
                 required
-                className="form-control"
+                className={`form-control ${fieldErrors.cnpj ? 'is-invalid' : ''}`}
                 placeholder="00.000.000/0000-00"
+                maxLength={18}
               />
+              {fieldErrors.cnpj && (
+                <small style={{ color: '#dc2626', fontSize: '0.8em' }}>{fieldErrors.cnpj}</small>
+              )}
             </div>
           </div>
 

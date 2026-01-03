@@ -1,0 +1,386 @@
+/**
+ * Estilos para a página de Validação de Documentos
+ * Página pública - design clean e profissional
+ */
+
+.validar-documento-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  padding: 2rem 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.validar-documento-container {
+  max-width: 800px;
+  width: 100%;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+/* Header */
+.validar-header {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: #fff;
+  padding: 2rem;
+  text-align: center;
+}
+
+.validar-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.validar-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+
+/* Busca */
+.busca-section {
+  padding: 1.5rem 2rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.busca-form {
+  display: flex;
+  justify-content: center;
+}
+
+.input-group {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 600px;
+}
+
+.busca-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.busca-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+
+.busca-input::placeholder {
+  color: #adb5bd;
+}
+
+/* Loading */
+.loading-container {
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e9ecef;
+  border-top-color: #3498db;
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-container p {
+  color: #6c757d;
+  margin: 0;
+}
+
+/* Resultado Card */
+.resultado-card {
+  padding: 2rem;
+  text-align: center;
+}
+
+.resultado-card.erro {
+  background: #fff5f5;
+  border-left: 4px solid #e74c3c;
+}
+
+.resultado-card.sucesso {
+  background: #f0fff4;
+  border-left: 4px solid #27ae60;
+}
+
+.resultado-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.resultado-card h2 {
+  margin: 0 0 0.5rem 0;
+  color: #2c3e50;
+  font-size: 1.5rem;
+}
+
+.resultado-card.erro h2 {
+  color: #c0392b;
+}
+
+.resultado-card.sucesso h2 {
+  color: #27ae60;
+}
+
+.codigo-documento {
+  font-family: 'Courier New', monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2c3e50;
+  background: #f8f9fa;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  display: inline-block;
+  margin-bottom: 1.5rem;
+}
+
+/* Metadados Grid */
+.metadados-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  text-align: left;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.metadado-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metadado-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6c757d;
+  font-weight: 600;
+}
+
+.metadado-value {
+  font-size: 0.95rem;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.metadado-value.valor {
+  color: #27ae60;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+/* Integridade Section */
+.integridade-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e9ecef;
+  text-align: left;
+}
+
+.integridade-section h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #2c3e50;
+}
+
+.integridade-descricao {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin: 0 0 1rem 0;
+}
+
+.upload-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-label {
+  display: inline-block;
+  padding: 0.6rem 1.25rem;
+  background: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #495057;
+  transition: all 0.2s;
+}
+
+.file-label:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+/* Resultado Integridade */
+.integridade-resultado {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.integridade-resultado.valido {
+  background: #d4edda;
+  color: #155724;
+}
+
+.integridade-resultado.invalido {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.integridade-icon {
+  font-size: 1.5rem;
+}
+
+.integridade-resultado p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Info Section */
+.info-section {
+  padding: 1.5rem 2rem;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+}
+
+.info-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #495057;
+}
+
+.info-section ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #6c757d;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.info-section li {
+  margin-bottom: 0.25rem;
+}
+
+/* Footer */
+.validar-footer {
+  padding: 1rem 2rem;
+  text-align: center;
+  border-top: 1px solid #e9ecef;
+  background: #fff;
+}
+
+.validar-footer p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #adb5bd;
+}
+
+/* Buttons */
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #3498db;
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2980b9;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: #fff;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+/* Responsivo */
+@media (max-width: 600px) {
+  .validar-documento-page {
+    padding: 1rem;
+  }
+  
+  .validar-header {
+    padding: 1.5rem;
+  }
+  
+  .validar-header h1 {
+    font-size: 1.4rem;
+  }
+  
+  .busca-section {
+    padding: 1rem;
+  }
+  
+  .input-group {
+    flex-direction: column;
+  }
+  
+  .busca-input {
+    width: 100%;
+  }
+  
+  .resultado-card {
+    padding: 1.5rem;
+  }
+  
+  .metadados-grid {
+    grid-template-columns: 1fr 1fr;
+    padding: 1rem;
+  }
+  
+  .upload-area {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .file-label {
+    text-align: center;
+  }
+}

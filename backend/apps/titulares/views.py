@@ -106,7 +106,7 @@ class TitularViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = TitularFilter
     search_fields = ['nome', 'rnm', 'cpf', 'passaporte', 'email']
-    ordering_fields = ['nome', 'rnm', 'data_criacao', 'data_nascimento']
+    ordering_fields = ['nome', 'rnm', 'data_criacao', 'data_nascimento', 'ultima_atualizacao']
     ordering = ['nome']
     
     def get_serializer_class(self):

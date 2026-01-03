@@ -2,7 +2,8 @@ from rest_framework import serializers
 from decimal import Decimal
 from .models import (
     EmpresaPrestadora, Servico, OrdemServico, OrdemServicoItem,
-    TipoDespesa, DespesaOrdemServico, OrdemServicoTitular, OrdemServicoDependente
+    TipoDespesa, DespesaOrdemServico, OrdemServicoTitular, OrdemServicoDependente,
+    DocumentoOS
 )
 
 
@@ -338,3 +339,121 @@ class OrdemServicoCreateUpdateSerializer(serializers.ModelSerializer):
         # Esta validação pode ser flexibilizada conforme regras de negócio
         
         return data
+
+
+# ==========================================
+# DOCUMENTO OS SERIALIZERS
+# ==========================================
+
+class DocumentoOSSerializer(serializers.ModelSerializer):
+    """Serializer para leitura de Documento OS."""
+    
+    ordem_servico_numero = serializers.IntegerField(
+        source='ordem_servico.numero',
+        read_only=True
+    )
+    emitido_por_nome = serializers.CharField(
+        source='emitido_por.nome',
+        read_only=True
+    )
+    url_validacao = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = DocumentoOS
+        fields = [
+            'id', 'ordem_servico', 'ordem_servico_numero', 'versao', 'codigo',
+            'data_emissao', 'emitido_por', 'emitido_por_nome',
+            'url_validacao'
+        ]
+        read_only_fields = [
+            'id', 'versao', 'codigo', 'data_emissao'
+        ]
+
+
+class DocumentoOSDetailSerializer(serializers.ModelSerializer):
+    """Serializer detalhado para validação de Documento OS."""
+    
+    ordem_servico_numero = serializers.IntegerField(
+        source='ordem_servico.numero',
+        read_only=True
+    )
+    emitido_por_nome = serializers.CharField(
+        source='emitido_por.nome',
+        read_only=True
+    )
+    url_validacao = serializers.CharField(read_only=True)
+    
+    # Dados do snapshot para exibição na validação
+    centro_custos_nome = serializers.SerializerMethodField()
+    contrato_numero = serializers.SerializerMethodField()
+    empresa_solicitante_nome = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DocumentoOS
+        fields = [
+            'id', 'ordem_servico', 'ordem_servico_numero', 'versao', 'codigo',
+            'data_emissao', 'emitido_por', 'emitido_por_nome',
+            'url_validacao', 'dados_snapshot', 'hash_sha256',
+            'centro_custos_nome', 'contrato_numero', 'empresa_solicitante_nome'
+        ]
+    
+    def get_centro_custos_nome(self, obj):
+        return obj.dados_snapshot.get('centro_custos_nome', '-')
+    
+    def get_contrato_numero(self, obj):
+        return obj.dados_snapshot.get('contrato_numero', '-')
+    
+    def get_empresa_solicitante_nome(self, obj):
+        return obj.dados_snapshot.get('empresa_solicitante_nome', '-')
+
+
+class DocumentoOSCreateSerializer(serializers.ModelSerializer):
+    """Serializer para criação de Documento OS."""
+    
+    class Meta:
+        model = DocumentoOS
+        fields = ['id', 'ordem_servico', 'hash_sha256', 'dados_snapshot', 'codigo', 'versao']
+        read_only_fields = ['id', 'codigo', 'versao']
+    
+    def validate_hash_sha256(self, value):
+        """Valida que o hash foi fornecido."""
+        if not value or len(value) != 64:
+            raise serializers.ValidationError(
+                'Hash SHA-256 inválido. Deve ter 64 caracteres hexadecimais.'
+            )
+        return value
+    
+    def validate_ordem_servico(self, value):
+        """Valida que a OS existe e tem número."""
+        if not value:
+            raise serializers.ValidationError('Ordem de Serviço é obrigatória.')
+        if not value.numero:
+            raise serializers.ValidationError('Ordem de Serviço sem número válido.')
+        return value
+    
+    def create(self, validated_data):
+        # Adiciona o usuário que emitiu o documento
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['emitido_por'] = request.user
+        
+        return super().create(validated_data)
+
+
+class DocumentoOSValidacaoSerializer(serializers.Serializer):
+    """Serializer para validação de documento por upload."""
+    
+    arquivo = serializers.FileField(
+        help_text='Arquivo PDF para validação de integridade'
+    )
+    
+    def validate_arquivo(self, value):
+        # Valida que é um arquivo PDF
+        if not value.name.lower().endswith('.pdf'):
+            raise serializers.ValidationError('O arquivo deve ser um PDF.')
+        
+        # Limite de tamanho (10MB)
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError('O arquivo não pode exceder 10MB.')
+        
+        return value

@@ -19,6 +19,7 @@ import UserList from './pages/UserList'
 import UserForm from './pages/UserForm'
 import SystemSelector from './pages/SystemSelector'
 import NoAccess from './pages/NoAccess'
+import ValidarDocumento from './pages/ValidarDocumento'
 
 /**
  * Wrapper que fornece o PermissionContext após autenticação
@@ -103,6 +104,10 @@ function App() {
               <Login />
             </PublicRoute>
           } />
+          
+          {/* Página de validação de documentos (pública) */}
+          <Route path="/validar-documento" element={<ValidarDocumento />} />
+          <Route path="/validar-documento/:documentoId" element={<ValidarDocumento />} />
           
           {/* Rotas protegidas */}
           <Route path="/" element={

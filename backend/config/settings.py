@@ -23,6 +23,9 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(','
 if DEBUG:
     ALLOWED_HOSTS += ['.ngrok-free.app', '.ngrok.io']
 
+# URL do Frontend (para geração de links de validação de documentos)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+
 # ===========================================
 # APPLICATION DEFINITION
 # ===========================================

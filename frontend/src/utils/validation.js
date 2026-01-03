@@ -69,6 +69,18 @@ export function formatCPF(value) {
 }
 
 /**
+ * Formata CNPJ: 00.000.000/0000-00
+ */
+export function formatCNPJ(value) {
+  const digits = removeFormatting(value).replace(/\D/g, '').slice(0, 14)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`
+  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`
+  if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`
+}
+
+/**
  * Formata RNM: Letra + 6 dígitos + 1 alfanumérico final (sem hífen)
  * Ex.: A1234567, V654321A
  */
@@ -198,6 +210,41 @@ export function validateCPF(value) {
   let digit2 = (sum * 10) % 11
   if (digit2 === 10) digit2 = 0
   if (digit2 !== parseInt(cpf[10])) return { valid: false, error: 'CPF inválido' }
+  
+  return { valid: true, error: null }
+}
+
+/**
+ * Valida CNPJ (com dígitos verificadores)
+ */
+export function validateCNPJ(value) {
+  const cnpj = removeFormatting(value).replace(/\D/g, '')
+  
+  if (!cnpj) return { valid: true, error: null } // Campo opcional vazio
+  if (cnpj.length !== 14) return { valid: false, error: 'CNPJ deve ter 14 dígitos' }
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(cnpj)) return { valid: false, error: 'CNPJ inválido' }
+  
+  // Validação do primeiro dígito verificador
+  let sum = 0
+  let weight = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(cnpj[i]) * weight[i]
+  }
+  let digit1 = sum % 11
+  digit1 = digit1 < 2 ? 0 : 11 - digit1
+  if (digit1 !== parseInt(cnpj[12])) return { valid: false, error: 'CNPJ inválido' }
+  
+  // Validação do segundo dígito verificador
+  sum = 0
+  weight = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+  for (let i = 0; i < 13; i++) {
+    sum += parseInt(cnpj[i]) * weight[i]
+  }
+  let digit2 = sum % 11
+  digit2 = digit2 < 2 ? 0 : 11 - digit2
+  if (digit2 !== parseInt(cnpj[13])) return { valid: false, error: 'CNPJ inválido' }
   
   return { valid: true, error: null }
 }

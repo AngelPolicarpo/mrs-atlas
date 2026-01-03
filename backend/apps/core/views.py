@@ -1,5 +1,6 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
 from .models import AmparoLegal, TipoAtualizacao
 from .serializers import (
     AmparoLegalSerializer,
@@ -17,9 +18,11 @@ class AmparoLegalViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     queryset = AmparoLegal.objects.all()
     serializer_class = AmparoLegalSerializer
     permission_classes = [IsAuthenticated, CargoBasedPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['ativo']
     search_fields = ['nome', 'descricao']
     ordering_fields = ['nome', 'data_criacao']
+    ordering = ['nome']
 
 
 class TipoAtualizacaoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
@@ -31,6 +34,8 @@ class TipoAtualizacaoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     queryset = TipoAtualizacao.objects.all()
     serializer_class = TipoAtualizacaoSerializer
     permission_classes = [IsAuthenticated, CargoBasedPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['ativo']
     search_fields = ['nome', 'descricao']
     ordering_fields = ['nome', 'data_criacao']
+    ordering = ['nome']

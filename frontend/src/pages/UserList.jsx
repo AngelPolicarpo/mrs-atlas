@@ -108,7 +108,7 @@ function UserList() {
                     <td>
                       <div className="btn-group">
                         <Link to={`/users/${user.id}`} className="btn btn-sm btn-outline">
-                          ✏️ Editar
+                          ✏️
                         </Link>
                         <button
                           className="btn btn-sm btn-danger"

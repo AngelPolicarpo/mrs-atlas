@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import exportOSToPDF from '../utils/osPdfExport'
 
 /**
  * Componente para renderizar tabela de resultados de Ordens de Serviço
@@ -7,6 +8,7 @@ import { Link } from 'react-router-dom'
  * - Renderizar table com resultados de OS
  * - Renderizar detalhes expandidos (itens, titulares, dependentes)
  * - Aplicar estilos baseado em status
+ * - Exportar OS individual para PDF (orçamento)
  */
 function OSPesquisaTable({
   results,
@@ -19,6 +21,18 @@ function OSPesquisaTable({
   getDiasAbertosBadgeClass,
   formatDiasAbertos,
 }) {
+  /**
+   * Exporta a OS para PDF no formato de orçamento
+   * @param {Object} os - Dados da Ordem de Serviço
+   */
+  const handleExportPDF = async (os) => {
+    try {
+      await exportOSToPDF(os)
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error)
+      alert('Erro ao gerar o PDF. Tente novamente.')
+    }
+  }
   return (
     <div className="table-container">
       <table className="pesquisa-table">
@@ -79,6 +93,13 @@ function OSPesquisaTable({
                       onClick={() => onToggleExpand(os.id)}
                     >
                       {expandedItems[os.id] ? 'Ocultar' : 'Ver mais'}
+                    </button>
+                    <button
+                      className="btn btn-sm btn-success"
+                      onClick={() => handleExportPDF(os)}
+                      title="Exportar Orçamento PDF"
+                    >
+                      📄 PDF
                     </button>
                     <Link
                       to={`/ordens-servico/${os.id}`}

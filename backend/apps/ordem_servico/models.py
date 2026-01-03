@@ -644,3 +644,110 @@ class OrdemServicoDependente(models.Model):
     
     def __str__(self):
         return f"OS #{self.ordem_servico.numero} - {self.dependente.nome}"
+
+
+class DocumentoOS(models.Model):
+    """
+    Documento de Ordem de Serviço (PDF de Orçamento).
+    Cada exportação gera uma nova versão do documento.
+    Armazena metadados para rastreabilidade e validação.
+    """
+    
+    id = models.UUIDField(
+        'ID',
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        db_column='id_documento_os'
+    )
+    
+    # Vínculo com Ordem de Serviço
+    ordem_servico = models.ForeignKey(
+        'ordem_servico.OrdemServico',
+        on_delete=models.CASCADE,
+        related_name='documentos',
+        verbose_name='Ordem de Serviço',
+        db_column='id_ordem_servico'
+    )
+    
+    # Versão do documento (incremental por OS)
+    versao = models.PositiveIntegerField('Versão', default=1)
+    
+    # Código do documento formatado (DOC-OS-000001-V001)
+    codigo = models.CharField(
+        'Código do Documento',
+        max_length=30,
+        unique=True,
+        blank=True,  # Gerado automaticamente no save()
+    )
+    
+    # Hash SHA-256 do conteúdo do PDF
+    hash_sha256 = models.CharField(
+        'Hash SHA-256',
+        max_length=64,
+        help_text='Hash criptográfico do conteúdo do PDF para validação'
+    )
+    
+    # Metadados do documento
+    data_emissao = models.DateTimeField(
+        'Data de Emissão',
+        auto_now_add=True,
+        help_text='Data e hora da geração do documento (UTC-3)'
+    )
+    
+    # Snapshot dos dados no momento da emissão (JSON)
+    dados_snapshot = models.JSONField(
+        'Snapshot dos Dados',
+        help_text='Cópia dos dados da OS no momento da emissão',
+        default=dict
+    )
+    
+    # Usuário que emitiu o documento
+    emitido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='documentos_os_emitidos',
+        verbose_name='Emitido por',
+        db_column='emitido_por'
+    )
+    
+    class Meta:
+        verbose_name = 'Documento de OS'
+        verbose_name_plural = 'Documentos de OS'
+        db_table = 'documento_os'
+        ordering = ['-data_emissao']
+        unique_together = ['ordem_servico', 'versao']
+    
+    def save(self, *args, **kwargs):
+        # Gera versão e código se for novo documento
+        # Nota: usamos _state.adding pois pk já é definido pelo UUIDField default
+        if self._state.adding:
+            # Busca a última versão para esta OS
+            ultima_versao = DocumentoOS.objects.filter(
+                ordem_servico=self.ordem_servico
+            ).aggregate(models.Max('versao'))['versao__max'] or 0
+            self.versao = ultima_versao + 1
+            
+            # Busca o número da OS (refresh se necessário)
+            if self.ordem_servico_id:
+                os_obj = OrdemServico.objects.get(pk=self.ordem_servico_id)
+                numero_os = str(os_obj.numero).zfill(6)
+            else:
+                numero_os = str(self.ordem_servico.numero).zfill(6)
+            
+            versao_str = str(self.versao).zfill(3)
+            self.codigo = f"DOC-OS-{numero_os}-V{versao_str}"
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return self.codigo
+    
+    @property
+    def url_validacao(self):
+        """Retorna a URL de validação do documento."""
+        from django.conf import settings
+        base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        return f"{base_url}/validar-documento/{self.id}"

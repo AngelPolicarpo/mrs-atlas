@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { getTitulares, getVinculosTitular, importarTitulares } from '../services/titulares'
+import { getTitulares, importarTitulares } from '../services/titulares'
 import { getEmpresas } from '../services/empresas'
 import { formatLocalDate } from '../utils/dateUtils'
 import * as XLSX from 'xlsx'
@@ -12,7 +12,6 @@ function Dashboard() {
     empresasAtivas: 0,
     recentTitulares: [],
   })
-  const [titularesExpirando, setTitularesExpirando] = useState([])
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef(null)
@@ -21,61 +20,21 @@ function Dashboard() {
     loadStats()
   }, [])
   
-  function calcularDiasRestantes(dataFim) {
-    if (!dataFim) return null
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const fim = new Date(dataFim)
-    fim.setHours(0, 0, 0, 0)
-    const diffTime = fim - hoje
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
-  }
-  
-  function getNivelUrgencia(dias) {
-    if (dias === null) return null
-    if (dias <= 15) return { nivel: 'critico', label: 'Crítico', color: '#dc2626', bgColor: '#fef2f2' }
-    if (dias <= 60) return { nivel: 'alto', label: 'Alto', color: '#ea580c', bgColor: '#fff7ed' }
-    return { nivel: 'medio', label: 'Médio', color: '#ca8a04', bgColor: '#fefce8' }
-  }
-  
   async function loadStats() {
     try {
-      const [titularesRes, empresasTotalRes, empresasAtivasRes, vinculosRes] = await Promise.all([
-        getTitulares(),
+      const [titularesRes, empresasTotalRes, empresasAtivasRes] = await Promise.all([
+        getTitulares({ ordering: '-ultima_atualizacao', page_size: 5 }), // Ordenar por última atualização
         getEmpresas({ page_size: 1 }),  // Só para pegar o count total
         getEmpresas({ status: true, page_size: 1 }),  // Só para pegar o count de ativas
-        getVinculosTitular({ status: true })
       ])
       
       const titulares = titularesRes.data.results || titularesRes.data || []
-      const vinculos = vinculosRes.data.results || vinculosRes.data || []
-      
-      // Processar vínculos expirando
-      const hoje = new Date()
-      hoje.setHours(0, 0, 0, 0)
-      
-      const vinculosComDias = vinculos
-        .filter(v => v.data_fim_vinculo) // Só vínculos com data fim
-        .map(v => {
-          const dias = calcularDiasRestantes(v.data_fim_vinculo)
-          const urgencia = getNivelUrgencia(dias)
-          return {
-            ...v,
-            diasRestantes: dias,
-            urgencia
-          }
-        })
-        .filter(v => v.diasRestantes !== null && v.diasRestantes <= 90) // Próximos 90 dias
-        .sort((a, b) => a.diasRestantes - b.diasRestantes) // Ordenar por dias restantes (menor primeiro)
-      
-      setTitularesExpirando(vinculosComDias)
       
       setStats({
         totalTitulares: titularesRes.data.count || titulares.length,
         totalEmpresas: empresasTotalRes.data.count || 0,
         empresasAtivas: empresasAtivasRes.data.count || 0,
-        recentTitulares: titulares.slice(0, 5),
+        recentTitulares: titulares,
       })
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error)
@@ -227,65 +186,6 @@ function Dashboard() {
           <div className="stat-label">Empresas Ativas</div>
         </div>
       </div>
-      
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">🚨 Vínculos Expirando</h2>
-        </div>
-        
-        {titularesExpirando.length === 0 ? (
-          <div className="empty-state">
-            <p>Nenhum vínculo expirando nos próximos 90 dias.</p>
-          </div>
-        ) : (
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Urgência</th>
-                  <th>Titular</th>
-                  <th>Empresa</th>
-                  <th>Vencimento</th>
-                  <th>Dias Restantes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {titularesExpirando.map(vinculo => (
-                  <tr key={vinculo.id} style={{ backgroundColor: vinculo.urgencia?.bgColor }}>
-                    <td>
-                      <span className={`badge`} style={{
-                        color: '#fff',
-                        backgroundColor: vinculo.urgencia?.color
-                      }}>
-                        {vinculo.urgencia?.label}
-                      </span>
-                    </td>
-                    <td>
-                      <strong>
-                        <Link to={`/titulares/${vinculo.titular}`}>
-                          {vinculo.titular_nome || 'Titular'}
-                        </Link>
-                      </strong>
-                    </td>
-                    <td>{vinculo.empresa_nome || '-'}</td>
-                    <td>{formatDate(vinculo.data_fim_vinculo)}</td>
-                    <td>
-                      <span style={{ 
-                        fontWeight: 'bold', 
-                        color: vinculo.urgencia?.color 
-                      }}>
-                        {vinculo.diasRestantes <= 0 
-                          ? `Vencido há ${Math.abs(vinculo.diasRestantes)} dia(s)` 
-                          : `${vinculo.diasRestantes} dia(s)`}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       <div className="card">
         <div className="card-header">
@@ -306,7 +206,7 @@ function Dashboard() {
                   <th>Nome</th>
                   <th>RNM</th>
                   <th>Nacionalidade</th>
-                  <th>Email</th>
+                  <th>Última Atualização</th>
                 </tr>
               </thead>
               <tbody>
@@ -319,7 +219,7 @@ function Dashboard() {
                     </td>
                     <td>{titular.rnm || '-'}</td>
                     <td>{titular.nacionalidade || '-'}</td>
-                    <td>{titular.email || '-'}</td>
+                    <td>{formatDate(titular.ultima_atualizacao)}</td>
                   </tr>
                 ))}
               </tbody>

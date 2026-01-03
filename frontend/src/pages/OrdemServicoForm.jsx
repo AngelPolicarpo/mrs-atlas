@@ -401,7 +401,7 @@ function OrdemServicoForm() {
           <div className="form-grid-3" style={{ marginTop: '1.5rem' }}>
             <div className="form-field">
               <label htmlFor="centro_custos" className="form-label">
-                Centro de Custos
+                Centro de Custos 
               </label>
               <AutoCompleteInput
                 id="centro_custos"

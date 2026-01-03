@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   getAmparosLegais, createAmparoLegal, updateAmparoLegal, deleteAmparoLegal,
   getTiposAtualizacao, createTipoAtualizacao, updateTipoAtualizacao, deleteTipoAtualizacao
 } from '../services/core'
+import usePagination from '../hooks/usePagination'
+import { useDebounce } from '../hooks/useDebounce'
+import Pagination from '../components/Pagination'
 
 function Configuracoes() {
   const [activeTab, setActiveTab] = useState('amparos')
@@ -12,39 +15,77 @@ function Configuracoes() {
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState({})
   const [isCreating, setIsCreating] = useState(false)
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('')
+  const debouncedSearch = useDebounce(searchTerm, 300)
+  
+  // Pagination hook
+  const {
+    pagination,
+    setPage,
+    setPageSize,
+    updateFromResponse,
+    reset: resetPagination,
+  } = usePagination({ initialPageSize: 10 })
 
   const tabs = [
     { id: 'amparos', label: '⚖️ Amparos Legais', fields: ['nome', 'descricao'] },
     { id: 'tipos', label: '📋 Tipos de Atualização', fields: ['nome', 'descricao'] },
   ]
 
-  useEffect(() => {
-    loadItems()
-  }, [activeTab])
-
-  async function loadItems() {
+  const loadItems = useCallback(async (page = pagination.page, pageSize = pagination.pageSize, search = debouncedSearch) => {
     try {
       setLoading(true)
       setError('')
-      let response
       
+      const params = {
+        page,
+        page_size: pageSize,
+      }
+      
+      // Add search if provided
+      if (search && search.trim()) {
+        params.search = search.trim()
+      }
+      
+      let response
       switch (activeTab) {
         case 'amparos':
-          response = await getAmparosLegais()
+          response = await getAmparosLegais(params)
           break
         case 'tipos':
-          response = await getTiposAtualizacao()
+          response = await getTiposAtualizacao(params)
           break
       }
       
-      setItems(response.data.results || response.data)
+      const data = response.data
+      setItems(data.results || data)
+      
+      // Update pagination from response
+      updateFromResponse({
+        count: data.count || (data.results ? data.results.length : data.length),
+        next: data.next,
+        previous: data.previous,
+      }, page, pageSize)
     } catch (err) {
       setError('Erro ao carregar dados')
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeTab, updateFromResponse])
+
+  // Load items when tab, page, pageSize, or search changes
+  useEffect(() => {
+    loadItems(pagination.page, pagination.pageSize, debouncedSearch)
+  }, [activeTab, pagination.page, pagination.pageSize, debouncedSearch, loadItems])
+
+  // Reset pagination when changing tabs
+  useEffect(() => {
+    resetPagination()
+    setSearchTerm('')
+  }, [activeTab, resetPagination])
 
   async function handleSave() {
     try {
@@ -73,7 +114,7 @@ function Configuracoes() {
       setEditingId(null)
       setIsCreating(false)
       setFormData({})
-      loadItems()
+      loadItems(pagination.page, pagination.pageSize, debouncedSearch)
     } catch (err) {
       const errorData = err.response?.data
       if (errorData) {
@@ -102,7 +143,7 @@ function Configuracoes() {
           await deleteTipoAtualizacao(id)
           break
       }
-      loadItems()
+      loadItems(pagination.page, pagination.pageSize, debouncedSearch)
     } catch (err) {
       setError('Erro ao excluir. O item pode estar em uso.')
       console.error(err)
@@ -129,7 +170,7 @@ function Configuracoes() {
 
   const currentTab = tabs.find(t => t.id === activeTab)
 
-  function renderField(field, value) {
+  function renderField(field) {
     if (field === 'descricao') {
       return (
         <textarea
@@ -148,6 +189,14 @@ function Configuracoes() {
         className="form-control"
       />
     )
+  }
+  
+  function handlePageChange(newPage) {
+    setPage(newPage)
+  }
+  
+  function handlePageSizeChange(e) {
+    setPageSize(parseInt(e.target.value, 10))
   }
 
   return (
@@ -179,9 +228,23 @@ function Configuracoes() {
             </button>
           )}
         </div>
+        
+        {/* Search Bar */}
+        <div style={{ padding: '0 1rem', marginBottom: '1rem' }}>
+          <div className="search-bar" style={{ marginBottom: '0' }}>
+            <input
+              type="text"
+              placeholder="Buscar por nome..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="form-input"
+              style={{ width: '100%' }}
+            />
+          </div>
+        </div>
 
         {isCreating && (
-          <div className="config-form" style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--background)', borderRadius: '0.5rem' }}>
+          <div className="config-form" style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--background)', borderRadius: '0.5rem', margin: '0 1rem 1.5rem 1rem' }}>
             <h4 style={{ marginBottom: '1rem', fontSize: '0.9375rem', fontWeight: '600' }}>Novo Item</h4>
             <div className="form-row">
               {currentTab?.fields.map(field => (
@@ -201,89 +264,122 @@ function Configuracoes() {
         {loading ? (
           <div className="loading">Carregando...</div>
         ) : (
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  {currentTab?.fields.map(field => (
-                    <th key={field}>
-                      {field.charAt(0).toUpperCase() + field.slice(1)}
-                    </th>
-                  ))}
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.length === 0 ? (
+          <>
+            {/* Results Header */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              padding: '0 1rem', 
+              marginBottom: '1rem',
+              color: '#6b7280',
+              fontSize: '0.875rem'
+            }}>
+              <span>
+                {pagination.totalCount} {pagination.totalCount === 1 ? 'item encontrado' : 'itens encontrados'}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>Exibir:</span>
+                <select
+                  value={pagination.pageSize}
+                  onChange={handlePageSizeChange}
+                  className="form-control"
+                  style={{ width: 'auto', padding: '0.25rem 0.5rem' }}
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="table-container">
+              <table className="table">
+                <thead>
                   <tr>
-                    <td colSpan={currentTab?.fields.length + 2} className="text-center">
-                      Nenhum item encontrado
-                    </td>
+                    {currentTab?.fields.map(field => (
+                      <th key={field}>
+                        {field.charAt(0).toUpperCase() + field.slice(1)}
+                      </th>
+                    ))}
+                    <th>Status</th>
+                    <th>Ações</th>
                   </tr>
-                ) : (
-                  items.map(item => (
-                    <tr key={item.id}>
-                      {editingId === item.id ? (
-                        <>
-                          {currentTab?.fields.map(field => (
-                            <td key={field}>{renderField(field)}</td>
-                          ))}
-                          <td>
-                            <label className="checkbox-label">
-                              <input
-                                type="checkbox"
-                                checked={formData.ativo ?? true}
-                                onChange={(e) => setFormData({ ...formData, ativo: e.target.checked })}
-                              />
-                              Ativo
-                            </label>
-                          </td>
-                          <td>
-                            <div className="btn-group">
-                              <button onClick={handleSave} className="btn btn-sm btn-primary">✓</button>
-                              <button onClick={cancelEdit} className="btn btn-sm btn-secondary">✕</button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          {currentTab?.fields.map(field => (
-                            <td key={field}>
-                              {field === 'descricao' 
-                                ? (item[field]?.substring(0, 50) + (item[field]?.length > 50 ? '...' : '') || '-')
-                                : (item[field] || '-')}
-                            </td>
-                          ))}
-                          <td>
-                            <span className={`badge ${item.ativo ? 'badge-success' : 'badge-danger'}`}>
-                              {item.ativo ? 'Ativo' : 'Inativo'}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="btn-group">
-                              <button
-                                onClick={() => startEditing(item)}
-                                className="btn btn-sm btn-outline"
-                              >
-                                ✏️ Editar
-                              </button>
-                              <button
-                                onClick={() => handleDelete(item.id, item.nome)}
-                                className="btn btn-sm btn-danger"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </td>
-                        </>
-                      )}
+                </thead>
+                <tbody>
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={currentTab?.fields.length + 2} className="text-center">
+                        {searchTerm ? 'Nenhum item encontrado para a busca' : 'Nenhum item encontrado'}
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    items.map(item => (
+                      <tr key={item.id}>
+                        {editingId === item.id ? (
+                          <>
+                            {currentTab?.fields.map(field => (
+                              <td key={field}>{renderField(field)}</td>
+                            ))}
+                            <td>
+                              <label className="checkbox-label">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.ativo ?? true}
+                                  onChange={(e) => setFormData({ ...formData, ativo: e.target.checked })}
+                                />
+                                Ativo
+                              </label>
+                            </td>
+                            <td>
+                              <div className="btn-group">
+                                <button onClick={handleSave} className="btn btn-sm btn-primary">✓</button>
+                                <button onClick={cancelEdit} className="btn btn-sm btn-secondary">✕</button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            {currentTab?.fields.map(field => (
+                              <td key={field}>
+                                {field === 'descricao' 
+                                  ? (item[field]?.substring(0, 50) + (item[field]?.length > 50 ? '...' : '') || '-')
+                                  : (item[field] || '-')}
+                              </td>
+                            ))}
+                            <td>
+                              <span className={`badge ${item.ativo ? 'badge-success' : 'badge-danger'}`}>
+                                {item.ativo ? 'Ativo' : 'Inativo'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="btn-group">
+                                <button
+                                  onClick={() => startEditing(item)}
+                                  className="btn btn-sm btn-outline"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(item.id, item.nome)}
+                                  className="btn btn-sm btn-danger"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination */}
+            <Pagination pagination={pagination} onPageChange={handlePageChange} />
+          </>
         )}
       </div>
     </div>

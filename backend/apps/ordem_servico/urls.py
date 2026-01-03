@@ -8,7 +8,8 @@ from .views import (
     TipoDespesaViewSet,
     DespesaOrdemServicoViewSet,
     OrdemServicoTitularViewSet,
-    OrdemServicoDependenteViewSet
+    OrdemServicoDependenteViewSet,
+    DocumentoOSViewSet
 )
 
 router = DefaultRouter()
@@ -20,6 +21,7 @@ router.register(r'os-itens', OrdemServicoItemViewSet, basename='os-item')
 router.register(r'despesas-os', DespesaOrdemServicoViewSet, basename='despesa-os')
 router.register(r'os-titulares', OrdemServicoTitularViewSet, basename='os-titular')
 router.register(r'os-dependentes', OrdemServicoDependenteViewSet, basename='os-dependente')
+router.register(r'documentos-os', DocumentoOSViewSet, basename='documento-os')
 
 urlpatterns = [
     path('', include(router.urls)),

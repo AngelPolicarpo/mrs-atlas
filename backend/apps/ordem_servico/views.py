@@ -1,15 +1,19 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
 from django.db.models import Sum
+from django.http import HttpResponse
 from decimal import Decimal
+import hashlib
+import json
 
 from .models import (
     EmpresaPrestadora, Servico, OrdemServico, OrdemServicoItem,
-    TipoDespesa, DespesaOrdemServico, OrdemServicoTitular, OrdemServicoDependente
+    TipoDespesa, DespesaOrdemServico, OrdemServicoTitular, OrdemServicoDependente,
+    DocumentoOS
 )
 from .serializers import (
     EmpresaPrestadoraSerializer,
@@ -21,7 +25,11 @@ from .serializers import (
     OrdemServicoDependenteSerializer,
     OrdemServicoListSerializer,
     OrdemServicoSerializer,
-    OrdemServicoCreateUpdateSerializer
+    OrdemServicoCreateUpdateSerializer,
+    DocumentoOSSerializer,
+    DocumentoOSDetailSerializer,
+    DocumentoOSCreateSerializer,
+    DocumentoOSValidacaoSerializer
 )
 from apps.accounts.permissions import CargoBasedPermission, PermissionMessageMixin
 
@@ -314,6 +322,184 @@ class OrdemServicoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
         serializer = OrdemServicoSerializer(ordem_servico)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['post'], url_path='gerar-pdf')
+    def gerar_pdf(self, request, pk=None):
+        """
+        Gera o PDF da Ordem de Serviço e registra o documento.
+        
+        O PDF é gerado no backend, o hash SHA-256 é calculado sobre o PDF,
+        e um registro de DocumentoOS é criado para rastreabilidade.
+        
+        Retorna:
+            - Arquivo PDF como resposta HTTP
+            - Headers com informações do documento:
+                - X-Documento-ID: UUID do documento
+                - X-Documento-Codigo: Código único do documento
+                - X-Documento-Versao: Versão do documento
+                - X-Documento-Hash: Hash SHA-256 do PDF
+        """
+        from .services.pdf_generator import OSPDFGenerator
+        from django.conf import settings
+        
+        ordem_servico = self.get_object()
+        
+        # Determina a versão do documento
+        ultima_versao = DocumentoOS.objects.filter(
+            ordem_servico=ordem_servico
+        ).order_by('-versao').first()
+        
+        nova_versao = (ultima_versao.versao + 1) if ultima_versao else 1
+        
+        # Cria o documento primeiro (para obter o código)
+        # O código será gerado automaticamente pelo model
+        documento = DocumentoOS(
+            ordem_servico=ordem_servico,
+            versao=nova_versao,
+            emitido_por=request.user,
+            dados_snapshot={},  # Será atualizado depois
+            hash_sha256='',  # Será atualizado depois
+        )
+        documento.save()
+        
+        # URL de validação
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        url_validacao = f"{frontend_url}/validar-documento/{documento.id}"
+        
+        # Gera o PDF
+        try:
+            generator = OSPDFGenerator(
+                ordem_servico=ordem_servico,
+                codigo_documento=documento.codigo,
+                url_validacao=url_validacao
+            )
+            pdf_bytes, hash_sha256 = generator.generate()
+        except Exception as e:
+            # Se falhar, remove o documento criado
+            documento.delete()
+            return Response(
+                {'error': f'Erro ao gerar PDF: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # Cria o snapshot dos dados
+        dados_snapshot = self._criar_snapshot_os(ordem_servico)
+        
+        # Atualiza o documento com o hash e snapshot
+        documento.hash_sha256 = hash_sha256
+        documento.dados_snapshot = dados_snapshot
+        documento.save()
+        
+        # Prepara a resposta HTTP com o PDF
+        filename = f"OS-{str(ordem_servico.numero).zfill(6)}-{documento.codigo}.pdf"
+        
+        response = HttpResponse(
+            pdf_bytes,
+            content_type='application/pdf'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['X-Documento-ID'] = str(documento.id)
+        response['X-Documento-Codigo'] = documento.codigo
+        response['X-Documento-Versao'] = str(documento.versao)
+        response['X-Documento-Hash'] = documento.hash_sha256
+        # Expose custom headers to frontend (CORS)
+        response['Access-Control-Expose-Headers'] = 'X-Documento-ID, X-Documento-Codigo, X-Documento-Versao, X-Documento-Hash, Content-Disposition'
+        
+        return response
+    
+    def _criar_snapshot_os(self, ordem_servico):
+        """Cria um snapshot dos dados da OS para armazenamento."""
+        # Dados básicos da OS
+        snapshot = {
+            'os_numero': ordem_servico.numero,
+            'os_status': ordem_servico.status,
+            'os_data_abertura': str(ordem_servico.data_abertura) if ordem_servico.data_abertura else None,
+            'os_data_fechamento': str(ordem_servico.data_fechamento) if ordem_servico.data_fechamento else None,
+            'os_observacao': ordem_servico.observacao,
+            'os_valor_total': str(ordem_servico.valor_total) if ordem_servico.valor_total else '0.00',
+        }
+        
+        # Contrato
+        if ordem_servico.contrato:
+            snapshot['contrato'] = {
+                'numero': ordem_servico.contrato.numero,
+                'empresa_contratante': ordem_servico.contrato.empresa_contratante.nome if ordem_servico.contrato.empresa_contratante else None,
+            }
+        
+        # Empresas (modelo Empresa tem campo 'nome')
+        if ordem_servico.empresa_solicitante:
+            snapshot['empresa_solicitante'] = {
+                'nome': ordem_servico.empresa_solicitante.nome,
+                'cnpj': ordem_servico.empresa_solicitante.cnpj,
+            }
+        
+        if ordem_servico.empresa_pagadora:
+            snapshot['empresa_pagadora'] = {
+                'nome': ordem_servico.empresa_pagadora.nome,
+                'cnpj': ordem_servico.empresa_pagadora.cnpj,
+            }
+        
+        # Centro de custos (modelo EmpresaPrestadora tem 'nome_fantasia' e 'nome_juridico')
+        if ordem_servico.centro_custos:
+            snapshot['centro_custos'] = {
+                'nome_fantasia': ordem_servico.centro_custos.nome_fantasia,
+                'nome_juridico': getattr(ordem_servico.centro_custos, 'nome_juridico', None),
+            }
+        
+        # Responsável
+        if ordem_servico.responsavel:
+            snapshot['responsavel'] = {
+                'nome': ordem_servico.responsavel.nome,
+                'email': ordem_servico.responsavel.email,
+            }
+        
+        # Titulares
+        titulares = []
+        for titular_vinculado in ordem_servico.titulares_vinculados.select_related('titular').all():
+            titular = titular_vinculado.titular
+            titulares.append({
+                'nome': titular.nome,
+                'cpf': titular.cpf,
+                'observacao': titular_vinculado.observacao,
+            })
+        snapshot['titulares'] = titulares
+        
+        # Dependentes
+        dependentes = []
+        for dependente_vinculado in ordem_servico.dependentes_vinculados.select_related('dependente', 'dependente__titular').all():
+            dependente = dependente_vinculado.dependente
+            dependentes.append({
+                'nome': dependente.nome,
+                'tipo_dependente': dependente.tipo_dependente,
+                'titular_nome': dependente.titular.nome if dependente.titular else None,
+                'observacao': dependente_vinculado.observacao,
+            })
+        snapshot['dependentes'] = dependentes
+        
+        # Itens (Serviços)
+        itens = []
+        for item in ordem_servico.itens.select_related('contrato_servico', 'contrato_servico__servico').all():
+            itens.append({
+                'servico_item': item.contrato_servico.servico.item if item.contrato_servico and item.contrato_servico.servico else None,
+                'servico_descricao': item.contrato_servico.servico.descricao if item.contrato_servico and item.contrato_servico.servico else None,
+                'quantidade': item.quantidade,
+                'valor_unitario': str(item.valor_aplicado) if item.valor_aplicado else '0.00',
+                'valor_total': str(item.valor_total) if item.valor_total else '0.00',
+            })
+        snapshot['itens'] = itens
+        
+        # Despesas
+        despesas = []
+        for despesa in ordem_servico.despesas.select_related('tipo_despesa').filter(ativo=True):
+            despesas.append({
+                'tipo_item': despesa.tipo_despesa.item if despesa.tipo_despesa else None,
+                'tipo_descricao': despesa.tipo_despesa.descricao if despesa.tipo_despesa else None,
+                'valor': str(despesa.valor) if despesa.valor else '0.00',
+                'observacao': despesa.observacao,
+            })
+        snapshot['despesas'] = despesas
+        
+        return snapshot
+    
     @action(detail=False, methods=['get'])
     def estatisticas(self, request):
         """Retorna estatísticas gerais das OS."""
@@ -459,3 +645,179 @@ class OrdemServicoDependenteViewSet(PermissionMessageMixin, viewsets.ModelViewSe
     
     def perform_update(self, serializer):
         serializer.save(atualizado_por=self.request.user)
+
+
+# =============================================================================
+# DOCUMENTO OS
+# =============================================================================
+
+class DocumentoOSFilter(django_filters.FilterSet):
+    """Filtro customizado para Documento de OS."""
+    
+    ordem_servico = django_filters.UUIDFilter(field_name='ordem_servico__id')
+    versao = django_filters.NumberFilter()
+    data_emissao_after = django_filters.DateTimeFilter(field_name='data_emissao', lookup_expr='gte')
+    data_emissao_before = django_filters.DateTimeFilter(field_name='data_emissao', lookup_expr='lte')
+    emitido_por = django_filters.UUIDFilter(field_name='emitido_por__id')
+    
+    class Meta:
+        model = DocumentoOS
+        fields = ['ordem_servico', 'versao', 'emitido_por']
+
+
+class DocumentoOSViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
+    """
+    ViewSet para gerenciamento de Documentos de OS (PDFs de Orçamento).
+    
+    Endpoints:
+    - POST /documentos-os/ - Registra novo documento
+    - GET /documentos-os/ - Lista documentos
+    - GET /documentos-os/{id}/ - Detalhes do documento
+    - GET /documentos-os/{id}/validar/ - Valida documento (público)
+    - POST /documentos-os/{id}/validar-integridade/ - Valida integridade por upload
+    """
+    
+    queryset = DocumentoOS.objects.select_related(
+        'ordem_servico', 'emitido_por'
+    )
+    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = DocumentoOSFilter
+    search_fields = ['codigo', 'ordem_servico__numero']
+    ordering_fields = ['data_emissao', 'versao', 'valor_total']
+    ordering = ['-data_emissao']
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return DocumentoOSCreateSerializer
+        elif self.action in ['retrieve', 'validar']:
+            return DocumentoOSDetailSerializer
+        return DocumentoOSSerializer
+    
+    def get_permissions(self):
+        # Validação é pública (sem autenticação necessária)
+        if self.action in ['validar', 'validar_por_codigo']:
+            return [AllowAny()]
+        return super().get_permissions()
+    
+    def perform_create(self, serializer):
+        serializer.save(emitido_por=self.request.user)
+    
+    @action(detail=True, methods=['get'], url_path='validar')
+    def validar(self, request, pk=None):
+        """
+        Endpoint público para validação de documento.
+        Retorna metadados do documento para verificação.
+        """
+        try:
+            documento = DocumentoOS.objects.select_related(
+                'ordem_servico', 'emitido_por'
+            ).get(pk=pk)
+        except DocumentoOS.DoesNotExist:
+            return Response(
+                {'valid': False, 'error': 'Documento não encontrado.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = DocumentoOSDetailSerializer(documento)
+        return Response({
+            'valid': True,
+            'documento': serializer.data
+        })
+    
+    @action(detail=False, methods=['get'], url_path='validar-codigo/(?P<codigo>[^/.]+)')
+    def validar_por_codigo(self, request, codigo=None):
+        """
+        Endpoint público para validação de documento pelo código.
+        Ex: GET /documentos-os/validar-codigo/DOC-OS-000001-V001/
+        """
+        try:
+            documento = DocumentoOS.objects.select_related(
+                'ordem_servico', 'emitido_por'
+            ).get(codigo=codigo)
+        except DocumentoOS.DoesNotExist:
+            return Response(
+                {'valid': False, 'error': 'Documento não encontrado.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = DocumentoOSDetailSerializer(documento)
+        return Response({
+            'valid': True,
+            'documento': serializer.data
+        })
+    
+    @action(detail=True, methods=['post'], url_path='validar-integridade')
+    def validar_integridade(self, request, pk=None):
+        """
+        Valida a integridade do documento através de upload do PDF.
+        Compara o hash SHA-256 do arquivo enviado com o hash armazenado.
+        
+        O hash armazenado é calculado sobre o PDF gerado no backend,
+        portanto o upload do mesmo arquivo PDF deve produzir hash idêntico.
+        """
+        try:
+            documento = DocumentoOS.objects.get(pk=pk)
+        except DocumentoOS.DoesNotExist:
+            return Response(
+                {'valid': False, 'error': 'Documento não encontrado.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = DocumentoOSValidacaoSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        arquivo = serializer.validated_data['arquivo']
+        
+        # Verifica se é um PDF válido (começa com %PDF)
+        arquivo.seek(0)
+        header = arquivo.read(5)
+        arquivo.seek(0)
+        
+        is_pdf = header == b'%PDF-'
+        
+        if not is_pdf:
+            return Response({
+                'valid': True,
+                'integridade_valida': False,
+                'codigo_documento': documento.codigo,
+                'mensagem': 'O arquivo enviado não é um PDF válido.'
+            })
+        
+        # Calcula o hash do arquivo enviado
+        arquivo.seek(0)
+        conteudo = arquivo.read()
+        hash_arquivo = hashlib.sha256(conteudo).hexdigest()
+        
+        # Compara com o hash armazenado
+        integridade_valida = hash_arquivo == documento.hash_sha256
+        
+        if integridade_valida:
+            return Response({
+                'valid': True,
+                'integridade_valida': True,
+                'codigo_documento': documento.codigo,
+                'mensagem': 'Documento íntegro - o arquivo corresponde ao documento original registrado.'
+            })
+        else:
+            return Response({
+                'valid': True,
+                'integridade_valida': False,
+                'codigo_documento': documento.codigo,
+                'hash_esperado': documento.hash_sha256,
+                'hash_arquivo': hash_arquivo,
+                'mensagem': 'Integridade comprometida - o arquivo foi modificado ou não corresponde ao documento original.'
+            })
+    
+    @action(detail=False, methods=['get'], url_path='por-os/(?P<os_id>[^/.]+)')
+    def por_ordem_servico(self, request, os_id=None):
+        """
+        Lista todos os documentos de uma Ordem de Serviço específica.
+        """
+        documentos = DocumentoOS.objects.filter(
+            ordem_servico_id=os_id
+        ).select_related('ordem_servico', 'emitido_por').order_by('-versao')
+        
+        serializer = DocumentoOSSerializer(documentos, many=True)
+        return Response(serializer.data)
