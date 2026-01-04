@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { PermissionProvider, usePermissions, useNeedsSelection } from './context/PermissionContext'
 import Layout from './components/Layout'
+import GlobalPermissionNotification from './components/GlobalPermissionNotification'
+import SistemaRouteGuard from './components/SistemaRouteGuard'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Pesquisa from './pages/Pesquisa'
@@ -97,6 +99,9 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        {/* Notificação global de erros de permissão */}
+        <GlobalPermissionNotification />
+        
         <Routes>
           {/* Rotas públicas */}
           <Route path="/login" element={

@@ -15,7 +15,10 @@ from .serializers import (
     VinculoTitularSerializer, DependenteSerializer, VinculoDependenteSerializer
 )
 from apps.core.models import AmparoLegal
-from apps.accounts.permissions import CargoBasedPermission, PermissionMessageMixin, IsGestorOuSuperior
+from apps.accounts.permissions import (
+    CargoBasedPermission, PermissionMessageMixin, IsGestorOuSuperior,
+    RequiresSistemaPrazos, SistemaPermission
+)
 
 
 class TitularFilter(django_filters.FilterSet):
@@ -332,6 +335,8 @@ class DependenteViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de dependentes.
     
+    EXCLUSIVO DO SISTEMA DE PRAZOS.
+    
     Permissões baseadas no Cargo do usuário.
     """
     
@@ -339,7 +344,7 @@ class DependenteViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
         'titular', 'criado_por', 'atualizado_por'
     )
     serializer_class = DependenteSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaPrazos, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['titular', 'tipo_dependente', 'nacionalidade', 'sexo']
     search_fields = ['nome', 'rnm', 'passaporte', 'titular__nome']
@@ -357,6 +362,8 @@ class VinculoDependenteViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de vínculos de dependentes.
     
+    EXCLUSIVO DO SISTEMA DE PRAZOS.
+    
     Permissões baseadas no Cargo do usuário.
     """
     
@@ -365,7 +372,7 @@ class VinculoDependenteViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
         'criado_por', 'atualizado_por'
     )
     serializer_class = VinculoDependenteSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaPrazos, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['dependente', 'status', 'amparo', 'consulado', 'tipo_atualizacao']
     search_fields = ['dependente__nome', 'observacoes']
@@ -384,9 +391,11 @@ class PesquisaUnificadaViewSet(PermissionMessageMixin, viewsets.ViewSet):
     ViewSet para pesquisa unificada de titulares e dependentes com paginação real.
     Retorna titulares com seus vínculos e dependentes de forma paginada.
     
+    EXCLUSIVO DO SISTEMA DE PRAZOS.
+    
     Apenas visualização (não permite criar/editar/deletar).
     """
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaPrazos, CargoBasedPermission]
     
     # Define o modelo para a verificação de permissões
     queryset = Titular.objects.none()

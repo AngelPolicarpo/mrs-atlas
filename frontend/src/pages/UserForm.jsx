@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import userService from '../services/users'
+import { AdminPage } from '../components/ProtectedPage'
 
-function UserForm() {
+function UserFormContent() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEditing = Boolean(id)
@@ -275,6 +276,17 @@ function UserForm() {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Página de Formulário de Usuário - Protegida para Admin
+ */
+function UserForm() {
+  return (
+    <AdminPage title="Gerenciamento de Usuários">
+      <UserFormContent />
+    </AdminPage>
   )
 }
 

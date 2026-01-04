@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { usePermissions, useActiveContext } from '../context/PermissionContext'
 import { getRotasSistema } from '../config/sistemasRoutes'
 import DepartmentSwitcher from './DepartmentSwitcher'
+import SistemaRouteGuard from './SistemaRouteGuard'
 import logo from '../img/oie_ADRZD4MM25hi.png'
 
 function Layout() {
@@ -103,7 +104,9 @@ function Layout() {
       </aside>
       
       <main className="main-content">
-        <Outlet />
+        <SistemaRouteGuard>
+          <Outlet />
+        </SistemaRouteGuard>
       </main>
     </div>
   )

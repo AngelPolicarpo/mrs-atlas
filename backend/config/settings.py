@@ -229,6 +229,8 @@ REST_FRAMEWORK = {
         'anon': '100/hour',
         'user': '1000/hour'
     },
+    # Exception handler customizado para mensagens padronizadas
+    'EXCEPTION_HANDLER': 'apps.core.exceptions.custom_exception_handler',
     # Date formats - ISO 8601 sem timezone para DateField
     'DATE_FORMAT': '%Y-%m-%d',
     'DATE_INPUT_FORMATS': ['%Y-%m-%d', '%d/%m/%Y'],

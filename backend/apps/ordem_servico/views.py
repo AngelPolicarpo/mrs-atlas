@@ -31,7 +31,9 @@ from .serializers import (
     DocumentoOSCreateSerializer,
     DocumentoOSValidacaoSerializer
 )
-from apps.accounts.permissions import CargoBasedPermission, PermissionMessageMixin
+from apps.accounts.permissions import (
+    CargoBasedPermission, PermissionMessageMixin, RequiresSistemaOS
+)
 
 
 # =============================================================================
@@ -128,13 +130,15 @@ class TipoDespesaFilter(django_filters.FilterSet):
 class EmpresaPrestadoraViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de Empresas Prestadoras (CNPJs internos).
+    
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
     """
     
     queryset = EmpresaPrestadora.objects.select_related(
         'criado_por', 'atualizado_por'
     ).all()
     serializer_class = EmpresaPrestadoraSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['cnpj', 'nome_juridico', 'nome_fantasia']
     ordering_fields = ['nome_juridico', 'nome_fantasia', 'cnpj', 'data_criacao']
@@ -150,13 +154,15 @@ class EmpresaPrestadoraViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
 class ServicoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento do catálogo de Serviços.
+    
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
     """
     
     queryset = Servico.objects.select_related(
         'criado_por', 'atualizado_por'
     ).all()
     serializer_class = ServicoSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = ServicoFilter
     search_fields = ['item', 'descricao']
@@ -181,6 +187,8 @@ class OrdemServicoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de Ordens de Serviço.
     
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
+    
     Actions customizadas:
     - /titulares/ - Lista titulares da OS
     - /dependentes/ - Lista dependentes da OS
@@ -201,7 +209,7 @@ class OrdemServicoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
         'despesas', 'despesas__tipo_despesa', 'titulares_vinculados', 'titulares_vinculados__titular',
         'dependentes_vinculados', 'dependentes_vinculados__dependente'
     )
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = OrdemServicoFilter
     search_fields = ['numero', 'observacao', 'contrato__numero']
@@ -529,13 +537,15 @@ class OrdemServicoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
 class OrdemServicoItemViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de Itens da OS.
+    
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
     """
     
     queryset = OrdemServicoItem.objects.select_related(
         'ordem_servico', 'contrato_servico', 'contrato_servico__servico'
     )
     serializer_class = OrdemServicoItemSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['contrato_servico__servico__item', 'contrato_servico__servico__descricao']
     ordering_fields = ['data_criacao', 'valor_aplicado']
@@ -546,13 +556,15 @@ class OrdemServicoItemViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
 class TipoDespesaViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento do catálogo de Tipos de Despesa.
+    
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
     """
     
     queryset = TipoDespesa.objects.select_related(
         'criado_por', 'atualizado_por'
     ).all()
     serializer_class = TipoDespesaSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = TipoDespesaFilter
     search_fields = ['item', 'descricao']
@@ -581,13 +593,15 @@ class TipoDespesaViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
 class DespesaOrdemServicoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de Despesas de Ordem de Serviço.
+    
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
     """
     
     queryset = DespesaOrdemServico.objects.select_related(
         'ordem_servico', 'tipo_despesa', 'criado_por', 'atualizado_por'
     )
     serializer_class = DespesaOrdemServicoSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = DespesaOrdemServicoFilter
     search_fields = ['observacao', 'tipo_despesa__item']
@@ -604,13 +618,15 @@ class DespesaOrdemServicoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
 class OrdemServicoTitularViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de Titulares vinculados à OS.
+    
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
     """
     
     queryset = OrdemServicoTitular.objects.select_related(
         'ordem_servico', 'titular', 'criado_por', 'atualizado_por'
     )
     serializer_class = OrdemServicoTitularSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['titular__nome', 'observacao']
     ordering_fields = ['data_criacao']
@@ -627,13 +643,15 @@ class OrdemServicoTitularViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
 class OrdemServicoDependenteViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de Dependentes vinculados à OS.
+    
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
     """
     
     queryset = OrdemServicoDependente.objects.select_related(
         'ordem_servico', 'dependente', 'dependente__titular', 'criado_por', 'atualizado_por'
     )
     serializer_class = OrdemServicoDependenteSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['dependente__nome', 'observacao']
     ordering_fields = ['data_criacao']
@@ -669,6 +687,8 @@ class DocumentoOSViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     """
     ViewSet para gerenciamento de Documentos de OS (PDFs de Orçamento).
     
+    EXCLUSIVO DO SISTEMA DE ORDENS DE SERVIÇO.
+    
     Endpoints:
     - POST /documentos-os/ - Registra novo documento
     - GET /documentos-os/ - Lista documentos
@@ -680,7 +700,7 @@ class DocumentoOSViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
     queryset = DocumentoOS.objects.select_related(
         'ordem_servico', 'emitido_por'
     )
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
+    permission_classes = [IsAuthenticated, RequiresSistemaOS, CargoBasedPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = DocumentoOSFilter
     search_fields = ['codigo', 'ordem_servico__numero']
@@ -798,7 +818,7 @@ class DocumentoOSViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
                 'valid': True,
                 'integridade_valida': True,
                 'codigo_documento': documento.codigo,
-                'mensagem': 'Documento íntegro - o arquivo corresponde ao documento original registrado.'
+                'mensagem': 'Documento íntegro.'
             })
         else:
             return Response({
@@ -807,7 +827,7 @@ class DocumentoOSViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
                 'codigo_documento': documento.codigo,
                 'hash_esperado': documento.hash_sha256,
                 'hash_arquivo': hash_arquivo,
-                'mensagem': 'Integridade comprometida - o arquivo foi modificado ou não corresponde ao documento original.'
+                'mensagem': 'Integridade comprometida.'
             })
     
     @action(detail=False, methods=['get'], url_path='por-os/(?P<os_id>[^/.]+)')

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import userService from '../services/users'
+import { AdminPage } from '../components/ProtectedPage'
 
-function UserList() {
+function UserListContent() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -127,6 +128,17 @@ function UserList() {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Página de Lista de Usuários - Protegida para Admin
+ */
+function UserList() {
+  return (
+    <AdminPage title="Gerenciamento de Usuários">
+      <UserListContent />
+    </AdminPage>
   )
 }
 

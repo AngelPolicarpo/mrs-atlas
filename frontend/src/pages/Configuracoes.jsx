@@ -6,8 +6,9 @@ import {
 import usePagination from '../hooks/usePagination'
 import { useDebounce } from '../hooks/useDebounce'
 import Pagination from '../components/Pagination'
+import { AdminPage } from '../components/ProtectedPage'
 
-function Configuracoes() {
+function ConfiguracoesContent() {
   const [activeTab, setActiveTab] = useState('amparos')
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -383,6 +384,17 @@ function Configuracoes() {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Página de Configurações - Protegida para Admin
+ */
+function Configuracoes() {
+  return (
+    <AdminPage title="Configurações do Sistema">
+      <ConfiguracoesContent />
+    </AdminPage>
   )
 }
 

@@ -190,7 +190,7 @@ function ValidarDocumento() {
   
   return (
     <div className="auth-container" style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
-      <div style={{ width: '100%', maxWidth: '700px' }}>
+      <div style={{ width: '100%', maxWidth: '700px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Header */}
         <div className="auth-card" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.5rem' }}>
@@ -254,9 +254,8 @@ function ValidarDocumento() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontSize: '1.25rem' }}>✅</span>
                   <div>
-                    <strong>Documento Existe</strong>
                     <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem' }}>
-                      Este documento foi encontrado nos registros do sistema.
+                      Este registro consta no sistema.
                     </p>
                   </div>
                 </div>
@@ -310,21 +309,6 @@ function ValidarDocumento() {
                     </span>
                   </div>
                 )}
-                
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ marginBottom: '0.25rem' }}>Centro de Custos</label>
-                  <span style={{ fontWeight: '500' }}>{documento.centro_custos_nome || '-'}</span>
-                </div>
-                
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ marginBottom: '0.25rem' }}>Contrato</label>
-                  <span style={{ fontWeight: '500' }}>{documento.contrato_numero || '-'}</span>
-                </div>
-                
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ marginBottom: '0.25rem' }}>Solicitante</label>
-                  <span style={{ fontWeight: '500' }}>{documento.empresa_solicitante_nome || '-'}</span>
-                </div>
               </div>
             </div>
             
@@ -385,9 +369,6 @@ function ValidarDocumento() {
                       {resultadoIntegridade.integridade_valida ? '✅' : '⚠️'}
                     </span>
                     <div>
-                      <strong>
-                        {resultadoIntegridade.integridade_valida ? 'Documento Válido' : 'Atenção'}
-                      </strong>
                       <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem' }}>
                         {resultadoIntegridade.mensagem}
                       </p>
