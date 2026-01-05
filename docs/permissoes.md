@@ -1,256 +1,176 @@
-# 🔐 Sistema de Permissões (RBAC)
+# 🔐 Sistema de Permissões e Controle de Acesso
 
-Este documento detalha o sistema de autenticação e autorização do Atlas, baseado em RBAC (Role-Based Access Control).
+Este documento detalha o sistema completo de autenticação, autorização e controle de acesso do Atlas.
 
 ---
 
 ## 📋 Índice
 
 1. [Visão Geral](#visão-geral)
-2. [Estrutura de Cargos](#estrutura-de-cargos)
-3. [Modelo de Permissões Django](#modelo-de-permissões-django)
-4. [Implementação Backend](#implementação-backend)
-5. [Implementação Frontend](#implementação-frontend)
-6. [Fluxo de Verificação](#fluxo-de-verificação)
-7. [Configuração de Cargos](#configuração-de-cargos)
-8. [Troubleshooting](#troubleshooting)
+2. [Arquitetura do Sistema](#arquitetura-do-sistema)
+3. [Backend: Classes de Permissão](#backend-classes-de-permissão)
+4. [Frontend: Contextos e Guards](#frontend-contextos-e-guards)
+5. [Fluxo de Verificação Completo](#fluxo-de-verificação-completo)
+6. [Isolamento por Sistema](#isolamento-por-sistema)
+7. [Isolamento por Recurso](#isolamento-por-recurso)
+8. [Estrutura de Cargos e Permissões](#estrutura-de-cargos-e-permissões)
+9. [API: Headers e Configuração](#api-headers-e-configuração)
+10. [Troubleshooting](#troubleshooting)
+11. [Melhorias Futuras](#melhorias-futuras)
 
 ---
 
 ## 🎯 Visão Geral
 
-O Atlas utiliza o sistema de permissões nativo do Django, com Groups (grupos) representando **Cargos**. Cada cargo possui um conjunto de permissões que determinam o que o usuário pode fazer no sistema.
+O Atlas implementa um sistema de controle de acesso em **três camadas**:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CAMADA 1: SISTEMA                            │
+│  Usuário só acessa rotas do sistema que tem acesso              │
+│  (prazos, ordem_servico)                                        │
+├─────────────────────────────────────────────────────────────────┤
+│                    CAMADA 2: CARGO (RBAC)                       │
+│  Permissões Django via Groups (Consultor, Gestor, Diretor)      │
+│  Determina ações: view, add, change, delete, admin              │
+├─────────────────────────────────────────────────────────────────┤
+│                    CAMADA 3: RECURSO                            │
+│  Permissões específicas por model/recurso                       │
+│  Ex: pode ver Empresa mas não Contrato                          │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ### Conceitos Principais
 
 | Conceito | Django | Atlas | Descrição |
 |----------|--------|-------|-----------|
-| **Role** | Group | Cargo | Função do usuário (Consultor, Gestor, Diretor) |
-| **Permission** | Permission | Permissão | Ação permitida (view, add, change, delete) |
-| **User** | User | Usuário | Pessoa que acessa o sistema |
-| **Resource** | Model | Modelo | Recurso protegido (Titular, Empresa, etc) |
-
-### Matriz de Permissões
-
-| Cargo | view | add | change | delete | Descrição |
-|-------|:----:|:---:|:------:|:------:|-----------|
-| **Consultor** | ✅ | ❌ | ❌ | ❌ | Apenas visualização |
-| **Gestor** | ✅ | ✅ | ✅ | ❌ | Criação e edição |
-| **Diretor** | ✅ | ✅ | ✅ | ✅ | Acesso total |
-
-### Modelos Protegidos
-
-O sistema aplica controle de acesso aos seguintes modelos:
-
-- `titulares.Titular` - Cadastro de titulares/estrangeiros
-- `titulares.Dependente` - Dependentes de titulares
-- `empresa.Empresa` - Cadastro de empresas
-- `accounts.User` (como `usuario`) - Gestão de usuários
-- `accounts.UsuarioVinculo` - Vínculos de usuários
+| **Sistema** | - | Sistema | Módulo do sistema (Prazos, OS) |
+| **Role** | Group | Cargo | Função do usuário |
+| **Permission** | Permission | Permissão | Ação permitida |
+| **Resource** | Model | Recurso | Entidade protegida |
 
 ---
 
-## 👥 Estrutura de Cargos
+## 🏗️ Arquitetura do Sistema
 
-### Consultor
-**Perfil:** Analista, estagiário, suporte.
-
-```
-Permissões:
-├── titulares.view_titular
-├── titulares.view_dependente
-├── empresa.view_empresa
-├── accounts.view_usuario
-└── accounts.view_usuariovinculo
-```
-
-**Pode:**
-- Visualizar listagens e detalhes
-- Usar a pesquisa avançada
-- Exportar relatórios (somente leitura)
-
-**Não pode:**
-- Criar novos registros
-- Editar registros existentes
-- Excluir registros
-
-### Gestor
-**Perfil:** Coordenador, gerente de departamento.
+### Estrutura de Arquivos
 
 ```
-Permissões:
-├── titulares.view_titular
-├── titulares.add_titular
-├── titulares.change_titular
-├── titulares.view_dependente
-├── titulares.add_dependente
-├── titulares.change_dependente
-├── empresa.view_empresa
-├── empresa.add_empresa
-├── empresa.change_empresa
-├── accounts.view_usuario
-├── accounts.add_usuario
-├── accounts.change_usuario
-├── accounts.view_usuariovinculo
-├── accounts.add_usuariovinculo
-└── accounts.change_usuariovinculo
+backend/
+├── apps/accounts/
+│   ├── permissions.py      # Classes de permissão DRF
+│   ├── models.py           # User, Sistema, UsuarioVinculo
+│   └── views.py            # Auth endpoints
+
+frontend/
+├── src/
+│   ├── context/
+│   │   ├── AuthContext.jsx        # Autenticação (login, logout, user)
+│   │   └── PermissionContext.jsx  # Permissões (hasPermission, sistema ativo)
+│   ├── components/
+│   │   ├── PermissionGuard.jsx         # Guard de permissão por ação
+│   │   ├── SistemaRouteGuard.jsx       # Guard de rota por sistema
+│   │   ├── GlobalPermissionNotification.jsx  # Notificações de 403
+│   │   └── ProtectedPage.jsx           # Wrapper para páginas protegidas
+│   ├── config/
+│   │   └── sistemasRoutes.js    # Mapeamento de rotas por sistema
+│   └── services/
+│       └── api.js               # Interceptors e silent403
 ```
 
-**Pode:**
-- Tudo que o Consultor pode
-- Criar novos registros
-- Editar registros existentes
-
-**Não pode:**
-- Excluir registros (proteção contra perdas acidentais)
-
-### Diretor
-**Perfil:** Diretor, administrador do sistema.
+### Fluxo de Requisição
 
 ```
-Permissões:
-├── titulares.view_titular
-├── titulares.add_titular
-├── titulares.change_titular
-├── titulares.delete_titular
-├── titulares.view_dependente
-├── titulares.add_dependente
-├── titulares.change_dependente
-├── titulares.delete_dependente
-├── empresa.view_empresa
-├── empresa.add_empresa
-├── empresa.change_empresa
-├── empresa.delete_empresa
-├── accounts.view_usuario
-├── accounts.add_usuario
-├── accounts.change_usuario
-├── accounts.delete_usuario
-├── accounts.view_usuariovinculo
-├── accounts.add_usuariovinculo
-├── accounts.change_usuariovinculo
-└── accounts.delete_usuariovinculo
-```
-
-**Pode:**
-- Acesso total a todas as operações
-- Excluir registros
-- Gerenciar usuários e permissões
-
----
-
-## 🐍 Modelo de Permissões Django
-
-### Estrutura de Permissões
-
-O Django cria automaticamente 4 permissões para cada modelo:
-
-```
-{app_label}.{action}_{model_name}
-
-Exemplos:
-- titulares.view_titular     → Visualizar titular
-- titulares.add_titular      → Criar titular
-- titulares.change_titular   → Editar titular
-- titulares.delete_titular   → Excluir titular
-```
-
-### Relacionamento User → Group → Permission
-
-```
-┌──────────────────┐
-│      User        │
-│  (email, nome)   │
-└────────┬─────────┘
-         │ groups (ManyToMany)
-         ▼
-┌──────────────────┐
-│      Group       │
-│  (name: Cargo)   │
-│ - Consultor      │
-│ - Gestor         │
-│ - Diretor        │
-└────────┬─────────┘
-         │ permissions (ManyToMany)
-         ▼
-┌──────────────────┐
-│   Permission     │
-│ (codename)       │
-│ - view_titular   │
-│ - add_empresa    │
-│ - delete_user    │
-└──────────────────┘
-```
-
-### Tabelas do Banco de Dados
-
-```sql
--- Grupos (Cargos)
-auth_group:
-| id | name      |
-|----|-----------|
-| 1  | Consultor |
-| 2  | Gestor    |
-| 3  | Diretor   |
-
--- Permissões (criadas pelo Django)
-auth_permission:
-| id | codename        | content_type_id |
-|----|-----------------|-----------------|
-| 1  | view_titular    | 7               |
-| 2  | add_titular     | 7               |
-| 3  | change_titular  | 7               |
-| 4  | delete_titular  | 7               |
-
--- Relação Grupo ↔ Permissões
-auth_group_permissions:
-| group_id | permission_id |
-|----------|---------------|
-| 1        | 1             |  -- Consultor → view_titular
-| 2        | 1             |  -- Gestor → view_titular
-| 2        | 2             |  -- Gestor → add_titular
-| 2        | 3             |  -- Gestor → change_titular
-| 3        | 1             |  -- Diretor → view_titular
-| 3        | 2             |  -- Diretor → add_titular
-| 3        | 3             |  -- Diretor → change_titular
-| 3        | 4             |  -- Diretor → delete_titular
-
--- Relação Usuário ↔ Grupos
-accounts_user_groups:
-| user_id | group_id |
-|---------|----------|
-| 1       | 3        |  -- Admin → Diretor
-| 2       | 1        |  -- João → Consultor
-| 3       | 2        |  -- Maria → Gestor
+Frontend                          Backend
+   │                                 │
+   │ 1. Usuário acessa rota          │
+   ├──────────────────────────────►  │
+   │                                 │
+   │    SistemaRouteGuard            │
+   │    (verifica sistema)           │
+   │                                 │
+   │ 2. API Request com headers      │
+   │    Authorization: Bearer xxx    │
+   │    X-Active-Sistema: prazos     │
+   ├──────────────────────────────►  │
+   │                                 │
+   │                            IsAuthenticated
+   │                            SistemaPermission
+   │                            CargoBasedPermission
+   │                                 │
+   │ 3. Response ou 403              │
+   ◄──────────────────────────────┤  │
+   │                                 │
+   │    Se 403: dispatchPermissionDenied()
+   │    (a menos que silent403=true)
+   │                                 │
 ```
 
 ---
 
-## 🔧 Implementação Backend
+## 🔧 Backend: Classes de Permissão
 
-### CargoBasedPermission
+### Localização: `backend/apps/accounts/permissions.py`
 
-Classe principal que verifica permissões em cada requisição.
+### 1. SistemaPermission
+
+Verifica se o usuário tem acesso ao **sistema** da rota.
 
 ```python
-# backend/apps/accounts/permissions.py
-
-from rest_framework.permissions import BasePermission
-
-class CargoBasedPermission(BasePermission):
+class SistemaPermission(permissions.BasePermission):
     """
-    Verifica se o usuário tem permissão baseada em seu cargo (Group).
-    
-    Mapeia métodos HTTP para ações Django:
-    - GET, HEAD, OPTIONS → view_{model}
-    - POST → add_{model}
-    - PUT, PATCH → change_{model}
-    - DELETE → delete_{model}
+    Verifica se o usuário tem acesso ao SISTEMA da rota.
+    Garante isolamento entre sistemas (prazos, ordem_servico).
     """
     
-    message = 'Você não tem permissão para realizar esta ação.'
+    def has_permission(self, request, view):
+        # Identificar qual sistema a rota pertence
+        required_sistema = get_sistema_for_route(request.path, view)
+        
+        # Se a rota é compartilhada (None), permite
+        if required_sistema is None:
+            return True
+        
+        # Verificar se usuário tem acesso ao sistema
+        user_sistemas = request.user.get_sistemas()
+        return required_sistema in [s.codigo for s in user_sistemas]
+```
+
+**Mapeamento de Rotas:**
+
+```python
+# Rotas compartilhadas (acessíveis por todos os sistemas)
+SHARED_ROUTES = {
+    'titulares', 'empresa', 'core', 'accounts', 'contratos'
+}
+
+# Rotas exclusivas por sistema
+SISTEMA_ROUTES = {
+    'prazos': {'pesquisa'},
+    'ordem_servico': {
+        'ordem_servico', 'ordens-servico', 'empresas-prestadoras',
+        'servicos', 'tipos-despesa', 'os-itens', 'despesas-os'
+    }
+}
+```
+
+### 2. CargoBasedPermission
+
+Verifica permissões Django baseadas no cargo (Group).
+
+```python
+class CargoBasedPermission(permissions.BasePermission):
+    """
+    Permissão baseada no Cargo do usuário (via Django Groups).
     
-    # Mapeamento HTTP → ação Django
-    METHOD_ACTION_MAP = {
+    Mapeamento:
+    - GET, HEAD, OPTIONS → app.view_model
+    - POST → app.add_model  
+    - PUT, PATCH → app.change_model
+    - DELETE → app.delete_model
+    """
+    
+    METHOD_PERMISSION_MAP = {
         'GET': 'view',
         'HEAD': 'view',
         'OPTIONS': 'view',
@@ -259,722 +179,685 @@ class CargoBasedPermission(BasePermission):
         'PATCH': 'change',
         'DELETE': 'delete',
     }
-    
-    # Mensagens em português por ação
-    ACTION_MESSAGES = {
-        'view': 'visualizar',
-        'add': 'criar',
-        'change': 'editar',
-        'delete': 'excluir',
-    }
-    
-    def get_permission_required(self, request, view):
-        """
-        Determina a permissão necessária baseada no método HTTP e modelo.
-        
-        Returns:
-            str: Permissão no formato 'app_label.action_model'
-        """
-        # Obtém o modelo do ViewSet
-        model = view.queryset.model
-        app_label = model._meta.app_label
-        model_name = model._meta.model_name
-        
-        # Determina a ação baseada no método HTTP
-        action = self.METHOD_ACTION_MAP.get(request.method, 'view')
-        
-        return f'{app_label}.{action}_{model_name}'
-    
-    def has_permission(self, request, view):
-        """
-        Verifica se o usuário tem a permissão necessária.
-        """
-        # Usuário deve estar autenticado
-        if not request.user or not request.user.is_authenticated:
-            return False
-        
-        # Superusuários têm acesso total
-        if request.user.is_superuser:
-            return True
-        
-        # Obtém permissão necessária
-        permission_required = self.get_permission_required(request, view)
-        
-        # Verifica se usuário tem a permissão
-        has_perm = request.user.has_perm(permission_required)
-        
-        # Define mensagem de erro personalizada
-        if not has_perm:
-            action = permission_required.split('.')[-1].split('_')[0]
-            action_text = self.ACTION_MESSAGES.get(action, 'realizar esta ação')
-            model_name = view.queryset.model._meta.verbose_name
-            self.message = f'Você não tem permissão para {action_text} {model_name}.'
-        
-        return has_perm
-    
-    def has_object_permission(self, request, view, obj):
-        """
-        Verifica permissão em nível de objeto (para ações em registros específicos).
-        """
-        return self.has_permission(request, view)
 ```
 
-### Backend de Autenticação
-
-Garante que permissões sejam retornadas no formato correto.
+### 3. Permissões Especializadas
 
 ```python
-# backend/apps/accounts/backends.py
+# Somente leitura
+class ReadOnlyPermission(permissions.BasePermission):
+    """Permite apenas GET, HEAD, OPTIONS."""
 
-from django.contrib.auth.backends import ModelBackend
-from django.contrib.auth.models import Permission
+# Requer Gestor ou superior
+class IsGestorOuSuperior(permissions.BasePermission):
+    """Exige cargo com add, change, delete."""
 
-class CustomModelBackend(ModelBackend):
-    """
-    Backend que retorna permissões como strings 'app.codename'.
-    
-    O backend padrão do Django retorna apenas 'codename'.
-    Este backend adiciona o app_label para compatibilidade com has_perm().
-    """
-    
-    def _get_group_permissions(self, user_obj):
-        """
-        Retorna permissões dos grupos do usuário.
-        """
-        return Permission.objects.filter(
-            group__user=user_obj
-        ).values_list(
-            'content_type__app_label',
-            'codename'
-        )
-    
-    def _get_user_permissions(self, user_obj):
-        """
-        Retorna permissões diretas do usuário (se houver).
-        """
-        return Permission.objects.filter(
-            user=user_obj
-        ).values_list(
-            'content_type__app_label',
-            'codename'
-        )
-    
-    def get_all_permissions(self, user_obj, obj=None):
-        """
-        Retorna todas as permissões do usuário (grupos + diretas).
-        """
-        if not user_obj.is_active:
-            return set()
-        
-        perms = set()
-        
-        # Permissões dos grupos
-        for app_label, codename in self._get_group_permissions(user_obj):
-            perms.add(f'{app_label}.{codename}')
-        
-        # Permissões diretas
-        for app_label, codename in self._get_user_permissions(user_obj):
-            perms.add(f'{app_label}.{codename}')
-        
-        return perms
-    
-    def has_perm(self, user_obj, perm, obj=None):
-        """
-        Verifica se usuário tem uma permissão específica.
-        """
-        if not user_obj.is_active:
-            return False
-        
-        return perm in self.get_all_permissions(user_obj, obj)
+# Requer Diretor
+class IsDiretor(permissions.BasePermission):
+    """Exige cargo com 'admin'."""
+
+# Permite exportação
+class CanExport(permissions.BasePermission):
+    """Quem pode visualizar pode exportar."""
+
+# Requer sistema específico
+class RequiresSistemaPrazos(permissions.BasePermission):
+    """Exige acesso ao sistema de Prazos."""
+
+class RequiresSistemaOS(permissions.BasePermission):
+    """Exige acesso ao sistema de Ordens de Serviço."""
 ```
 
-### Configuração do Backend
+### 4. Uso em ViewSets
 
 ```python
-# config/settings.py
+# ViewSet com permissões completas
+class TitularViewSet(viewsets.ModelViewSet):
+    permission_classes = [
+        IsAuthenticated,        # Deve estar logado
+        SistemaPermission,      # Deve ter acesso ao sistema
+        CargoBasedPermission    # Deve ter permissão do cargo
+    ]
 
-AUTHENTICATION_BACKENDS = [
-    'apps.accounts.backends.CustomModelBackend',
+# ViewSet exclusivo de sistema
+class OrdemServicoViewSet(viewsets.ModelViewSet):
+    permission_classes = [
+        IsAuthenticated,
+        RequiresSistemaOS,      # EXCLUSIVO do sistema OS
+        CargoBasedPermission
+    ]
+
+# ViewSet somente leitura
+class AmparoLegalViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [
+        IsAuthenticated,
+        ReadOnlyPermission
+    ]
+```
+
+---
+
+## 🖥️ Frontend: Contextos e Guards
+
+### 1. AuthContext
+
+Gerencia autenticação (login, logout, token refresh).
+
+```jsx
+// src/context/AuthContext.jsx
+const AuthContext = createContext(null)
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  
+  // Login com credenciais
+  const login = async (email, password) => { ... }
+  
+  // Logout
+  const logout = () => { ... }
+  
+  // Dados do usuário disponíveis:
+  // - user.permissoes (por sistema/departamento)
+  // - user.sistemas_disponiveis
+  // - user.permissoes_django (por model)
+  // - user.permissoes_lista (simplificada)
+  // - user.is_superuser
+}
+```
+
+### 2. PermissionContext
+
+Gerencia permissões e sistema ativo.
+
+```jsx
+// src/context/PermissionContext.jsx
+export function PermissionProvider({ children, user }) {
+  const [activeSistema, setActiveSistema] = useState(...)
+  
+  // Departamento auto-selecionado pelo cargo mais alto
+  const activeDepartamento = useMemo(() => { ... })
+  
+  /**
+   * Verifica permissão para uma ação
+   * @param {string} action - 'view', 'add', 'change', 'delete', 'admin'
+   */
+  const hasPermission = (action, sistemaCode = null) => { ... }
+  
+  /**
+   * Verifica permissão Django completa
+   * @param {string} perm - 'titulares.add_titular'
+   */
+  const hasDjangoPermission = (perm) => { ... }
+}
+```
+
+**Uso:**
+
+```jsx
+function MeuComponente() {
+  const { hasPermission, activeSistema } = usePermissions()
+  
+  if (!hasPermission('add')) {
+    return <p>Sem permissão para criar</p>
+  }
+  
+  return <BotaoNovo />
+}
+```
+
+### 3. SistemaRouteGuard
+
+Bloqueia rotas de sistemas que o usuário não tem acesso.
+
+```jsx
+// src/components/SistemaRouteGuard.jsx
+function SistemaRouteGuard({ children }) {
+  const location = useLocation()
+  const { activeSistema, sistemasDisponiveis } = usePermissions()
+  
+  // Verifica se a rota requer um sistema específico
+  const requiredSistema = getRequiredSistema(location.pathname)
+  
+  // Se rota compartilhada, permite
+  if (!requiredSistema) {
+    return children
+  }
+  
+  // Verifica acesso
+  if (!canAccessRoute(location.pathname, activeSistema, sistemasDisponiveis)) {
+    return <SistemaAccessDenied ... />
+  }
+  
+  return children
+}
+```
+
+**Configuração de rotas em `sistemasRoutes.js`:**
+
+```javascript
+// Rotas exclusivas mapeadas para sistemas
+export const EXCLUSIVE_ROUTE_MAP = {
+  '/pesquisa': 'prazos',
+  '/dependentes': 'prazos',
+  '/ordens-servico': 'ordem_servico',
+  '/pesquisa-os': 'ordem_servico',
+}
+
+// Rotas compartilhadas (não requerem sistema específico)
+export const SHARED_ROUTES = [
+  '/',
+  '/titulares',
+  '/empresas',
+  '/configuracoes',
+  '/users',
 ]
 ```
 
-### Endpoint de Verificação de Permissão
+### 4. PermissionGuard
 
-```python
-# backend/apps/accounts/views.py
-
-class CheckPermissionView(APIView):
-    """
-    Verifica se o usuário logado tem uma permissão específica.
-    
-    GET /api/auth/check-permission/?permission=titulares.delete_titular
-    
-    Response:
-        {"has_permission": true/false, "permission": "titulares.delete_titular"}
-    """
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        permission = request.query_params.get('permission', '')
-        
-        if not permission:
-            return Response(
-                {'error': 'Parâmetro "permission" é obrigatório'},
-                status=400
-            )
-        
-        has_perm = request.user.has_perm(permission)
-        
-        return Response({
-            'has_permission': has_perm,
-            'permission': permission
-        })
-```
-
-### ViewSets com Permissões
-
-```python
-# backend/apps/titulares/views.py
-
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
-from apps.accounts.permissions import CargoBasedPermission
-from .models import Titular
-from .serializers import TitularSerializer
-
-class TitularViewSet(viewsets.ModelViewSet):
-    queryset = Titular.objects.filter(ativo=True)
-    serializer_class = TitularSerializer
-    permission_classes = [IsAuthenticated, CargoBasedPermission]
-    
-    # ... filtros, ordenação, etc
-```
-
----
-
-## ⚛️ Implementação Frontend
-
-### PermissionContext
-
-Context que gerencia permissões no frontend.
+Protege elementos baseado em permissões do cargo.
 
 ```jsx
-// frontend/src/context/PermissionContext.jsx
+// src/components/PermissionGuard.jsx
+function PermissionGuard({ 
+  permission,        // 'add', 'change', 'delete', 'admin'
+  djangoPermission,  // 'titulares.add_titular'
+  children,
+  fallback = null 
+}) {
+  const { hasPermission, hasDjangoPermission } = usePermissions()
+  
+  let allowed = true
+  
+  if (permission) {
+    allowed = hasPermission(permission)
+  }
+  
+  if (djangoPermission) {
+    allowed = hasDjangoPermission(djangoPermission)
+  }
+  
+  return allowed ? children : fallback
+}
+```
 
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import api from '../services/api';
-import { useAuth } from './AuthContext';
+**Uso:**
 
-const PermissionContext = createContext();
+```jsx
+// Esconder botão para quem não pode criar
+<PermissionGuard permission="add">
+  <button>Novo Registro</button>
+</PermissionGuard>
 
-export function PermissionProvider({ children }) {
-  const { user, isAuthenticated } = useAuth();
-  const [permissions, setPermissions] = useState([]);
-  const [cargo, setCargo] = useState(null);
-  const [loading, setLoading] = useState(true);
+// Com fallback
+<PermissionGuard permission="delete" fallback={<span>Sem permissão</span>}>
+  <button>Excluir</button>
+</PermissionGuard>
 
-  // Carrega permissões quando usuário loga
+// Verificação Django específica
+<PermissionGuard djangoPermission="contratos.add_contrato">
+  <BotaoNovoContrato />
+</PermissionGuard>
+```
+
+### 5. GlobalPermissionNotification
+
+Mostra banner quando ocorre erro 403.
+
+```jsx
+// src/components/GlobalPermissionNotification.jsx
+function GlobalPermissionNotification() {
+  const [notification, setNotification] = useState(null)
+  
   useEffect(() => {
-    if (isAuthenticated && user) {
-      // Permissões vêm no objeto user retornado pelo login
-      setPermissions(user.permissions || []);
-      setCargo(user.cargo || null);
-      setLoading(false);
-    } else {
-      setPermissions([]);
-      setCargo(null);
-      setLoading(false);
-    }
-  }, [isAuthenticated, user]);
-
-  /**
-   * Verifica se tem uma permissão específica (local)
-   */
-  const hasPermission = useCallback((permission) => {
-    // Busca exata ou por sufixo (ex: 'view_titular' em 'titulares.view_titular')
-    return permissions.some(p => 
-      p === permission || p.endsWith(`.${permission}`)
-    );
-  }, [permissions]);
-
-  /**
-   * Verifica permissão via API (quando precisa de certeza absoluta)
-   */
-  const checkPermissionAsync = useCallback(async (permission) => {
-    try {
-      const response = await api.get('/api/auth/check-permission/', {
-        params: { permission }
-      });
-      return response.data.has_permission;
-    } catch (error) {
-      console.error('Erro ao verificar permissão:', error);
-      return false;
-    }
-  }, []);
-
-  /**
-   * Helpers por ação
-   */
-  const canView = useCallback((model) => {
-    return hasPermission(`view_${model}`);
-  }, [hasPermission]);
-
-  const canAdd = useCallback((model) => {
-    return hasPermission(`add_${model}`);
-  }, [hasPermission]);
-
-  const canChange = useCallback((model) => {
-    return hasPermission(`change_${model}`);
-  }, [hasPermission]);
-
-  const canDelete = useCallback((model) => {
-    return hasPermission(`delete_${model}`);
-  }, [hasPermission]);
-
-  const value = {
-    permissions,
-    cargo,
-    loading,
-    hasPermission,
-    checkPermissionAsync,
-    canView,
-    canAdd,
-    canChange,
-    canDelete,
-  };
-
-  return (
-    <PermissionContext.Provider value={value}>
-      {children}
-    </PermissionContext.Provider>
-  );
-}
-
-export const usePermissions = () => {
-  const context = useContext(PermissionContext);
-  if (!context) {
-    throw new Error('usePermissions deve ser usado dentro de PermissionProvider');
-  }
-  return context;
-};
-```
-
-### Hook useModelPermissions
-
-Hook para verificar todas as permissões de um modelo.
-
-```jsx
-// frontend/src/hooks/useModelPermissions.js
-
-import { useMemo } from 'react';
-import { usePermissions } from '../context/PermissionContext';
-
-/**
- * Hook que retorna as permissões de um modelo específico.
- * 
- * Uso:
- * const { canView, canAdd, canChange, canDelete } = useModelPermissions('titular');
- * 
- * if (canDelete) {
- *   // mostrar botão de excluir
- * }
- */
-export function useModelPermissions(modelName) {
-  const { canView, canAdd, canChange, canDelete } = usePermissions();
-
-  const permissions = useMemo(() => ({
-    canView: canView(modelName),
-    canAdd: canAdd(modelName),
-    canChange: canChange(modelName),
-    canDelete: canDelete(modelName),
-  }), [modelName, canView, canAdd, canChange, canDelete]);
-
-  return permissions;
-}
-```
-
-### Componentes de Permissão
-
-```jsx
-// frontend/src/components/PermissionGuard/PermissionGuard.jsx
-
-import { usePermissions } from '../../context/PermissionContext';
-
-/**
- * Guard genérico por permissão completa.
- * 
- * Uso:
- * <PermissionGuard permission="titulares.delete_titular">
- *   <button>Excluir</button>
- * </PermissionGuard>
- */
-export function PermissionGuard({ permission, children, fallback = null }) {
-  const { hasPermission } = usePermissions();
-  
-  if (hasPermission(permission)) {
-    return children;
-  }
-  
-  return fallback;
-}
-
-/**
- * Guard por modelo e ação.
- * 
- * Uso:
- * <ModelPermissionGuard model="titular" action="delete">
- *   <button>Excluir</button>
- * </ModelPermissionGuard>
- */
-export function ModelPermissionGuard({ model, action, children, fallback = null }) {
-  const { canView, canAdd, canChange, canDelete } = usePermissions();
-  
-  const actionCheckers = {
-    view: canView,
-    add: canAdd,
-    change: canChange,
-    delete: canDelete,
-  };
-  
-  const checker = actionCheckers[action];
-  
-  if (checker && checker(model)) {
-    return children;
-  }
-  
-  return fallback;
-}
-
-/**
- * Guard que exige QUALQUER uma das permissões.
- */
-export function AnyPermissionGuard({ permissions = [], children, fallback = null }) {
-  const { hasPermission } = usePermissions();
-  
-  const hasAny = permissions.some(p => hasPermission(p));
-  
-  if (hasAny) {
-    return children;
-  }
-  
-  return fallback;
-}
-
-/**
- * Guard que exige TODAS as permissões.
- */
-export function AllPermissionsGuard({ permissions = [], children, fallback = null }) {
-  const { hasPermission } = usePermissions();
-  
-  const hasAll = permissions.every(p => hasPermission(p));
-  
-  if (hasAll) {
-    return children;
-  }
-  
-  return fallback;
-}
-```
-
-### Uso em Páginas
-
-```jsx
-// Exemplo: TitularList.jsx
-
-import { ModelPermissionGuard } from '../../components/PermissionGuard';
-import { useModelPermissions } from '../../hooks/useModelPermissions';
-
-export default function TitularList() {
-  const { canAdd, canChange, canDelete } = useModelPermissions('titular');
-  
-  const handleDelete = async (id) => {
-    // Verificação programática
-    if (!canDelete) {
-      alert('Você não tem permissão para excluir titulares.');
-      return;
+    function handlePermissionDenied(event) {
+      const { message } = event.detail
+      setNotification(message)
+      // Auto-hide após 5 segundos
+      setTimeout(() => setNotification(null), 5000)
     }
     
-    // ... lógica de exclusão
-  };
-
-  return (
-    <div>
-      <header>
-        <h1>Titulares</h1>
-        
-        {/* Botão só aparece se tiver permissão */}
-        <ModelPermissionGuard model="titular" action="add">
-          <Link to="/titulares/novo">+ Novo Titular</Link>
-        </ModelPermissionGuard>
-      </header>
-
-      <table>
-        {/* ... listagem ... */}
-        <td>
-          <Link to={`/titulares/${id}`}>
-            {canChange ? 'Editar' : 'Visualizar'}
-          </Link>
-          
-          {/* Botão excluir só para quem pode */}
-          <ModelPermissionGuard model="titular" action="delete">
-            <button onClick={() => handleDelete(id)}>Excluir</button>
-          </ModelPermissionGuard>
-        </td>
-      </table>
-    </div>
-  );
+    window.addEventListener('atlas:permission-denied', handlePermissionDenied)
+    return () => window.removeEventListener(...)
+  }, [])
+  
+  // Renderiza banner vermelho no topo da tela
 }
 ```
 
 ---
 
-## 🔄 Fluxo de Verificação
+## 🔄 Fluxo de Verificação Completo
 
-### Fluxo Completo
+### 1. Usuário acessa `/pesquisa`
 
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                         FRONTEND (React)                                    │
-└────────────────────────────────────────────────────────────────────────────┘
+Frontend:
+  ├── SistemaRouteGuard verifica: /pesquisa é exclusiva de 'prazos'
+  │   ├── Usuário tem sistema 'prazos'? → Sim → Continua
+  │   └── Sistema ativo é 'prazos'? → Sim → Renderiza página
+  │
+  └── Página faz GET /api/v1/pesquisa/
+      │
+Backend:
+  ├── IsAuthenticated: Token válido? ✅
+  ├── SistemaPermission: Rota pertence a 'prazos', usuário tem acesso? ✅
+  └── CargoBasedPermission: Usuário tem 'pesquisa.view_*'? ✅
+      │
+      └── Retorna dados 200 OK
+```
 
-1. Login
-   │
-   ▼
-┌─────────────────────────────────────┐
-│ POST /api/auth/login/               │
-│ Response: {access, refresh, user}   │
-│ user.permissions = ['view_titular', │
-│   'add_titular', 'change_titular']  │
-└─────────────────────────────────────┘
-   │
-   ▼
-2. PermissionContext carrega permissões
-   │
-   ▼
-3. Usuário acessa página de Titulares
-   │
-   ▼
-┌─────────────────────────────────────┐
-│ <ModelPermissionGuard               │
-│   model="titular"                   │
-│   action="delete">                  │
-│   <button>Excluir</button>          │
-│ </ModelPermissionGuard>             │
-│                                     │
-│ → Verifica se 'delete_titular'      │
-│   está em permissions               │
-│ → Gestor: NÃO TEM → botão oculto    │
-│ → Diretor: TEM → botão visível      │
-└─────────────────────────────────────┘
-   │
-   ▼
-4. Usuário clica em Excluir (se visível)
-   │
-   ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                          BACKEND (Django)                                   │
-└────────────────────────────────────────────────────────────────────────────┘
-   │
-   ▼
-┌─────────────────────────────────────┐
-│ DELETE /api/v1/titulares/123/       │
-│ Header: Authorization: Bearer <JWT> │
-└─────────────────────────────────────┘
-   │
-   ▼
-5. JWTAuthentication valida token
-   │
-   ▼
-6. CargoBasedPermission.has_permission()
-   │
-   ├── Método: DELETE → ação: delete
-   ├── Modelo: Titular → titulares.delete_titular
-   ├── user.has_perm('titulares.delete_titular')
-   │
-   ├── Consultor/Gestor: FALSE
-   │   └── 403 Forbidden
-   │       {"detail": "Você não tem permissão para excluir titular."}
-   │
-   └── Diretor: TRUE
-       └── 204 No Content (excluído com sucesso)
+### 2. Consultor tenta criar Titular
+
+```
+Frontend:
+  ├── hasPermission('add') → false (Consultor só tem 'view')
+  └── Botão "Novo Titular" não aparece (PermissionGuard)
+  
+Se tentar via URL direta:
+  │
+Backend (POST /api/v1/titulares/):
+  ├── IsAuthenticated: ✅
+  ├── SistemaPermission: ✅
+  └── CargoBasedPermission: 
+      └── Usuário tem 'titulares.add_titular'? ❌
+          └── Retorna 403 + mensagem em português
+```
+
+### 3. EmpresaForm carrega recursos com permissões isoladas
+
+```
+Frontend (EmpresaForm):
+  │
+  ├── GET /api/v1/empresas/{id}/          → OBRIGATÓRIO
+  │   └── Falha? → Mostra erro, para
+  │
+  ├── GET /api/v1/empresas-prestadoras/   → OPCIONAL (silent403: true)
+  │   └── 403? → setPermissoes({prestadoras: false}), SEM notificação
+  │
+  └── GET /api/v1/contratos/?empresa=id   → OPCIONAL (silent403: true)
+      └── 403? → setPermissoes({contratos: false}), SEM notificação
+      
+Renderização:
+  ├── Dados da empresa: sempre mostra
+  └── Seção de contratos:
+      ├── permissoes.contratos === true → Lista contratos
+      └── permissoes.contratos === false → "🔒 Sem permissão"
 ```
 
 ---
 
-## ⚙️ Configuração de Cargos
+## 🔒 Isolamento por Sistema
 
-### Management Command: setup_cargo_permissions
+### Conceito
+
+Usuários podem ter acesso a múltiplos sistemas (Prazos, OS), mas só podem acessar rotas do sistema em que estão ativos.
+
+### Implementação Backend
 
 ```python
-# backend/apps/accounts/management/commands/setup_cargo_permissions.py
-
-from django.core.management.base import BaseCommand
-from django.contrib.auth.models import Group, Permission
-
-class Command(BaseCommand):
-    help = 'Configura as permissões de cada cargo (Group)'
-
-    def handle(self, *args, **options):
-        # Modelos que recebem permissões
-        protected_models = [
-            'titular',
-            'dependente', 
-            'vinculotitular',
-            'vinculodependente',
-            'empresa',
-            'usuario',
-            'usuariovinculo',
-        ]
-        
-        # Definição de permissões por cargo
-        cargo_permissions = {
-            'Consultor': ['view'],
-            'Gestor': ['view', 'add', 'change'],
-            'Diretor': ['view', 'add', 'change', 'delete'],
-        }
-        
-        for cargo_name, actions in cargo_permissions.items():
-            try:
-                cargo = Group.objects.get(name=cargo_name)
-            except Group.DoesNotExist:
-                cargo = Group.objects.create(name=cargo_name)
-                self.stdout.write(f'Cargo criado: {cargo_name}')
-            
-            # Limpa permissões atuais
-            cargo.permissions.clear()
-            
-            # Adiciona permissões
-            for model in protected_models:
-                for action in actions:
-                    codename = f'{action}_{model}'
-                    try:
-                        permission = Permission.objects.get(codename=codename)
-                        cargo.permissions.add(permission)
-                        self.stdout.write(
-                            self.style.SUCCESS(f'  ✓ {cargo_name}: {codename}')
-                        )
-                    except Permission.DoesNotExist:
-                        self.stdout.write(
-                            self.style.WARNING(f'  ⚠ Permissão não encontrada: {codename}')
-                        )
-        
-        self.stdout.write(self.style.SUCCESS('\nPermissões configuradas com sucesso!'))
+# permissions.py
+def get_sistema_for_route(request_path, view):
+    """Determina qual sistema uma rota pertence."""
+    for part in request_path.split('/'):
+        for sistema, rotas in SISTEMA_ROUTES.items():
+            if part in rotas:
+                return sistema
+    return None  # Compartilhada
 ```
 
-### Executar Configuração
+### Implementação Frontend
 
-```bash
-# Via Docker
-docker compose exec backend python manage.py setup_cargo_permissions
+```javascript
+// sistemasRoutes.js
+export function getRequiredSistema(path) {
+  const basePath = '/' + path.split('/').filter(Boolean)[0]
+  return EXCLUSIVE_ROUTE_MAP[basePath] || null
+}
 
-# Local
-python manage.py setup_cargo_permissions
+export function canAccessRoute(path, activeSistema, sistemasDisponiveis) {
+  const required = getRequiredSistema(path)
+  if (!required) return true  // Compartilhada
+  
+  const hasAccess = sistemasDisponiveis.some(s => s.codigo === required)
+  const isActive = activeSistema === required
+  
+  return hasAccess && isActive
+}
 ```
 
-### Verificar Permissões via Django Admin
+---
 
-1. Acesse http://localhost:8000/admin/
-2. Vá em **Autenticação e Autorização** → **Grupos**
-3. Clique em um cargo (ex: Consultor)
-4. Verifique as permissões atribuídas
+## 📦 Isolamento por Recurso
 
-### Verificar Permissões via Shell
+### Conceito
+
+Quando uma página carrega múltiplos recursos (ex: Empresa + Contratos), cada recurso deve ser tratado independentemente. Falha em um não deve bloquear os outros.
+
+### Implementação
+
+**1. API com `silent403`:**
+
+```javascript
+// services/api.js
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (status === 403) {
+      // Permite suprimir notificação global
+      if (!originalRequest.silent403) {
+        dispatchPermissionDenied(message)
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+```
+
+**2. Services com versões silenciosas:**
+
+```javascript
+// services/contratos.js
+export const getContratos = (params) => 
+  api.get('/api/v1/contratos/', { params })
+
+export const getContratosSilent = (params) => 
+  api.get('/api/v1/contratos/', { params, silent403: true })
+```
+
+**3. Componentes com carregamento isolado:**
+
+```jsx
+// pages/EmpresaForm.jsx
+const [permissoes, setPermissoes] = useState({
+  contratos: true,
+  prestadoras: true,
+})
+
+async function loadEmpresa() {
+  // 1. Empresa (obrigatório)
+  try {
+    const empresa = await getEmpresa(id)
+    setEmpresaData(empresa)
+  } catch {
+    setError('Erro ao carregar empresa')
+    return  // Para aqui se falhar
+  }
+  
+  // 2. Contratos (opcional - silent)
+  try {
+    const contratos = await getContratosSilent({empresa: id})
+    setContratos(contratos)
+  } catch (err) {
+    if (err.response?.status === 403) {
+      setPermissoes(prev => ({...prev, contratos: false}))
+    }
+  }
+}
+
+// Na renderização
+{!permissoes.contratos ? (
+  <div className="alert alert-info">
+    🔒 Você não tem permissão para visualizar contratos.
+  </div>
+) : (
+  <ListaContratos contratos={contratos} />
+)}
+```
+
+---
+
+## 👥 Estrutura de Cargos e Permissões
+
+### Matriz de Permissões
+
+| Cargo | view | add | change | delete | admin | export |
+|-------|:----:|:---:|:------:|:------:|:-----:|:------:|
+| **Consultor** | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Gestor** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| **Diretor** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### Hierarquia de Cargos
+
+```javascript
+const CARGO_HIERARCHY = {
+  consultor: 1,
+  gestor: 2,
+  diretor: 3,
+}
+```
+
+O sistema usa o **cargo mais alto** quando o usuário tem múltiplos departamentos em um sistema.
+
+### Permissões Django por Cargo
 
 ```python
-# docker compose exec backend python manage.py shell
+# Consultor
+consultor_permissions = [
+    'titulares.view_titular',
+    'titulares.view_dependente',
+    'empresa.view_empresa',
+    # ... apenas view_*
+]
 
-from django.contrib.auth.models import Group
+# Gestor
+gestor_permissions = [
+    'titulares.view_titular',
+    'titulares.add_titular',
+    'titulares.change_titular',
+    # ... view_*, add_*, change_*
+]
 
-# Ver permissões de um cargo
-cargo = Group.objects.get(name='Consultor')
-for perm in cargo.permissions.all():
-    print(f'{perm.content_type.app_label}.{perm.codename}')
-
-# Ver permissões de um usuário
-from apps.accounts.models import User
-user = User.objects.get(email='joao@example.com')
-print(user.get_all_permissions())
+# Diretor
+diretor_permissions = [
+    'titulares.view_titular',
+    'titulares.add_titular',
+    'titulares.change_titular',
+    'titulares.delete_titular',
+    # ... todas as permissões
+]
 ```
 
 ---
 
-## 🔧 Troubleshooting
+## 📡 API: Headers e Configuração
 
-### Problema: Permissões não estão sendo verificadas
+### Headers Enviados
 
-**Sintoma:** Qualquer usuário consegue fazer qualquer ação.
+```javascript
+// services/api.js
+api.interceptors.request.use((config) => {
+  // Token JWT
+  config.headers.Authorization = `Bearer ${token}`
+  
+  // Sistema ativo (para validação backend)
+  config.headers['X-Active-Sistema'] = localStorage.getItem('active_sistema')
+  
+  // Departamento ativo
+  config.headers['X-Active-Department'] = localStorage.getItem('active_department')
+  
+  return config
+})
+```
 
-**Solução:**
-1. Verifique se o ViewSet tem `permission_classes`:
-   ```python
-   permission_classes = [IsAuthenticated, CargoBasedPermission]
-   ```
-2. Verifique se o backend está configurado:
-   ```python
-   # settings.py
-   AUTHENTICATION_BACKENDS = ['apps.accounts.backends.CustomModelBackend']
-   ```
+### Configuração DRF
 
-### Problema: Usuário não tem permissões mesmo sendo do cargo correto
-
-**Sintoma:** Diretor não consegue excluir, mesmo com permissão.
-
-**Solução:**
-1. Verifique se o usuário está no grupo correto:
-   ```python
-   user.groups.all()
-   ```
-2. Verifique se o grupo tem as permissões:
-   ```python
-   cargo = Group.objects.get(name='Diretor')
-   cargo.permissions.filter(codename__contains='delete')
-   ```
-3. Re-execute o comando de setup:
-   ```bash
-   python manage.py setup_cargo_permissions
-   ```
-
-### Problema: Frontend mostra botões que não deveria
-
-**Sintoma:** Botão de excluir aparece para Consultor.
-
-**Solução:**
-1. Verifique se as permissões estão vindo no login:
-   ```javascript
-   console.log(user.permissions);
-   ```
-2. Verifique se o PermissionContext está carregando:
-   ```javascript
-   const { permissions, cargo } = usePermissions();
-   console.log('Cargo:', cargo, 'Perms:', permissions);
-   ```
-3. Verifique se o guard está correto:
-   ```jsx
-   <ModelPermissionGuard model="titular" action="delete">
-   ```
-
-### Problema: Erro 403 mesmo com permissão
-
-**Sintoma:** API retorna 403 Forbidden.
-
-**Solução:**
-1. Verifique o token JWT:
-   ```bash
-   # Decodificar JWT (jwt.io)
-   ```
-2. Verifique se o usuário está ativo:
-   ```python
-   user.is_active  # Deve ser True
-   ```
-3. Teste a permissão diretamente:
-   ```python
-   user.has_perm('titulares.delete_titular')
-   ```
+```python
+# settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}
+```
 
 ---
 
-## 🔗 Próxima Leitura
+## 🔍 Troubleshooting
 
-- [Backend](backend.md) - Estrutura Django completa
-- [Frontend](frontend.md) - Estrutura React completa
-- [Melhorias](melhorias.md) - Backlog de melhorias
+### Erro: "Você não tem acesso ao sistema X"
+
+**Causa:** Usuário tentando acessar rota de sistema sem permissão.
+
+**Solução:**
+1. Verificar `user.sistemas_disponiveis` no console
+2. Verificar se `X-Active-Sistema` está sendo enviado
+3. Verificar mapeamento em `SISTEMA_ROUTES`
+
+### Erro: "Você não tem permissão para X"
+
+**Causa:** Cargo do usuário não tem a permissão necessária.
+
+**Solução:**
+1. Verificar cargo do usuário: `user.permissoes_lista`
+2. Verificar grupo Django no admin
+3. Verificar `permission_classes` do ViewSet
+
+### Notificação 403 aparecendo indevidamente
+
+**Causa:** Requisição não está usando `silent403`.
+
+**Solução:**
+```javascript
+// Usar versão silenciosa
+const data = await getRecursoSilent(params)
+
+// Ou adicionar flag manualmente
+api.get('/endpoint/', { params, silent403: true })
+```
+
+### Debug: Ver permissões do usuário
+
+```javascript
+// No console do navegador
+const user = JSON.parse(localStorage.getItem('user'))
+console.log('Sistemas:', user.sistemas_disponiveis)
+console.log('Permissões:', user.permissoes)
+console.log('Django:', user.permissoes_django)
+```
+
+---
+
+## 🚀 Melhorias Futuras
+
+### 1. Permissões por Objeto (Row-Level Security)
+
+**Situação atual:** Permissões são por model (pode ver TODOS os titulares ou NENHUM).
+
+**Melhoria:** Permitir que usuário veja apenas registros de suas empresas.
+
+```python
+# Exemplo de implementação futura
+class TitularPermission(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        # Verificar se titular pertence a empresa do usuário
+        user_empresas = request.user.get_empresas()
+        return obj.vinculo_set.filter(empresa__in=user_empresas).exists()
+```
+
+### 2. Cache de Permissões
+
+**Situação atual:** Permissões verificadas a cada requisição.
+
+**Melhoria:** Cache Redis com invalidação inteligente.
+
+```python
+# Exemplo
+@cached(timeout=300, key='user_perms_{user_id}')
+def get_user_permissions(user_id):
+    return User.objects.get(id=user_id).get_all_permissions()
+```
+
+### 3. Auditoria de Acessos Negados
+
+**Situação atual:** Erros 403 só aparecem em logs genéricos.
+
+**Melhoria:** Tabela de auditoria para análise de segurança.
+
+```python
+class AccessDeniedLog(models.Model):
+    user = models.ForeignKey(User)
+    path = models.CharField(max_length=500)
+    method = models.CharField(max_length=10)
+    permission_required = models.CharField(max_length=100)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField()
+```
+
+### 4. Permissões Temporárias
+
+**Situação atual:** Permissões são permanentes até alteração manual.
+
+**Melhoria:** Permissões com data de expiração (férias, projetos).
+
+```python
+class PermissaoTemporaria(models.Model):
+    user = models.ForeignKey(User)
+    permission = models.ForeignKey(Permission)
+    data_inicio = models.DateTimeField()
+    data_fim = models.DateTimeField()
+    motivo = models.TextField()
+    aprovado_por = models.ForeignKey(User, related_name='aprovacoes')
+```
+
+### 5. Delegação de Permissões
+
+**Situação atual:** Apenas admin pode alterar permissões.
+
+**Melhoria:** Gestores podem delegar permissões limitadas.
+
+```python
+# Gestor pode dar permissão temporária de "view" para consultor
+class DelegacaoPermissao(models.Model):
+    delegante = models.ForeignKey(User)  # Quem delegou
+    delegado = models.ForeignKey(User)   # Quem recebeu
+    permissao = models.CharField()       # Qual permissão
+    escopo = models.JSONField()          # Filtros (ex: só empresa X)
+    validade = models.DateTimeField()
+```
+
+### 6. UI de Gestão de Permissões
+
+**Situação atual:** Permissões gerenciadas via Django Admin.
+
+**Melhoria:** Interface no Atlas para gestores/diretores.
+
+```
+/configuracoes/permissoes
+├── Matriz visual de permissões por cargo
+├── Comparador de permissões entre usuários
+├── Simulador "O que este usuário pode fazer?"
+└── Histórico de alterações
+```
+
+### 7. Permissões por Contexto de Dados
+
+**Situação atual:** Não há filtro por contexto (ex: data, status).
+
+**Melhoria:** Consultor só vê registros dos últimos 30 dias.
+
+```python
+class ContextualPermission(permissions.BasePermission):
+    def filter_queryset(self, request, queryset, view):
+        if request.user.cargo == 'consultor':
+            return queryset.filter(
+                created_at__gte=timezone.now() - timedelta(days=30)
+            )
+        return queryset
+```
+
+---
+
+## 📚 Referências
+
+- [Django Permissions](https://docs.djangoproject.com/en/5.0/topics/auth/default/#permissions)
+- [DRF Permissions](https://www.django-rest-framework.org/api-guide/permissions/)
+- [JWT Authentication](https://django-rest-framework-simplejwt.readthedocs.io/)
+
+---
+
+*Última atualização: Janeiro/2026*

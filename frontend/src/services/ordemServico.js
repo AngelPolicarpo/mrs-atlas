@@ -31,6 +31,9 @@ export const createEmpresaPrestadora = (data) => api.post('/api/v1/empresas-pres
 export const updateEmpresaPrestadora = (id, data) => api.patch(`/api/v1/empresas-prestadoras/${id}/`, data)
 export const deleteEmpresaPrestadora = (id) => api.delete(`/api/v1/empresas-prestadoras/${id}/`)
 
+// Versão silenciosa (não dispara notificação global em caso de 403)
+export const getEmpresasPrestadorasSilent = (params) => api.get('/api/v1/empresas-prestadoras/', { params, silent403: true })
+
 // Search para autocomplete
 export const searchEmpresasPrestadoras = (search) => api.get('/api/v1/empresas-prestadoras/', { params: { search, ativo: true, page_size: 20 } })
 

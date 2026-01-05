@@ -798,10 +798,13 @@ class PesquisaUnificadaViewSet(PermissionMessageMixin, viewsets.ViewSet):
         return Response({
             'results': results,
             'count': total_titulares,
-            'total_records': len(results),  # Total de registros na página (titulares + dependentes)
+            'count_titulares': total_titulares,  # Apenas titulares (para paginação)
+            'total_records': len(results),  # Total de registros na página (titulares + dependentes + vínculos)
             'page': page,
             'page_size': page_size,
             'total_pages': paginator.num_pages,
             'has_next': titulares_page.has_next(),
             'has_previous': titulares_page.has_previous(),
+            # Metadados para exportação
+            '_pagination_note': 'count reflete titulares para paginação; results inclui dependentes e vínculos múltiplos',
         })

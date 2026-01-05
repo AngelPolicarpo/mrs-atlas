@@ -162,7 +162,8 @@ class TitularListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Titular
         fields = ['id', 'nome', 'rnm', 'cpf', 'passaporte', 'nacionalidade', 'email', 'telefone',
-                  'filiacao_um', 'filiacao_dois', 'data_nascimento', 'vinculos_count', 'dependentes_count', 'vinculos']
+                  'filiacao_um', 'filiacao_dois', 'data_nascimento', 'vinculos_count', 'dependentes_count', 
+                  'vinculos', 'data_criacao', 'ultima_atualizacao']
     
     def get_vinculos_count(self, obj):
         return obj.vinculos.filter(status=True).count()

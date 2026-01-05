@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { getEmpresa, createEmpresa, updateEmpresa } from '../services/empresas'
-import { getContratos, createContrato, updateContrato, getContratoServicos, createContratoServico, updateContratoServico, deleteContratoServico, cancelarContrato, finalizarContrato } from '../services/contratos'
-import { getServicosAtivos, getEmpresasPrestadoras } from '../services/ordemServico'
+import { getContratosSilent, createContrato, updateContrato, getContratoServicos, createContratoServico, updateContratoServico, deleteContratoServico, cancelarContrato, finalizarContrato } from '../services/contratos'
+import { getServicosAtivos, getEmpresasPrestadorasSilent } from '../services/ordemServico'
 import useAutoComplete from '../hooks/useAutoComplete'
 import { formatNomeInput, normalizeNome, formatCNPJ, validateCNPJ, removeFormatting } from '../utils/validation'
 
@@ -39,6 +39,12 @@ function EmpresaForm() {
   const [contratos, setContratos] = useState([])
   const [expandedContrato, setExpandedContrato] = useState(null)
   const [empresasPrestadoras, setEmpresasPrestadoras] = useState([])
+  
+  // Estados de permissão para recursos relacionados
+  const [permissoes, setPermissoes] = useState({
+    contratos: true,        // Pode ver contratos
+    prestadoras: true,      // Pode ver empresas prestadoras
+  })
   
   // Estado para erros de validação de campos
   const [fieldErrors, setFieldErrors] = useState({})
@@ -77,56 +83,86 @@ function EmpresaForm() {
       setLoading(true)
       setError('')
 
-      const [empresaRes, contratosRes, prestadorasRes] = await Promise.all([
-        getEmpresa(id),
-        getContratos({ empresa_contratante: id, page_size: 1000 }),
-        getEmpresasPrestadoras({ page_size: 1000, ativo: true })
-      ])
-
-      const empresa = empresaRes.data
-      setEmpresaData({
-        nome: empresa.nome || '',
-        cnpj: empresa.cnpj || '',
-        email: empresa.email || '',
-        telefone: empresa.telefone || '',
-        endereco: empresa.endereco || '',
-        status: empresa.status ?? true,
-        data_registro: empresa.data_registro || '',
-      })
-
-      setEmpresasPrestadoras(prestadorasRes.data.results || prestadorasRes.data || [])
-
-      // Carregar contratos com seus serviços
-      const contratosComServicos = await Promise.all(
-        (contratosRes.data.results || contratosRes.data || []).map(async (c) => {
-          try {
-            const servicosRes = await getContratoServicos(c.id)
-            return {
-              ...c,
-              _id: c.id, // Garantir que _id seja preenchido com o id do banco
-              _isNew: false,
-              _servicos: (servicosRes.data || []).map(s => ({
-                ...s,
-                _isNew: false,
-                _hasChanges: false
-              })),
-              _hasChanges: false
-            }
-          } catch {
-            return {
-              ...c,
-              _id: c.id, // Garantir que _id seja preenchido com o id do banco
-              _isNew: false,
-              _servicos: [],
-              _hasChanges: false
-            }
-          }
+      // 1. Carregar empresa (obrigatório - sem isso não faz sentido a página)
+      let empresa
+      try {
+        const empresaRes = await getEmpresa(id)
+        empresa = empresaRes.data
+        setEmpresaData({
+          nome: empresa.nome || '',
+          cnpj: empresa.cnpj || '',
+          email: empresa.email || '',
+          telefone: empresa.telefone || '',
+          endereco: empresa.endereco || '',
+          status: empresa.status ?? true,
+          data_registro: empresa.data_registro || '',
         })
-      )
+      } catch (err) {
+        // Se não conseguir carregar a empresa, mostra erro
+        setError('Erro ao carregar dados da empresa. Verifique suas permissões.')
+        console.error('Erro ao carregar empresa:', err)
+        setLoading(false)
+        return
+      }
 
-      setContratos(contratosComServicos)
+      // 2. Carregar empresas prestadoras (independente - falha silenciosa)
+      try {
+        const prestadorasRes = await getEmpresasPrestadorasSilent({ page_size: 1000, ativo: true })
+        setEmpresasPrestadoras(prestadorasRes.data.results || prestadorasRes.data || [])
+      } catch (err) {
+        // Falha silenciosa - usuário pode não ter permissão para ver prestadoras
+        console.warn('Não foi possível carregar empresas prestadoras:', err.response?.status)
+        setEmpresasPrestadoras([])
+        if (err.response?.status === 403) {
+          setPermissoes(prev => ({ ...prev, prestadoras: false }))
+        }
+      }
+
+      // 3. Carregar contratos (independente - falha silenciosa)
+      try {
+        const contratosRes = await getContratosSilent({ empresa_contratante: id, page_size: 1000 })
+        
+        // Carregar serviços de cada contrato (também com falha isolada)
+        const contratosComServicos = await Promise.all(
+          (contratosRes.data.results || contratosRes.data || []).map(async (c) => {
+            try {
+              const servicosRes = await getContratoServicos(c.id)
+              return {
+                ...c,
+                _id: c.id,
+                _isNew: false,
+                _servicos: (servicosRes.data || []).map(s => ({
+                  ...s,
+                  _isNew: false,
+                  _hasChanges: false
+                })),
+                _hasChanges: false
+              }
+            } catch {
+              // Se não conseguir carregar serviços, mostra contrato sem eles
+              return {
+                ...c,
+                _id: c.id,
+                _isNew: false,
+                _servicos: [],
+                _hasChanges: false,
+                _servicosError: true
+              }
+            }
+          })
+        )
+        setContratos(contratosComServicos)
+      } catch (err) {
+        // Falha silenciosa - usuário pode não ter permissão para ver contratos
+        console.warn('Não foi possível carregar contratos:', err.response?.status)
+        setContratos([])
+        if (err.response?.status === 403) {
+          setPermissoes(prev => ({ ...prev, contratos: false }))
+        }
+      }
+
     } catch (err) {
-      setError('Erro ao carregar dados da empresa')
+      setError('Erro inesperado ao carregar dados')
       console.error(err)
     } finally {
       setLoading(false)
@@ -135,10 +171,13 @@ function EmpresaForm() {
 
   async function loadEmpresasPrestadoras() {
     try {
-      const res = await getEmpresasPrestadoras({ page_size: 1000, ativo: true })
+      const res = await getEmpresasPrestadorasSilent({ page_size: 1000, ativo: true })
       setEmpresasPrestadoras(res.data.results || res.data || [])
     } catch (err) {
       console.error('Erro ao carregar prestadoras', err)
+      if (err.response?.status === 403) {
+        setPermissoes(prev => ({ ...prev, prestadoras: false }))
+      }
     }
   }
 
@@ -554,39 +593,57 @@ function EmpresaForm() {
           <div className="form-section">
             <h3>📝 Contratos</h3>
             
-            <div style={{ marginBottom: '1rem' }}>
-              <button
-                type="button"
-                onClick={handleAddContrato}
-                className="btn btn-success"
-              >
-                + Novo Contrato
-              </button>
-            </div>
-
-            {contratos.length === 0 ? (
-              <p className="text-muted">Nenhum contrato. Clique em "+ Novo Contrato" para começar.</p>
-            ) : (
-              <div className="contratos-list">
-                {contratos.map((contrato, idx) => (
-                  <div key={contrato._id} id={`contrato-${contrato._id}`}>
-                    <ContratoAccordion
-                      contrato={contrato}
-                      index={idx}
-                      isExpanded={expandedContrato === contrato._id}
-                      onToggle={() => toggleContratoExpanded(contrato._id)}
-                      onChange={(field, value) => handleContratoChange(contrato._id, field, value)}
-                      onAddServico={() => handleAddServico(contrato._id)}
-                      onServicoChange={(sIdx, field, value) => handleServicoChange(contrato._id, sIdx, field, value)}
-                      onRemoveServico={(sIdx) => handleRemoveServico(contrato._id, sIdx)}
-                      onReload={loadEmpresa}
-                      setError={setError}
-                      setSuccess={setSuccess}
-                      empresasPrestadoras={empresasPrestadoras}
-                    />
-                  </div>
-                ))}
+            {!permissoes.contratos ? (
+              <div className="alert alert-info" style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem',
+                padding: '1rem',
+                background: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                borderRadius: '0.5rem',
+                color: '#0369a1'
+              }}>
+                <span>🔒</span>
+                <span>Você não tem permissão para visualizar contratos desta empresa.</span>
               </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={handleAddContrato}
+                    className="btn btn-success"
+                  >
+                    + Novo Contrato
+                  </button>
+                </div>
+
+                {contratos.length === 0 ? (
+                  <p className="text-muted">Nenhum contrato. Clique em "+ Novo Contrato" para começar.</p>
+                ) : (
+                  <div className="contratos-list">
+                    {contratos.map((contrato, idx) => (
+                      <div key={contrato._id} id={`contrato-${contrato._id}`}>
+                        <ContratoAccordion
+                          contrato={contrato}
+                          index={idx}
+                          isExpanded={expandedContrato === contrato._id}
+                          onToggle={() => toggleContratoExpanded(contrato._id)}
+                          onChange={(field, value) => handleContratoChange(contrato._id, field, value)}
+                          onAddServico={() => handleAddServico(contrato._id)}
+                          onServicoChange={(sIdx, field, value) => handleServicoChange(contrato._id, sIdx, field, value)}
+                          onRemoveServico={(sIdx) => handleRemoveServico(contrato._id, sIdx)}
+                          onReload={loadEmpresa}
+                          setError={setError}
+                          setSuccess={setSuccess}
+                          empresasPrestadoras={empresasPrestadoras}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

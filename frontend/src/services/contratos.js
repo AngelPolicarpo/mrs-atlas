@@ -10,6 +10,9 @@ export const createContrato = (data) => api.post('/api/v1/contratos/', data)
 export const updateContrato = (id, data) => api.patch(`/api/v1/contratos/${id}/`, data)
 export const deleteContrato = (id) => api.delete(`/api/v1/contratos/${id}/`)
 
+// Versões silenciosas (não disparam notificação global em caso de 403)
+export const getContratosSilent = (params) => api.get('/api/v1/contratos/', { params, silent403: true })
+
 // Search para autocomplete (busca por número ou empresa contratante)
 export const searchContratos = (search) => api.get('/api/v1/contratos/ativos/', { params: { search } })
 

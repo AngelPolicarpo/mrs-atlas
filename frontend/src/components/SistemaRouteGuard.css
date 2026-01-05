@@ -6,7 +6,6 @@
   justify-content: center;
   min-height: 70vh;
   padding: 2rem;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
 }
 
 .sistema-access-denied .denied-container {

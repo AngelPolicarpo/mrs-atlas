@@ -26,7 +26,7 @@ export function GlobalPermissionNotification() {
         setIsVisible(false)
         // Limpa após animação
         setTimeout(() => setNotification(null), 300)
-      }, 5000)
+      }, 3000)
     }
     
     window.addEventListener('atlas:permission-denied', handlePermissionDenied)
@@ -52,7 +52,6 @@ export function GlobalPermissionNotification() {
         </svg>
       </div>
       <div className="notification-content">
-        <strong>Acesso Negado</strong>
         <span>{notification}</span>
       </div>
       <button 

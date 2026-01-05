@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react'
 import CountryAutocomplete from './CountryAutocomplete'
+import SearchAutocomplete from './SearchAutocomplete'
 
 /**
  * Componente puro para renderizar filtros da pesquisa
@@ -82,31 +83,25 @@ function PesquisaFilters({
             </div>
 
             <div className="form-group">
-              <label className="form-label">Empresa</label>
-              <input
-                type="text"
-                className="form-input"
-                value={filters.filters.empresaText || ''}
-                onChange={(e) => {
-                  filters.handleTextChange('empresaText', e.target.value)
-                  empresasAutocomplete.search(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const emp = empresasAutocomplete.suggestions.find(
-                    e2 => e2.nome.toLowerCase() === e.target.value.toLowerCase()
-                  )
-                  if (emp) {
-                    filters.handleItemSelect('empresa', emp.nome, emp.id)
+              <SearchAutocomplete
+                id="filter-empresa"
+                label="Empresa"
+                value={filters.filters.empresa}
+                displayValue={filters.filters.empresaText || ''}
+                onChange={({ id, text }) => {
+                  filters.handleTextChange('empresaText', text)
+                  if (id) {
+                    filters.handleItemSelect('empresa', text, id)
                   }
                 }}
-                list="empresas-list"
+                suggestions={empresasAutocomplete.suggestions}
+                onSearch={empresasAutocomplete.search}
+                loading={empresasAutocomplete.loading}
                 placeholder="Digite para buscar..."
+                getDisplayText={(emp) => emp?.nome || ''}
+                getSubText={(emp) => emp?.cnpj || ''}
+                getId={(emp) => emp?.id}
               />
-              <datalist id="empresas-list">
-                {empresasAutocomplete.suggestions.map(emp => (
-                  <option key={emp.id} value={emp.nome} />
-                ))}
-              </datalist>
             </div>
 
             <div className="form-group">

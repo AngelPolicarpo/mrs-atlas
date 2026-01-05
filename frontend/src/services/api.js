@@ -196,10 +196,14 @@ api.interceptors.response.use(
     
     // =================================================================
     // 403 - Sem permissão: dispara evento para feedback ao usuário
+    // (a menos que a requisição tenha silent403 = true)
     // =================================================================
     if (status === 403) {
-      const message = getErrorMessage(error)
-      dispatchPermissionDenied(message)
+      // Permite suprimir notificação global para carregamentos isolados
+      if (!originalRequest.silent403) {
+        const message = getErrorMessage(error)
+        dispatchPermissionDenied(message)
+      }
       // Não bloqueia - deixa o componente tratar o erro também
     }
     

@@ -55,6 +55,7 @@ function Login() {
             <label className="form-label">Senha</label>
             <input
               type="password"
+              style={{ marginBottom: '18px' }}
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

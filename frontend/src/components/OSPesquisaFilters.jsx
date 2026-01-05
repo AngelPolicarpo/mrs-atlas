@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react'
+import SearchAutocomplete from './SearchAutocomplete'
 
 /**
  * Componente de filtros para Pesquisa Avançada de Ordens de Serviço
@@ -79,153 +80,117 @@ function OSPesquisaFilters({
 
             {/* Contrato */}
             <div className="form-group">
-              <label className="form-label">Contrato</label>
-              <input
-                type="text"
-                className="form-input"
-                value={filters.filters.contratoText || ''}
-                onChange={(e) => {
-                  filters.handleTextChange('contratoText', e.target.value)
-                  contratosAutocomplete.search(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const item = contratosAutocomplete.suggestions.find(
-                    c => c.numero?.toLowerCase() === e.target.value.toLowerCase()
-                  )
-                  if (item) {
-                    filters.handleItemSelect('contrato', item.numero, item.id)
+              <SearchAutocomplete
+                id="filter-contrato"
+                label="Contrato"
+                value={filters.filters.contrato}
+                displayValue={filters.filters.contratoText || ''}
+                onChange={({ id, text }) => {
+                  filters.handleTextChange('contratoText', text)
+                  if (id) {
+                    filters.handleItemSelect('contrato', text, id)
                   }
                 }}
-                list="contratos-list"
+                suggestions={contratosAutocomplete.suggestions}
+                onSearch={contratosAutocomplete.search}
+                loading={contratosAutocomplete.loading}
                 placeholder="Digite para buscar..."
+                getDisplayText={(c) => c?.numero || ''}
+                getSubText={(c) => c?.empresa_contratante_nome || ''}
+                getId={(c) => c?.id}
               />
-              <datalist id="contratos-list">
-                {contratosAutocomplete.suggestions.map(c => (
-                  <option key={c.id} value={c.numero}>
-                    {c.numero} - {c.empresa_contratante_nome}
-                  </option>
-                ))}
-              </datalist>
             </div>
 
             {/* Empresa Solicitante */}
             <div className="form-group">
-              <label className="form-label">Solicitante</label>
-              <input
-                type="text"
-                className="form-input"
-                value={filters.filters.empresaSolicitanteText || ''}
-                onChange={(e) => {
-                  filters.handleTextChange('empresaSolicitanteText', e.target.value)
-                  empresasAutocomplete.search(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const emp = empresasAutocomplete.suggestions.find(
-                    emp => emp.nome?.toLowerCase() === e.target.value.toLowerCase()
-                  )
-                  if (emp) {
-                    filters.handleItemSelect('empresaSolicitante', emp.nome, emp.id)
+              <SearchAutocomplete
+                id="filter-empresa-solicitante"
+                label="Solicitante"
+                value={filters.filters.empresaSolicitante}
+                displayValue={filters.filters.empresaSolicitanteText || ''}
+                onChange={({ id, text }) => {
+                  filters.handleTextChange('empresaSolicitanteText', text)
+                  if (id) {
+                    filters.handleItemSelect('empresaSolicitante', text, id)
                   }
                 }}
-                list="empresas-solicitante-list"
+                suggestions={empresasAutocomplete.suggestions}
+                onSearch={empresasAutocomplete.search}
+                loading={empresasAutocomplete.loading}
                 placeholder="Digite para buscar..."
+                getDisplayText={(emp) => emp?.nome || ''}
+                getSubText={(emp) => emp?.cnpj || ''}
+                getId={(emp) => emp?.id}
               />
-              <datalist id="empresas-solicitante-list">
-                {empresasAutocomplete.suggestions.map(emp => (
-                  <option key={emp.id} value={emp.nome} />
-                ))}
-              </datalist>
             </div>
 
             {/* Centro de Custos */}
             <div className="form-group">
-              <label className="form-label">Centro de Custos</label>
-              <input
-                type="text"
-                className="form-input"
-                value={filters.filters.centroCustosText || ''}
-                onChange={(e) => {
-                  filters.handleTextChange('centroCustosText', e.target.value)
-                  centroCustosAutocomplete.search(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const cc = centroCustosAutocomplete.suggestions.find(
-                    c => (c.nome_fantasia || c.nome_juridico)?.toLowerCase() === e.target.value.toLowerCase()
-                  )
-                  if (cc) {
-                    filters.handleItemSelect('centroCustos', cc.nome_fantasia || cc.nome_juridico, cc.id)
+              <SearchAutocomplete
+                id="filter-centro-custos"
+                label="Centro de Custos"
+                value={filters.filters.centroCustos}
+                displayValue={filters.filters.centroCustosText || ''}
+                onChange={({ id, text }) => {
+                  filters.handleTextChange('centroCustosText', text)
+                  if (id) {
+                    filters.handleItemSelect('centroCustos', text, id)
                   }
                 }}
-                list="centro-custos-list"
+                suggestions={centroCustosAutocomplete.suggestions}
+                onSearch={centroCustosAutocomplete.search}
+                loading={centroCustosAutocomplete.loading}
                 placeholder="Digite para buscar..."
+                getDisplayText={(cc) => cc?.nome_fantasia || cc?.nome_juridico || ''}
+                getSubText={(cc) => cc?.cnpj || ''}
+                getId={(cc) => cc?.id}
               />
-              <datalist id="centro-custos-list">
-                {centroCustosAutocomplete.suggestions.map(cc => (
-                  <option key={cc.id} value={cc.nome_fantasia || cc.nome_juridico} />
-                ))}
-              </datalist>
             </div>
 
             {/* Titular Vinculado */}
             <div className="form-group">
-              <label className="form-label">Titular</label>
-              <input
-                type="text"
-                className="form-input"
-                value={filters.filters.titularText || ''}
-                onChange={(e) => {
-                  filters.handleTextChange('titularText', e.target.value)
-                  titularesAutocomplete.search(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const tit = titularesAutocomplete.suggestions.find(
-                    t => t.nome?.toLowerCase() === e.target.value.toLowerCase()
-                  )
-                  if (tit) {
-                    filters.handleItemSelect('titular', tit.nome, tit.id)
+              <SearchAutocomplete
+                id="filter-titular"
+                label="Titular"
+                value={filters.filters.titular}
+                displayValue={filters.filters.titularText || ''}
+                onChange={({ id, text }) => {
+                  filters.handleTextChange('titularText', text)
+                  if (id) {
+                    filters.handleItemSelect('titular', text, id)
                   }
                 }}
-                list="titulares-list"
+                suggestions={titularesAutocomplete.suggestions}
+                onSearch={titularesAutocomplete.search}
+                loading={titularesAutocomplete.loading}
                 placeholder="Digite nome ou CPF..."
+                getDisplayText={(t) => t?.nome || ''}
+                getSubText={(t) => t?.cpf || 'Sem CPF'}
+                getId={(t) => t?.id}
               />
-              <datalist id="titulares-list">
-                {titularesAutocomplete.suggestions.map(t => (
-                  <option key={t.id} value={t.nome}>
-                    {t.nome} - {t.cpf || 'Sem CPF'}
-                  </option>
-                ))}
-              </datalist>
             </div>
 
             {/* Dependente Vinculado */}
             <div className="form-group">
-              <label className="form-label">Dependente</label>
-              <input
-                type="text"
-                className="form-input"
-                value={filters.filters.dependenteText || ''}
-                onChange={(e) => {
-                  filters.handleTextChange('dependenteText', e.target.value)
-                  dependentesAutocomplete.search(e.target.value)
-                }}
-                onBlur={(e) => {
-                  const dep = dependentesAutocomplete.suggestions.find(
-                    d => d.nome?.toLowerCase() === e.target.value.toLowerCase()
-                  )
-                  if (dep) {
-                    filters.handleItemSelect('dependente', dep.nome, dep.id)
+              <SearchAutocomplete
+                id="filter-dependente"
+                label="Dependente"
+                value={filters.filters.dependente}
+                displayValue={filters.filters.dependenteText || ''}
+                onChange={({ id, text }) => {
+                  filters.handleTextChange('dependenteText', text)
+                  if (id) {
+                    filters.handleItemSelect('dependente', text, id)
                   }
                 }}
-                list="dependentes-list"
-                placeholder="Digite nome ou CPF..."
+                suggestions={dependentesAutocomplete.suggestions}
+                onSearch={dependentesAutocomplete.search}
+                loading={dependentesAutocomplete.loading}
+                placeholder="Digite nome..."
+                getDisplayText={(d) => d?.nome || ''}
+                getSubText={(d) => `${d?.tipo_dependente || ''} - Titular: ${d?.titular_nome || ''}`}
+                getId={(d) => d?.id}
               />
-              <datalist id="dependentes-list">
-                {dependentesAutocomplete.suggestions.map(d => (
-                  <option key={d.id} value={d.nome}>
-                    {d.nome} - {d.cpf || 'Sem CPF'}
-                  </option>
-                ))}
-              </datalist>
             </div>
 
             {/* Data Abertura - De */}

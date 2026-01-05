@@ -56,7 +56,7 @@ function OrdemServicoList() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>📋 Ordens de Serviço</h1>
+        <h1 className="page-title">📋 Ordens de Serviço</h1>
         <ModelPermissionGuard app="ordem_servico" model="ordemservico" action="add">
           <Link to="/ordens-servico/new" className="btn btn-primary">
             + Nova OS

@@ -87,6 +87,15 @@ class Contrato(models.Model):
     def __str__(self):
         return f"Contrato {self.numero} - {self.empresa_contratante}"
     
+    @property
+    def valor_total_servicos(self):
+        """Retorna o valor total de todos os serviços ativos do contrato."""
+        from django.db.models import Sum
+        total = self.servicos_contratados.filter(ativo=True).aggregate(
+            total=Sum('valor')
+        )['total']
+        return total or Decimal('0.00')
+    
 
 class ContratoServico(models.Model):
     """
@@ -159,6 +168,11 @@ class ContratoServico(models.Model):
 
     def __str__(self):
         return f"{self.contrato.numero} - {self.servico.item}"
+
+    @property
+    def valor_total(self):
+        """Retorna o valor do serviço (alias para compatibilidade com admin)."""
+        return self.valor or Decimal('0.00')
 
     @property
     def quantidade_executada(self):

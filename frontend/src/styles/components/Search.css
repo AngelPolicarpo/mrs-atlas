@@ -294,3 +294,62 @@ details[open] .filter-summary::before {
     width: 100% !important;
   }
 }
+
+/* Export Progress Overlay e Modal */
+.export-progress-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: var(--z-index-modal, 1000);
+}
+
+.export-progress-modal {
+  background-color: var(--color-surface);
+  padding: var(--spacing-6);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--shadow-xl);
+  min-width: 350px;
+  max-width: 90%;
+  text-align: center;
+}
+
+.export-progress-modal h3 {
+  margin-bottom: var(--spacing-4);
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+}
+
+.export-progress-modal p {
+  margin-bottom: var(--spacing-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.export-progress-modal .progress-bar {
+  width: 100%;
+  height: 12px;
+  background-color: var(--color-background);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: var(--spacing-2);
+}
+
+.export-progress-modal .progress-bar-fill {
+  height: 100%;
+  background-color: var(--color-primary);
+  border-radius: var(--radius);
+  transition: width 0.3s ease;
+}
+
+.export-progress-modal .progress-percent {
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: var(--font-size-lg);
+  margin-top: var(--spacing-2);
+}
