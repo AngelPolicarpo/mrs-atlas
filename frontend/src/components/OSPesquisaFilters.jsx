@@ -74,6 +74,8 @@ function OSPesquisaFilters({
                 <option value="">Todos</option>
                 <option value="ABERTA">Aberta</option>
                 <option value="FINALIZADA">Finalizada</option>
+                <option value="FATURADA">Faturada</option>
+                <option value="RECEBIDA">Recebida</option>
                 <option value="CANCELADA">Cancelada</option>
               </select>
             </div>

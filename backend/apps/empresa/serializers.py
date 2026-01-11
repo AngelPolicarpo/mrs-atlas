@@ -56,15 +56,27 @@ def validate_cnpj_digits(cnpj):
 class EmpresaSerializer(serializers.ModelSerializer):
     criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
     atualizado_por_nome = serializers.CharField(source='atualizado_por.nome', read_only=True)
+    warnings = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = Empresa
         fields = [
-            'id', 'nome', 'cnpj', 'email', 'telefone', 'endereco',
+            'id', 'nome', 'cnpj', 'email', 'telefone', 'endereco', 'contato', 'controle',
             'status', 'data_registro', 'data_criacao', 'ultima_atualizacao',
-            'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
+            'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome',
+            'warnings'
         ]
         read_only_fields = ['id', 'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por']
+    
+    def get_warnings(self, obj):
+        """Retorna lista de warnings relacionados ao objeto."""
+        warnings = []
+        # Verifica se existe outra empresa com o mesmo nome
+        if obj.nome:
+            duplicates = Empresa.objects.filter(nome=obj.nome).exclude(pk=obj.pk)
+            if duplicates.exists():
+                warnings.append(f'Já existe(m) {duplicates.count()} empresa(s) cadastrada(s) com este nome.')
+        return warnings if warnings else None
     
     def validate_nome(self, value):
         """Valida e normaliza o nome da empresa."""

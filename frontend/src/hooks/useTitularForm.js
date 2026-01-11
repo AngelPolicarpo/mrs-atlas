@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { getTitular, createTitular, updateTitular, createVinculoTitular, updateVinculoTitular, deleteVinculoTitular } from '../services/titulares'
 import { getTiposAtualizacao } from '../services/core'
 import { validateDocuments, cleanDataForSubmit } from '../utils/validation'
+import { getErrorMessage, fieldLabels as globalFieldLabels } from '../utils/errorHandler'
 
 const emptyFormData = {
   nome: '',
@@ -352,24 +353,8 @@ function useTitularForm(titularId) {
         return { success: true, titularId }
       } catch (err) {
         console.error('Erro ao salvar titular:', err)
-        const errorData = err.response?.data
-        if (errorData) {
-          const messages = Object.entries(errorData)
-            .map(([field, errors]) => {
-              const label = fieldLabels[field] || field
-              let errorMsg = Array.isArray(errors) ? errors.join(', ') : String(errors)
-              if (errorMsg.includes('already exists') || errorMsg.includes('já existe') || errorMsg.includes('unique')) {
-                errorMsg = `Este ${label} já está cadastrado no sistema.`
-              }
-              return `${label}: ${errorMsg}`
-            })
-            .join('\n')
-          setError(messages)
-        } else {
-          const errorMessage = err.message || 'Erro ao salvar titular'
-          setError(errorMessage)
-          console.error('Detalhes do erro:', err)
-        }
+        // Usa o utilitário centralizado para formatar erros
+        setError(getErrorMessage(err, 'Erro ao salvar titular'))
         return { success: false }
       } finally {
         setSaving(false)

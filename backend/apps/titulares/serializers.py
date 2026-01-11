@@ -184,6 +184,16 @@ class TitularCreateUpdateSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
     
+    def _check_unique(self, field_name, value, error_message):
+        """Verifica unicidade de um campo, excluindo o registro atual em edição."""
+        if not value:
+            return
+        queryset = Titular.objects.filter(**{field_name: value})
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError(error_message)
+    
     def validate_nome(self, value):
         """Normaliza e valida nome."""
         from apps.core.validators import normalize_nome
@@ -197,20 +207,26 @@ class TitularCreateUpdateSerializer(serializers.ModelSerializer):
         return normalized
     
     def validate_cpf(self, value):
-        """Valida e limpa CPF."""
+        """Valida, limpa e verifica unicidade do CPF."""
         if not value:
             return value
         from apps.core.validators import validate_cpf, clean_document
         validate_cpf(value)
-        return clean_document(value, 'cpf')
+        cleaned = clean_document(value, 'cpf')
+        # Verifica unicidade
+        self._check_unique('cpf', cleaned, 'Este CPF já está cadastrado.')
+        return cleaned
     
     def validate_rnm(self, value):
-        """Valida e limpa RNM."""
+        """Valida, limpa e verifica unicidade do RNM."""
         if not value:
             return value
         from apps.core.validators import validate_rnm, clean_document
         validate_rnm(value)
-        return clean_document(value, 'rnm')
+        cleaned = clean_document(value, 'rnm')
+        # Verifica unicidade
+        self._check_unique('rnm', cleaned, 'Este RNM já está cadastrado.')
+        return cleaned
     
     def validate_passaporte(self, value):
         """Valida e limpa passaporte."""
@@ -229,12 +245,15 @@ class TitularCreateUpdateSerializer(serializers.ModelSerializer):
         return clean_document(value, 'ctps')
     
     def validate_cnh(self, value):
-        """Valida e limpa CNH."""
+        """Valida, limpa e verifica unicidade da CNH."""
         if not value:
             return value
         from apps.core.validators import validate_cnh, clean_document
         validate_cnh(value)
-        return clean_document(value, 'cnh')
+        cleaned = clean_document(value, 'cnh')
+        # Verifica unicidade
+        self._check_unique('cnh', cleaned, 'Esta CNH já está cadastrada.')
+        return cleaned
     
     def validate_data_nascimento(self, value):
         """Valida data de nascimento."""

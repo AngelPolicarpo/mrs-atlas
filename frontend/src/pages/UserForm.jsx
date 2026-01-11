@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import userService from '../services/users'
 import { AdminPage } from '../components/ProtectedPage'
+import { getErrorMessage } from '../utils/errorHandler'
 
 function UserFormContent() {
   const { id } = useParams()
@@ -80,13 +81,7 @@ function UserFormContent() {
       }
       navigate('/users')
     } catch (err) {
-      const errors = err.response?.data
-      if (errors) {
-        const firstError = Object.values(errors)[0]
-        setError(Array.isArray(firstError) ? firstError[0] : String(firstError))
-      } else {
-        setError('Erro ao salvar usuário')
-      }
+      setError(getErrorMessage(err, 'Erro ao salvar usuário'))
     } finally {
       setSaving(false)
     }
@@ -119,7 +114,9 @@ function UserFormContent() {
       </div>
       
       <div className="card">
-        {error && <div className="alert alert-error">{error}</div>}
+        <div id="mensagens">
+          {error && <div className="alert alert-error">{error}</div>}
+        </div>
         
         <form onSubmit={handleSubmit}>
           <h3 style={{ marginBottom: '1rem' }}>Dados do Usuário</h3>

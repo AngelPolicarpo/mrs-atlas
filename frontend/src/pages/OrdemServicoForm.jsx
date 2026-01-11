@@ -159,15 +159,15 @@ function OrdemServicoForm() {
   const [contratoDisplay, setContratoDisplay] = useState('')
   const [empresaSolicitanteDisplay, setEmpresaSolicitanteDisplay] = useState('')
   const [empresaPagadoraDisplay, setEmpresaPagadoraDisplay] = useState('')
-  const [centroCustosDisplay, setCentroCustosDisplay] = useState('')
-  const [responsavelDisplay, setResponsavelDisplay] = useState('')
+  const [solicitanteDisplay, setSolicitanteDisplay] = useState('')
+  const [colaboradorDisplay, setColaboradorDisplay] = useState('')
 
   // AutoComplete hooks
   const contratoAC = useAutoComplete(searchContratos, { minLength: 1 })
   const empresaSolicitanteAC = useAutoComplete(searchEmpresas, { minLength: 2 })
   const empresaPagadoraAC = useAutoComplete(searchEmpresas, { minLength: 2 })
-  const centroCustosAC = useAutoComplete(searchEmpresasPrestadoras, { minLength: 2 })
-  const responsavelAC = useAutoComplete(searchUsers, { minLength: 2 })
+  const solicitanteAC = useAutoComplete(searchUsers, { minLength: 2 })
+  const colaboradorAC = useAutoComplete(searchUsers, { minLength: 2 })
   const titularAC = useAutoComplete(searchTitulares, { minLength: 2 })
   const dependenteAC = useAutoComplete(searchDependentes, { minLength: 2 })
 
@@ -183,8 +183,8 @@ function OrdemServicoForm() {
       setContratoDisplay(ordemServico.contrato_numero || '')
       setEmpresaSolicitanteDisplay(ordemServico.empresa_solicitante_nome || '')
       setEmpresaPagadoraDisplay(ordemServico.empresa_pagadora_nome || '')
-      setCentroCustosDisplay(ordemServico.centro_custos_nome || '')
-      setResponsavelDisplay(ordemServico.responsavel_nome || '')
+      setSolicitanteDisplay(ordemServico.solicitante_nome || '')
+      setColaboradorDisplay(ordemServico.colaborador_nome || '')
     }
   }, [ordemServico])
 
@@ -374,51 +374,51 @@ function OrdemServicoForm() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="responsavel" className="form-label">
-                Responsável
+              <label htmlFor="solicitante" className="form-label">
+                Solicitante
               </label>
               <AutoCompleteInput
-                id="responsavel"
-                name="responsavel"
-                value={formData.responsavel}
-                displayValue={responsavelDisplay}
+                id="solicitante"
+                name="solicitante"
+                value={formData.solicitante}
+                displayValue={solicitanteDisplay}
                 onChange={handleChange}
                 onSelect={(user) => {
-                  handleChange({ target: { name: 'responsavel', value: user.id } })
-                  setResponsavelDisplay(user.nome)
+                  handleChange({ target: { name: 'solicitante', value: user.id } })
+                  setSolicitanteDisplay(user.nome)
                 }}
-                suggestions={responsavelAC.suggestions}
-                onSearch={responsavelAC.search}
-                onClear={responsavelAC.clear}
-                placeholder="Digite o nome do responsável..."
+                suggestions={solicitanteAC.suggestions}
+                onSearch={solicitanteAC.search}
+                onClear={solicitanteAC.clear}
+                placeholder="Digite o nome do solicitante..."
                 renderSuggestion={(u) => `${u.nome} (${u.email})`}
-                hint="Usuário responsável pela OS"
+                hint="Usuário solicitante da OS"
               />
             </div>
           </div>
 
-          {/* Centro de Custos e Empresas - na mesma seção */}
+          {/* Pessoas e Empresas - na mesma seção */}
           <div className="form-grid-3" style={{ marginTop: '1.5rem' }}>
             <div className="form-field">
-              <label htmlFor="centro_custos" className="form-label">
-                Centro de Custos 
+              <label htmlFor="colaborador" className="form-label">
+                Colaborador
               </label>
               <AutoCompleteInput
-                id="centro_custos"
-                name="centro_custos"
-                value={formData.centro_custos}
-                displayValue={centroCustosDisplay}
+                id="colaborador"
+                name="colaborador"
+                value={formData.colaborador}
+                displayValue={colaboradorDisplay}
                 onChange={handleChange}
-                onSelect={(ep) => {
-                  handleChange({ target: { name: 'centro_custos', value: ep.id } })
-                  setCentroCustosDisplay(ep.nome_fantasia || ep.nome_juridico)
+                onSelect={(user) => {
+                  handleChange({ target: { name: 'colaborador', value: user.id } })
+                  setColaboradorDisplay(user.nome)
                 }}
-                suggestions={centroCustosAC.suggestions}
-                onSearch={centroCustosAC.search}
-                onClear={centroCustosAC.clear}
+                suggestions={colaboradorAC.suggestions}
+                onSearch={colaboradorAC.search}
+                onClear={colaboradorAC.clear}
                 placeholder="Digite para buscar..."
-                renderSuggestion={(ep) => ep.nome_fantasia || ep.nome_juridico}
-                hint="Empresa que fatura os serviços prestados"
+                renderSuggestion={(u) => `${u.nome} (${u.email})`}
+                hint="Usuário colaborador responsável pelo atendimento"
               />
             </div>
 
@@ -626,7 +626,6 @@ function OrdemServicoForm() {
                               updateDespesaItem(index, { 
                                 tipo_despesa: e.target.value,
                                 tipo_despesa_item: tipoDespesa?.item || '',
-                                valor: tipoDespesa?.valor_base || despesa.valor || ''
                               })
                             }}
                             className="form-select"
@@ -634,7 +633,7 @@ function OrdemServicoForm() {
                           >
                             <option value="">Selecione...</option>
                             {tiposDespesa.map(t => (
-                              <option key={t.id} value={t.id}>{t.item} ({formatCurrency(t.valor_base)})</option>
+                              <option key={t.id} value={t.id}>{t.item}</option>
                             ))}
                           </select>
                         </td>

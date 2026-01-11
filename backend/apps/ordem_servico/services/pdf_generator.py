@@ -335,14 +335,14 @@ class OSPDFGenerator:
         data_abertura = format_date(self.os.data_abertura)
         status_display = get_status_display(self.os.status)
         
-        centro_custos_cnpj = 'Não informado'
-        if self.os.centro_custos:
-            centro_custos_cnpj = getattr(self.os.centro_custos, 'cnpj', None) or 'Não informado'
+        colaborador = '-'
+        if self.os.colaborador:
+            colaborador = getattr(self.os.colaborador, 'nome', None) or '-'
         
         # Informações em duas colunas
         info_data = [
             [
-                Paragraph(f"<b>Centro de Custos:</b> {centro_custos_cnpj}", self.styles['OSBodyText']),
+                Paragraph(f"<b>Colaborador:</b> {colaborador}", self.styles['OSBodyText']),
                 Paragraph(f"<b>Status:</b> {status_display}", self.styles['OSBodyText']),
             ],
             [
@@ -375,27 +375,27 @@ class OSPDFGenerator:
         if self.os.contrato and self.os.contrato.empresa_contratante:
             contratante = getattr(self.os.contrato.empresa_contratante, 'nome', None) or '-'
         
-        solicitante = '-'
+        empresa_solicitante = '-'
         if self.os.empresa_solicitante:
-            solicitante = getattr(self.os.empresa_solicitante, 'nome', None) or '-'
+            empresa_solicitante = getattr(self.os.empresa_solicitante, 'nome', None) or '-'
         
         pagadora = '-'
         if self.os.empresa_pagadora:
             pagadora = getattr(self.os.empresa_pagadora, 'nome', None) or '-'
         
-        responsavel = '-'
-        if self.os.responsavel:
-            responsavel = getattr(self.os.responsavel, 'nome', None) or '-'
+        solicitante_user = '-'
+        if self.os.solicitante:
+            solicitante_user = getattr(self.os.solicitante, 'nome', None) or '-'
         
         # Tabela 2 colunas
         info_data = [
             [
                 Paragraph(f"<b>Contrato:</b> {contrato_numero}", self.styles['OSBodyText']),
-                Paragraph(f"<b>Responsável:</b> {responsavel}", self.styles['OSBodyText']),
+                Paragraph(f"<b>Solicitante:</b> {solicitante_user}", self.styles['OSBodyText']),
             ],
             [
                 Paragraph(f"<b>Contratante:</b> {contratante}", self.styles['OSBodyText']),
-                Paragraph(f"<b>Solicitante:</b> {solicitante}", self.styles['OSBodyText']),
+                Paragraph(f"<b>Empresa Solicitante:</b> {empresa_solicitante}", self.styles['OSBodyText']),
             ],
             [
                 Paragraph(f"<b>Faturamento:</b> {pagadora}", self.styles['OSBodyText']),

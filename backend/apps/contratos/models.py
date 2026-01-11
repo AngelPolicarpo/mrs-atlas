@@ -17,6 +17,11 @@ class Contrato(models.Model):
         ('FINALIZADO', 'Finalizado'),
     ]
     
+    TIPO_CHOICES = [
+        ('CONTRATO', 'Contrato'),
+        ('PROPOSTA', 'Proposta'),
+    ]
+    
     id = models.UUIDField(
         'ID',
         primary_key=True,
@@ -24,7 +29,21 @@ class Contrato(models.Model):
         editable=False,
         db_column='id_contrato'
     )
-    numero = models.CharField('Número do Contrato', max_length=50, unique=True)
+    
+    tipo = models.CharField(
+        'Tipo',
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='CONTRATO'
+    )
+    
+    numero = models.CharField(
+        'Número do Contrato',
+        max_length=50,
+        blank=True,
+        null=True,
+        unique=True
+    )
     
     # Empresas
     empresa_contratante = models.ForeignKey(
@@ -33,6 +52,23 @@ class Contrato(models.Model):
         related_name='contratos_como_contratante',
         verbose_name='Empresa Contratante',
         db_column='id_empresa_contratante'
+    )
+    empresa_contratada = models.ForeignKey(
+        'ordem_servico.EmpresaPrestadora',
+        on_delete=models.PROTECT,
+        related_name='contratos_como_contratada',
+        verbose_name='Empresa Contratada',
+        db_column='id_empresa_contratada',
+        blank=True,
+        null=True
+    )
+    
+    # Prazo de faturamento
+    prazo_faturamento = models.PositiveIntegerField(
+        'Prazo de Faturamento (dias)',
+        blank=True,
+        null=True,
+        help_text='Prazo em dias para faturamento após conclusão do serviço'
     )
     
     # Status e datas

@@ -70,7 +70,7 @@ class Servico(models.Model):
         editable=False,
         db_column='id_servico'
     )
-    item = models.CharField('Item/Código', max_length=50)
+    item = models.CharField('Item/Código', max_length=50, unique=True)
     descricao = models.TextField('Descrição')
     valor_base = models.DecimalField(
         'Valor Base',
@@ -122,11 +122,15 @@ class OrdemServico(models.Model):
     
     STATUS_ABERTA = 'ABERTA'
     STATUS_FINALIZADA = 'FINALIZADA'
+    STATUS_FATURADA = 'FATURADA'
+    STATUS_RECEBIDA = 'RECEBIDA'
     STATUS_CANCELADA = 'CANCELADA'
     
     STATUS_CHOICES = [
         (STATUS_ABERTA, 'Aberta'),
         (STATUS_FINALIZADA, 'Finalizada'),
+        (STATUS_FATURADA, 'Faturada'),
+        (STATUS_RECEBIDA, 'Recebida'),
         (STATUS_CANCELADA, 'Cancelada'),
     ]
     
@@ -150,6 +154,7 @@ class OrdemServico(models.Model):
     numero = models.PositiveIntegerField('Número', unique=True, editable=False)
     data_abertura = models.DateField('Data de Abertura')
     data_fechamento = models.DateField('Data de Fechamento', blank=True, null=True)
+    data_finalizada = models.DateTimeField('Data de Finalização', blank=True, null=True)
     status = models.CharField(
         'Status',
         max_length=20,
@@ -157,18 +162,6 @@ class OrdemServico(models.Model):
         default=STATUS_ABERTA
     )
     observacao = models.TextField('Observação', blank=True, null=True)
-    
-    # Centro de Custos (Empresa Prestadora)
-    centro_custos = models.ForeignKey(
-        'ordem_servico.EmpresaPrestadora',
-        on_delete=models.PROTECT,
-        related_name='ordens_servico',
-        verbose_name='Centro de Custos',
-        db_column='id_centro_custos',
-        null=True,
-        blank=True,
-        help_text='Centro de custos (empresa prestadora) responsável'
-    )
     
     # Empresas (herdadas do contrato mas podem ser diferentes)
     empresa_solicitante = models.ForeignKey(
@@ -188,15 +181,24 @@ class OrdemServico(models.Model):
         help_text='Empresa responsável pelo pagamento'
     )
     
-    # Responsável
-    responsavel = models.ForeignKey(
+    # Solicitante e Colaborador
+    solicitante = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='ordens_responsavel',
-        verbose_name='Responsável',
+        related_name='ordens_solicitante',
+        verbose_name='Solicitante',
         db_column='id_responsavel'
+    )
+    colaborador = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ordens_colaborador',
+        verbose_name='Colaborador',
+        db_column='id_colaborador'
     )
     
     # Valores (calculados a partir dos itens e despesas)
@@ -263,10 +265,17 @@ class OrdemServico(models.Model):
         return f"OS #{self.numero} - Contrato {self.contrato.numero}"
     
     def save(self, *args, **kwargs):
+        from django.utils import timezone
+        
         # Auto-incremento do número da OS
         if not self.numero:
             last_os = OrdemServico.objects.order_by('-numero').first()
             self.numero = (last_os.numero + 1) if last_os else 1
+        
+        # Preencher data_finalizada quando status mudar para FINALIZADA
+        if self.status == self.STATUS_FINALIZADA and not self.data_finalizada:
+            self.data_finalizada = timezone.now()
+        
         super().save(*args, **kwargs)
     
     def calcular_totais(self):
@@ -397,7 +406,10 @@ class TipoDespesa(models.Model):
         'Valor Base',
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
+        validators=[MinValueValidator(Decimal('0.00'))],
+        blank=True,
+        null=True,
+        help_text='Valor base de referência (opcional)'
     )
     ativo = models.BooleanField('Ativo', default=True)
     

@@ -31,11 +31,11 @@ const emptyFormData = {
   data_fechamento: '',
   status: 'ABERTA',
   observacao: '',
-  contrato: '',           // NOVO: FK para contrato
-  centro_custos: '',      // FK para EmpresaPrestadora (Centro de Custos)
+  contrato: '',           // FK para contrato
   empresa_solicitante: '',
   empresa_pagadora: '',
-  responsavel: '',
+  solicitante: '',
+  colaborador: '',
 }
 
 // Template para novo item de OS (serviço do contrato)
@@ -62,11 +62,13 @@ const emptyDespesa = {
   isDeleted: false,
 }
 
-// Status options simplificados (3 apenas)
+// Status options (inclui novas fases de faturamento)
 const statusOptions = [
   { value: 'ABERTA', label: 'Aberta' },
-  { value: 'CANCELADA', label: 'Cancelada' },
   { value: 'FINALIZADA', label: 'Finalizada' },
+  { value: 'FATURADA', label: 'Faturada' },
+  { value: 'RECEBIDA', label: 'Recebida' },
+  { value: 'CANCELADA', label: 'Cancelada' },
 ]
 
 /**
@@ -212,10 +214,10 @@ function useOrdemServicoForm(osId) {
           status: os.status || 'ABERTA',
           observacao: os.observacao || '',
           contrato: os.contrato || '',
-          centro_custos: os.centro_custos || '',
           empresa_solicitante: os.empresa_solicitante || '',
           empresa_pagadora: os.empresa_pagadora || '',
-          responsavel: os.responsavel || '',
+          solicitante: os.solicitante || '',
+          colaborador: os.colaborador || '',
         })
         
         setTitulares(titRes.data || [])
@@ -450,10 +452,10 @@ function useOrdemServicoForm(osId) {
         status: formData.status,
         observacao: formData.observacao || null,
         contrato: formData.contrato,
-        centro_custos: formData.centro_custos || null,
         empresa_solicitante: formData.empresa_solicitante || null,
         empresa_pagadora: formData.empresa_pagadora || null,
-        responsavel: formData.responsavel || null,
+        solicitante: formData.solicitante || null,
+        colaborador: formData.colaborador || null,
       }
 
       // Remove campos vazios (exceto contrato que é obrigatório)

@@ -159,16 +159,6 @@ function Dashboard() {
             accept=".xlsx,.xls"
             style={{ display: 'none' }}
           />
-          <button 
-            onClick={handleImportClick} 
-            className="btn btn-secondary"
-            disabled={importing}
-          >
-            {importing ? '⏳ Importando...' : '📤 Importar'}
-          </button>
-          <button onClick={handleExportExcel} className="btn btn-primary">
-            📥 Exportar
-          </button>
         </div>
       </div>
       

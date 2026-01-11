@@ -446,18 +446,18 @@ class OrdemServicoViewSet(PermissionMessageMixin, viewsets.ModelViewSet):
                 'cnpj': ordem_servico.empresa_pagadora.cnpj,
             }
         
-        # Centro de custos (modelo EmpresaPrestadora tem 'nome_fantasia' e 'nome_juridico')
-        if ordem_servico.centro_custos:
-            snapshot['centro_custos'] = {
-                'nome_fantasia': ordem_servico.centro_custos.nome_fantasia,
-                'nome_juridico': getattr(ordem_servico.centro_custos, 'nome_juridico', None),
+        # Solicitante (User)
+        if ordem_servico.solicitante:
+            snapshot['solicitante'] = {
+                'nome': ordem_servico.solicitante.nome,
+                'email': ordem_servico.solicitante.email,
             }
         
-        # Responsável
-        if ordem_servico.responsavel:
-            snapshot['responsavel'] = {
-                'nome': ordem_servico.responsavel.nome,
-                'email': ordem_servico.responsavel.email,
+        # Colaborador (User)
+        if ordem_servico.colaborador:
+            snapshot['colaborador'] = {
+                'nome': ordem_servico.colaborador.nome,
+                'email': ordem_servico.colaborador.email,
             }
         
         # Titulares

@@ -133,24 +133,20 @@ class OrdemServicoAdmin(admin.ModelAdmin):
         'numero', 'valor_servicos', 'valor_despesas', 'valor_total',
         'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por'
     )
-    autocomplete_fields = ['contrato', 'empresa_solicitante', 'empresa_pagadora', 'responsavel', 'centro_custos']
+    autocomplete_fields = ['contrato', 'empresa_solicitante', 'empresa_pagadora', 'solicitante', 'colaborador']
     inlines = [OrdemServicoItemInline, DespesaInline, OrdemServicoTitularInline, OrdemServicoDependenteInline]
     date_hierarchy = 'data_abertura'
     
     fieldsets = (
         ('Ordem de Serviço', {
-            'fields': ('numero', 'contrato', 'data_abertura', 'data_fechamento', 'status')
-        }),
-        ('Centro de Custos', {
-            'fields': ('centro_custos',),
-            'description': 'Empresa prestadora responsável pelo serviço'
+            'fields': ('numero', 'contrato', 'data_abertura', 'data_fechamento', 'data_finalizada', 'status')
         }),
         ('Empresas', {
             'fields': ('empresa_solicitante', 'empresa_pagadora'),
             'description': 'Solicitante: quem solicitou a OS. Pagadora: quem paga.'
         }),
-        ('Responsável', {
-            'fields': ('responsavel',)
+        ('Solicitante e Colaborador', {
+            'fields': ('solicitante', 'colaborador')
         }),
         ('Valores (calculados automaticamente)', {
             'fields': ('valor_servicos', 'valor_despesas', 'valor_total'),

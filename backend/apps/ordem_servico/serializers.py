@@ -1,10 +1,40 @@
 from rest_framework import serializers
 from decimal import Decimal
+import re
 from .models import (
     EmpresaPrestadora, Servico, OrdemServico, OrdemServicoItem,
     TipoDespesa, DespesaOrdemServico, OrdemServicoTitular, OrdemServicoDependente,
     DocumentoOS
 )
+
+
+def validate_cnpj_digits(cnpj):
+    """Valida os dígitos verificadores do CNPJ."""
+    cnpj = re.sub(r'\D', '', cnpj)
+    
+    if len(cnpj) != 14:
+        return False
+    
+    if len(set(cnpj)) == 1:
+        return False
+    
+    weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    total = sum(int(cnpj[i]) * weights1[i] for i in range(12))
+    digit1 = total % 11
+    digit1 = 0 if digit1 < 2 else 11 - digit1
+    
+    if digit1 != int(cnpj[12]):
+        return False
+    
+    weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    total = sum(int(cnpj[i]) * weights2[i] for i in range(13))
+    digit2 = total % 11
+    digit2 = 0 if digit2 < 2 else 11 - digit2
+    
+    if digit2 != int(cnpj[13]):
+        return False
+    
+    return True
 
 
 class EmpresaPrestadoraSerializer(serializers.ModelSerializer):
@@ -17,6 +47,30 @@ class EmpresaPrestadoraSerializer(serializers.ModelSerializer):
             'data_criacao', 'ultima_atualizacao'
         ]
         read_only_fields = ['id', 'data_criacao', 'ultima_atualizacao']
+    
+    def validate_cnpj(self, value):
+        """Valida formato, dígitos e unicidade do CNPJ."""
+        if not value:
+            raise serializers.ValidationError('CNPJ é obrigatório.')
+        
+        # Remove formatação
+        cnpj_clean = re.sub(r'\D', '', value)
+        
+        if len(cnpj_clean) != 14:
+            raise serializers.ValidationError('CNPJ deve ter 14 dígitos.')
+        
+        if not validate_cnpj_digits(cnpj_clean):
+            raise serializers.ValidationError('CNPJ inválido.')
+        
+        # Verifica unicidade (excluindo o registro atual em caso de update)
+        queryset = EmpresaPrestadora.objects.filter(cnpj=cnpj_clean)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        
+        if queryset.exists():
+            raise serializers.ValidationError('Este CNPJ já está cadastrado.')
+        
+        return cnpj_clean
 
 
 class ServicoSerializer(serializers.ModelSerializer):
@@ -32,6 +86,24 @@ class ServicoSerializer(serializers.ModelSerializer):
             'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
         ]
         read_only_fields = ['id', 'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por']
+    
+    def validate_item(self, value):
+        """Valida unicidade do código/item do serviço."""
+        if not value:
+            raise serializers.ValidationError('O código do serviço é obrigatório.')
+        
+        # Normaliza para uppercase
+        value = value.upper().strip()
+        
+        # Verifica unicidade (excluindo o registro atual em caso de update)
+        queryset = Servico.objects.filter(item=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        
+        if queryset.exists():
+            raise serializers.ValidationError('Já existe um serviço cadastrado com este código.')
+        
+        return value
 
 
 class ServicoListSerializer(serializers.ModelSerializer):
@@ -69,12 +141,6 @@ class DespesaOrdemServicoSerializer(serializers.ModelSerializer):
     """Serializer para Despesas da OS."""
     tipo_despesa_item = serializers.CharField(source='tipo_despesa.item', read_only=True)
     tipo_despesa_descricao = serializers.CharField(source='tipo_despesa.descricao', read_only=True)
-    tipo_despesa_valor_base = serializers.DecimalField(
-        source='tipo_despesa.valor_base',
-        max_digits=12,
-        decimal_places=2,
-        read_only=True
-    )
     criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
     atualizado_por_nome = serializers.CharField(source='atualizado_por.nome', read_only=True)
     
@@ -82,22 +148,12 @@ class DespesaOrdemServicoSerializer(serializers.ModelSerializer):
         model = DespesaOrdemServico
         fields = [
             'id', 'ordem_servico', 'tipo_despesa', 'tipo_despesa_item',
-            'tipo_despesa_descricao', 'tipo_despesa_valor_base',
+            'tipo_despesa_descricao',
             'valor', 'ativo', 'observacao',
             'data_criacao', 'ultima_atualizacao',
             'criado_por', 'criado_por_nome', 'atualizado_por', 'atualizado_por_nome'
         ]
         read_only_fields = ['id', 'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por']
-    
-    def validate(self, data):
-        """Se valor não informado, usa o valor base do tipo de despesa."""
-        tipo_despesa = data.get('tipo_despesa')
-        
-        if 'valor' not in data or data['valor'] is None:
-            if tipo_despesa:
-                data['valor'] = tipo_despesa.valor_base
-        
-        return data
 
 
 class OrdemServicoItemSerializer(serializers.ModelSerializer):
@@ -194,16 +250,14 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
     # Contrato
     contrato_numero = serializers.CharField(source='contrato.numero', read_only=True)
     
-    # Centro de Custos
-    centro_custos_nome = serializers.SerializerMethodField()
-    
     # Empresas
     empresa_solicitante_nome = serializers.CharField(source='empresa_solicitante.nome', read_only=True)
     empresa_pagadora_nome = serializers.CharField(source='empresa_pagadora.nome', read_only=True)
     empresa_contratante_nome = serializers.CharField(source='contrato.empresa_contratante.nome', read_only=True)
     
-    # Responsável
-    responsavel_nome = serializers.CharField(source='responsavel.nome', read_only=True)
+    # Solicitante e Colaborador
+    solicitante_nome = serializers.CharField(source='solicitante.nome', read_only=True)
+    colaborador_nome = serializers.CharField(source='colaborador.nome', read_only=True)
     
     # Auditoria
     criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
@@ -215,25 +269,20 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
     titulares_vinculados = OrdemServicoTitularSerializer(many=True, read_only=True)
     dependentes_vinculados = OrdemServicoDependenteSerializer(many=True, read_only=True)
     
-    def get_centro_custos_nome(self, obj):
-        if obj.centro_custos:
-            return obj.centro_custos.nome_fantasia or obj.centro_custos.nome_juridico
-        return None
-    
     class Meta:
         model = OrdemServico
         fields = [
-            'id', 'numero', 'data_abertura', 'data_fechamento', 'status', 'status_display', 'observacao',
+            'id', 'numero', 'data_abertura', 'data_fechamento', 'data_finalizada', 
+            'status', 'status_display', 'observacao',
             # Contrato
             'contrato', 'contrato_numero',
-            # Centro de Custos
-            'centro_custos', 'centro_custos_nome',
             # Empresas
             'empresa_solicitante', 'empresa_solicitante_nome',
             'empresa_pagadora', 'empresa_pagadora_nome',
             'empresa_contratante_nome',
-            # Responsável
-            'responsavel', 'responsavel_nome',
+            # Solicitante e Colaborador
+            'solicitante', 'solicitante_nome',
+            'colaborador', 'colaborador_nome',
             # Valores
             'valor_servicos', 'valor_despesas', 'valor_total',
             # Timestamps
@@ -245,7 +294,7 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'numero', 'valor_servicos', 'valor_despesas', 'valor_total',
-            'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por'
+            'data_criacao', 'ultima_atualizacao', 'criado_por', 'atualizado_por', 'data_finalizada'
         ]
 
 
@@ -254,11 +303,11 @@ class OrdemServicoListSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     contrato_numero = serializers.CharField(source='contrato.numero', read_only=True)
     empresa_contratante = serializers.UUIDField(source='contrato.empresa_contratante.id', read_only=True)
-    centro_custos_nome = serializers.SerializerMethodField()
     empresa_solicitante_nome = serializers.CharField(source='empresa_solicitante.nome', read_only=True)
     empresa_pagadora_nome = serializers.CharField(source='empresa_pagadora.nome', read_only=True)
     empresa_contratante_nome = serializers.CharField(source='contrato.empresa_contratante.nome', read_only=True)
-    responsavel_nome = serializers.CharField(source='responsavel.nome', read_only=True)
+    solicitante_nome = serializers.CharField(source='solicitante.nome', read_only=True)
+    colaborador_nome = serializers.CharField(source='colaborador.nome', read_only=True)
     qtd_titulares = serializers.SerializerMethodField()
     qtd_dependentes = serializers.SerializerMethodField()
     qtd_itens = serializers.SerializerMethodField()
@@ -272,23 +321,18 @@ class OrdemServicoListSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrdemServico
         fields = [
-            'id', 'numero', 'data_abertura', 'data_fechamento', 'status', 'status_display',
-            'observacao',
+            'id', 'numero', 'data_abertura', 'data_fechamento', 'data_finalizada', 
+            'status', 'status_display', 'observacao',
             'contrato', 'contrato_numero', 'empresa_contratante',
-            'centro_custos', 'centro_custos_nome',
             'empresa_solicitante', 'empresa_solicitante_nome',
             'empresa_pagadora', 'empresa_pagadora_nome',
             'empresa_contratante_nome',
-            'responsavel', 'responsavel_nome',
+            'solicitante', 'solicitante_nome',
+            'colaborador', 'colaborador_nome',
             'valor_servicos', 'valor_despesas', 'valor_total', 'data_criacao',
             'qtd_titulares', 'qtd_dependentes', 'qtd_itens',
             'itens', 'despesas', 'titulares_vinculados', 'dependentes_vinculados'
         ]
-    
-    def get_centro_custos_nome(self, obj):
-        if obj.centro_custos:
-            return obj.centro_custos.nome_fantasia or obj.centro_custos.nome_juridico
-        return None
     
     def get_qtd_titulares(self, obj):
         return obj.titulares_vinculados.count()
@@ -307,8 +351,8 @@ class OrdemServicoCreateUpdateSerializer(serializers.ModelSerializer):
         model = OrdemServico
         fields = [
             'id', 'contrato', 'data_abertura', 'data_fechamento', 'status', 'observacao',
-            'centro_custos', 'empresa_solicitante', 'empresa_pagadora',
-            'responsavel'
+            'empresa_solicitante', 'empresa_pagadora',
+            'solicitante', 'colaborador'
         ]
         read_only_fields = ['id']
     

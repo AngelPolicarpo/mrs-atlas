@@ -18,6 +18,8 @@ class Empresa(models.Model):
     email = models.EmailField('Email', max_length=150, blank=True, null=True)
     telefone = models.CharField('Telefone', max_length=20, blank=True, null=True)
     endereco = models.TextField('Endereço', blank=True, null=True)
+    contato = models.CharField('Contato', max_length=200, blank=True, null=True)
+    controle = models.CharField('Controle', max_length=100, blank=True, null=True)
     status = models.BooleanField('Status', default=True)
     data_registro = models.DateField('Data de Registro', blank=True, null=True)
     

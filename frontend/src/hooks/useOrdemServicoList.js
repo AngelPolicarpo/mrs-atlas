@@ -78,7 +78,9 @@ function useOrdemServicoList() {
   const statusOptions = [
     { value: '', label: 'Todos' },
     { value: 'ABERTA', label: 'Aberta' },
-    { value: 'FINALIZADA', label: 'Concluída' },
+    { value: 'FINALIZADA', label: 'Finalizada' },
+    { value: 'FATURADA', label: 'Faturada' },
+    { value: 'RECEBIDA', label: 'Recebida' },
     { value: 'CANCELADA', label: 'Cancelada' },
   ]
 

@@ -42,9 +42,6 @@ function SystemSelector() {
                 <h2 className="system-name">{sistema.nome}</h2>
                 <p className="system-description">{sistema.descricao}</p>
                 <div className="system-meta">
-                  <span className="system-cargo">
-                    Seu cargo: <strong>{sistema.maior_cargo_nome}</strong>
-                  </span>
                 </div>
               </div>
               <div className="system-arrow">→</div>

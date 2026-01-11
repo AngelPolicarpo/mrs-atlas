@@ -5,6 +5,7 @@ import { getContratosSilent, createContrato, updateContrato, getContratoServicos
 import { getServicosAtivos, getEmpresasPrestadorasSilent } from '../services/ordemServico'
 import useAutoComplete from '../hooks/useAutoComplete'
 import { formatNomeInput, normalizeNome, formatCNPJ, validateCNPJ, removeFormatting } from '../utils/validation'
+import { getErrorMessage } from '../utils/errorHandler'
 
 /**
  * EmpresaForm com arquitetura:
@@ -23,6 +24,7 @@ function EmpresaForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [warning, setWarning] = useState('')
 
   // Dados da empresa
   const [empresaData, setEmpresaData] = useState({
@@ -31,6 +33,8 @@ function EmpresaForm() {
     email: '',
     telefone: '',
     endereco: '',
+    contato: '',
+    controle: '',
     status: true,
     data_registro: '',
   })
@@ -94,12 +98,15 @@ function EmpresaForm() {
           email: empresa.email || '',
           telefone: empresa.telefone || '',
           endereco: empresa.endereco || '',
+          contato: empresa.contato || '',
+          controle: empresa.controle || '',
           status: empresa.status ?? true,
           data_registro: empresa.data_registro || '',
         })
       } catch (err) {
         // Se não conseguir carregar a empresa, mostra erro
         setError('Erro ao carregar dados da empresa. Verifique suas permissões.')
+        window.location.hash = 'mensagens'
         console.error('Erro ao carregar empresa:', err)
         setLoading(false)
         return
@@ -163,6 +170,7 @@ function EmpresaForm() {
 
     } catch (err) {
       setError('Erro inesperado ao carregar dados')
+      window.location.hash = 'mensagens'
       console.error(err)
     } finally {
       setLoading(false)
@@ -209,6 +217,7 @@ function EmpresaForm() {
   function handleAddContrato() {
     const novoContrato = {
       _id: `_novo_${Date.now()}`,
+      tipo: 'CONTRATO',
       numero: '',
       data_inicio: '',
       data_fim: '',
@@ -304,71 +313,95 @@ function EmpresaForm() {
     e.preventDefault()
     setError('')
     setSuccess('')
+    setWarning('')
     setSaving(true)
+    
+    // Função auxiliar para mostrar erro e fazer scroll
+    const showError = (msg) => {
+      setError(msg)
+      setSaving(false)
+      window.location.hash = 'mensagens'
+    }
 
     try {
       // 1. Validar dados da empresa
       if (!empresaData.nome || !empresaData.cnpj) {
-        setError('Nome e CNPJ da empresa são obrigatórios')
-        setSaving(false)
+        showError('Nome e CNPJ da empresa são obrigatórios')
         return
       }
       
       // Validar CNPJ antes de enviar
       const cnpjValidation = validateCNPJ(empresaData.cnpj)
       if (!cnpjValidation.valid) {
-        setError(cnpjValidation.error)
-        setSaving(false)
+        showError(cnpjValidation.error)
         return
       }
       
       // Validar nome (mínimo 3 caracteres)
       const nomeNormalizado = normalizeNome(empresaData.nome)
       if (nomeNormalizado.length < 3) {
-        setError('Nome da empresa deve ter pelo menos 3 caracteres')
-        setSaving(false)
+        showError('Nome da empresa deve ter pelo menos 3 caracteres')
         return
       }
 
       // 2. Salvar ou atualizar empresa
       let empresaId = id
       const empresaPayload = { 
-        ...empresaData,
         nome: nomeNormalizado, // Nome normalizado (uppercase, sem acentos)
-        cnpj: removeFormatting(empresaData.cnpj) // CNPJ sem formatação
+        cnpj: removeFormatting(empresaData.cnpj), // CNPJ sem formatação
+        email: empresaData.email || null,
+        telefone: empresaData.telefone || null,
+        endereco: empresaData.endereco || null,
+        contato: empresaData.contato || null,
+        controle: empresaData.controle || null,
+        status: empresaData.status,
+        data_registro: empresaData.data_registro || null,
       }
-      Object.keys(empresaPayload).forEach(key => {
-        if (empresaPayload[key] === '') {
-          empresaPayload[key] = null
-        }
-      })
 
+      let empresaWarnings = null
       if (isEditing) {
-        await updateEmpresa(id, empresaPayload)
+        const res = await updateEmpresa(id, empresaPayload)
+        empresaWarnings = res.data?.warnings
       } else {
         const res = await createEmpresa(empresaPayload)
         empresaId = res.data?.id
+        empresaWarnings = res.data?.warnings
         if (!empresaId) {
           throw new Error('Erro ao criar empresa: ID não retornado')
         }
+      }
+      
+      // Exibe warnings se houver (nome duplicado, etc)
+      if (empresaWarnings && empresaWarnings.length > 0) {
+        setWarning(empresaWarnings.join('\n'))
+      } else {
+        setWarning('')
       }
 
       // 3. Salvar contratos e seus serviços
       for (const contrato of contratos) {
         let contratoId = contrato.id
+        const tipo = contrato.tipo || 'CONTRATO'
 
-        // Validar contrato
-        if (!contrato.numero || !contrato.data_inicio) {
-          setError(`Contrato inválido: número e data são obrigatórios`)
-          setSaving(false)
+        // Validar contrato - número é obrigatório apenas para CONTRATO
+        if (tipo === 'CONTRATO' && !contrato.numero) {
+          showError(`Contrato inválido: número é obrigatório para contratos`)
+          return
+        }
+        
+        if (!contrato.data_inicio) {
+          showError(`${tipo === 'PROPOSTA' ? 'Proposta' : 'Contrato'} inválido: data de início é obrigatória`)
           return
         }
 
         // Criar ou atualizar contrato
         if (contrato._isNew) {
           const contratoPayload = {
-            numero: contrato.numero,
+            tipo: tipo,
+            numero: contrato.numero || null,
             empresa_contratante: empresaId,
+            empresa_contratada: contrato.empresa_contratada || null,
+            prazo_faturamento: contrato.prazo_faturamento ? parseInt(contrato.prazo_faturamento) : null,
             data_inicio: contrato.data_inicio,
             data_fim: contrato.data_fim || null,
             observacao: contrato.observacao || null
@@ -380,7 +413,10 @@ function EmpresaForm() {
           }
         } else {
           const contratoPayload = {
-            numero: contrato.numero,
+            tipo: tipo,
+            numero: contrato.numero || null,
+            empresa_contratada: contrato.empresa_contratada || null,
+            prazo_faturamento: contrato.prazo_faturamento ? parseInt(contrato.prazo_faturamento) : null,
             data_inicio: contrato.data_inicio,
             data_fim: contrato.data_fim || null,
             observacao: contrato.observacao || null
@@ -400,15 +436,13 @@ function EmpresaForm() {
           }
 
           if (!servico.servico_item || !servico.valor) {
-            setError('Todos os serviços devem ter tipo e valor')
-            setSaving(false)
+            showError('Todos os serviços devem ter tipo e valor')
             return
           }
 
           // Validação adicional: servico ID deve estar preenchido
           if (!servico.servico) {
-            setError(`Serviço "${servico.servico_item}" não foi selecionado corretamente. Use o autocomplete para selecionar.`)
-            setSaving(false)
+            showError(`Serviço "${servico.servico_item}" não foi selecionado corretamente. Use o autocomplete para selecionar.`)
             return
           }
 
@@ -428,6 +462,7 @@ function EmpresaForm() {
       }
 
       setSuccess('Empresa, contratos e serviços salvos com sucesso!')
+      window.location.hash = 'mensagens'
       
       // Recarregar dados
       setTimeout(() => {
@@ -439,30 +474,8 @@ function EmpresaForm() {
       }, 1500)
     } catch (err) {
       console.error('Erro ao salvar:', err)
-      // Tratamento de erros do backend
-      const errorData = err.response?.data
-      if (errorData) {
-        // Formatar mensagens de erro do backend
-        if (typeof errorData === 'object' && !errorData.detail) {
-          const messages = Object.entries(errorData)
-            .map(([field, errors]) => {
-              const fieldLabel = {
-                nome: 'Nome',
-                cnpj: 'CNPJ',
-                email: 'Email',
-                telefone: 'Telefone'
-              }[field] || field
-              const errorMsg = Array.isArray(errors) ? errors.join(', ') : errors
-              return `${fieldLabel}: ${errorMsg}`
-            })
-            .join('\n')
-          setError(messages)
-        } else {
-          setError(errorData.detail || errorData.error || 'Erro ao salvar')
-        }
-      } else {
-        setError(err.message || 'Erro ao salvar')
-      }
+      setError(getErrorMessage(err, 'Erro ao salvar'))
+      window.location.hash = 'mensagens'
     } finally {
       setSaving(false)
     }
@@ -478,8 +491,11 @@ function EmpresaForm() {
         <h1>{isEditing ? 'Editar Empresa' : 'Nova Empresa'}</h1>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
+      <div id="mensagens">
+        {error && <div className="alert alert-error">{error}</div>}
+        {warning && <div className="alert alert-warning" style={{ backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b' }}>⚠️ {warning}</div>}
+        {success && <div className="alert alert-success">{success}</div>}
+      </div>
 
       <form onSubmit={handleSubmit} className="form">
         {/* Seção: Dados da Empresa */}
@@ -575,6 +591,32 @@ function EmpresaForm() {
             </div>
             
             <div className="form-group">
+              <label htmlFor="contato">Contato</label>
+              <input
+                type="text"
+                id="contato"
+                name="contato"
+                value={empresaData.contato}
+                onChange={handleEmpresaChange}
+                className="form-control"
+                placeholder="Nome do contato na empresa"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="controle">Controle</label>
+              <input
+                type="text"
+                id="controle"
+                name="controle"
+                value={empresaData.controle}
+                onChange={handleEmpresaChange}
+                className="form-control"
+                placeholder="Código de controle interno"
+              />
+            </div>
+            
+            <div className="form-group" style={{ display: 'flex', alignItems: 'left', justifyContent: 'center', marginTop: '1.8rem' }}>
               <label className="checkbox-label">
                 <input
                   type="checkbox"
@@ -700,6 +742,7 @@ function ContratoAccordion({
   async function handleCancelarContrato() {
     if (!contrato.id || contrato._isNew) {
       setError('Salve o contrato antes de cancelá-lo')
+      window.location.hash = 'mensagens'
       return
     }
     if (!window.confirm('Tem certeza que deseja CANCELAR este contrato? Esta ação não pode ser desfeita.')) {
@@ -713,7 +756,8 @@ function ContratoAccordion({
       onReload()
     } catch (err) {
       console.error('Erro ao cancelar contrato:', err)
-      setError(err.response?.data?.error || err.response?.data?.detail || 'Erro ao cancelar contrato')
+      setError(getErrorMessage(err, 'Erro ao cancelar contrato'))
+      window.location.hash = 'mensagens'
     } finally {
       setActionLoading(false)
     }
@@ -723,6 +767,7 @@ function ContratoAccordion({
   async function handleFinalizarContrato() {
     if (!contrato.id || contrato._isNew) {
       setError('Salve o contrato antes de finalizá-lo')
+      window.location.hash = 'mensagens'
       return
     }
     if (!window.confirm('Tem certeza que deseja FINALIZAR este contrato?')) {
@@ -736,7 +781,8 @@ function ContratoAccordion({
       onReload()
     } catch (err) {
       console.error('Erro ao finalizar contrato:', err)
-      setError(err.response?.data?.error || err.response?.data?.detail || 'Erro ao finalizar contrato')
+      setError(getErrorMessage(err, 'Erro ao finalizar contrato'))
+      window.location.hash = 'mensagens'
     } finally {
       setActionLoading(false)
     }
@@ -759,7 +805,18 @@ function ContratoAccordion({
         onClick={onToggle}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <strong>{contrato.numero || `Contrato ${index + 1}`}</strong>
+          <span style={{ 
+            fontSize: '0.7em', 
+            padding: '2px 6px', 
+            borderRadius: '4px', 
+            background: contrato.tipo === 'PROPOSTA' ? '#fef3c7' : '#dbeafe',
+            color: contrato.tipo === 'PROPOSTA' ? '#92400e' : '#1e40af',
+            fontWeight: 600,
+            textTransform: 'uppercase'
+          }}>
+            {contrato.tipo || 'CONTRATO'}
+          </span>
+          <strong>{contrato.numero || (contrato.tipo === 'PROPOSTA' ? `Proposta ${index + 1}` : `Contrato ${index + 1}`)}</strong>
           {contrato.data_inicio && <span style={{ color: '#6b7280', fontSize: '0.9em' }}>• desde {contrato.data_inicio}</span>}
           <span style={{ 
             fontSize: '0.75em', 
@@ -779,14 +836,57 @@ function ContratoAccordion({
         <div style={{ padding: '1.5rem', background: '#fff' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
             <div className="form-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9em', color: '#374151', fontWeight: 500 }}>Número do Contrato *</label>
-              <input
-                type="text"
-                value={contrato.numero}
-                onChange={(e) => onChange('numero', e.target.value)}
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9em', color: '#374151', fontWeight: 500 }}>Tipo *</label>
+              <select
+                value={contrato.tipo || 'CONTRATO'}
+                onChange={(e) => onChange('tipo', e.target.value)}
                 className="form-control"
-                placeholder="Ex: CNT-2024/001"
+              >
+                <option value="CONTRATO">Contrato</option>
+                <option value="PROPOSTA">Proposta</option>
+              </select>
+            </div>
+
+            {(contrato.tipo || 'CONTRATO') === 'CONTRATO' && (
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9em', color: '#374151', fontWeight: 500 }}>Número do Contrato *</label>
+                <input
+                  type="text"
+                  value={contrato.numero || ''}
+                  onChange={(e) => onChange('numero', e.target.value)}
+                  className="form-control"
+                  placeholder="Ex: CNT-2024/001"
+                />
+              </div>
+            )}
+
+            <div className="form-group">
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9em', color: '#374151', fontWeight: 500 }}>Empresa Contratada</label>
+              <select
+                value={contrato.empresa_contratada || ''}
+                onChange={(e) => onChange('empresa_contratada', e.target.value)}
+                className="form-control"
+              >
+                <option value="">Selecione...</option>
+                {empresasPrestadoras.map(ep => (
+                  <option key={ep.id} value={ep.id}>{ep.nome_fantasia || ep.nome_juridico}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9em', color: '#374151', fontWeight: 500 }}>Prazo Faturamento (dias)</label>
+              <input
+                type="number"
+                min="0"
+                value={contrato.prazo_faturamento || ''}
+                onChange={(e) => onChange('prazo_faturamento', e.target.value)}
+                className="form-control"
+                placeholder="Ex: 30"
               />
+              <small style={{ color: '#6b7280', fontSize: '0.8em' }}>
+                Prazo em dias para faturamento após conclusão
+              </small>
             </div>
 
             <div className="form-group">

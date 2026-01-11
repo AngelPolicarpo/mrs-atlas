@@ -11,6 +11,7 @@ import {
 import { getAmparosLegais, getTiposAtualizacao } from '../services/core'
 import useAutoComplete from './useAutoComplete'
 import { cleanDataForSubmit, formatters, validateDocuments, validators } from '../utils/validation'
+import { getErrorMessage } from '../utils/errorHandler'
 
 const emptyVinculo = {
   id: null,
@@ -350,22 +351,8 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
         onSaved({ dependenteId: dependenteIdRef, titular: formData.titular })
       }
     } catch (err) {
-      const errorData = err.response?.data
-      if (errorData) {
-        const messages = Object.entries(errorData)
-          .map(([field, errors]) => {
-            const label = fieldLabels[field] || field
-            let errorMsg = Array.isArray(errors) ? errors.join(', ') : errors
-            if (typeof errorMsg === 'string' && (errorMsg.includes('already exists') || errorMsg.includes('já existe') || errorMsg.includes('unique'))) {
-              errorMsg = `Este ${label} já está cadastrado no sistema.`
-            }
-            return `${label}: ${errorMsg}`
-          })
-          .join('\n')
-        setError(messages)
-      } else {
-        setError('Erro ao salvar dependente')
-      }
+      // Usa o utilitário centralizado para formatar erros
+      setError(getErrorMessage(err, 'Erro ao salvar dependente'))
       console.error(err)
       window.location.hash = 'mensagens'
     } finally {

@@ -47,14 +47,13 @@
 }
 
 .btn-secondary {
-  background-color: var(--color-secondary);
-  color: var(--color-secondary-foreground);
-  border-color: var(--color-secondary);
+  background-color: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: var(--color-muted);
-  border-color: var(--color-muted);
+  background-color: var(--color-secondary);
 }
 
 .btn-danger {

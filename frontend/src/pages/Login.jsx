@@ -30,11 +30,8 @@ function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img style={{ width: '30px', height: '30px', marginRight: '10px' }} src={logo} alt="MRS Logo" />
-          <h1 style={{ marginTop: '10px' }} className="auth-title">Atlas</h1>
-        </div>
-        <p className="auth-subtitle" style={{ marginBottom: '1rem' }}>Sistema de Gestão de Clientes</p>
+        <h1 className="auth-title"><img src={logo} alt="Atlas Logo" />Atlas</h1>
+        <p className="auth-subtitle">Sistema de Gestão de Clientes</p>
         
         {error && <div className="alert alert-error">{error}</div>}
         
@@ -55,7 +52,6 @@ function Login() {
             <label className="form-label">Senha</label>
             <input
               type="password"
-              style={{ marginBottom: '18px' }}
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

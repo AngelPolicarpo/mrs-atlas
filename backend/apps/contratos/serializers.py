@@ -75,6 +75,7 @@ class ContratoSerializer(serializers.ModelSerializer):
     """Serializer completo para Contrato."""
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     empresa_contratante_nome = serializers.CharField(source='empresa_contratante.nome', read_only=True)
+    empresa_contratada_nome = serializers.CharField(source='empresa_contratada.nome_fantasia', read_only=True)
     criado_por_nome = serializers.CharField(source='criado_por.nome', read_only=True)
     atualizado_por_nome = serializers.CharField(source='atualizado_por.nome', read_only=True)
     esta_ativo = serializers.BooleanField(read_only=True)
@@ -89,8 +90,10 @@ class ContratoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contrato
         fields = [
-            'id', 'numero', 'status', 'status_display',
+            'id', 'tipo', 'numero', 'status', 'status_display',
             'empresa_contratante', 'empresa_contratante_nome',
+            'empresa_contratada', 'empresa_contratada_nome',
+            'prazo_faturamento',
             'data_inicio', 'data_fim', 'observacao',
             'esta_ativo', 'valor_total_servicos',
             'servicos_contratados', 'qtd_ordens_servico',
@@ -110,6 +113,7 @@ class ContratoListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listagem de Contratos."""
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     empresa_contratante_nome = serializers.CharField(source='empresa_contratante.nome', read_only=True)
+    empresa_contratada_nome = serializers.CharField(source='empresa_contratada.nome_fantasia', read_only=True)
     esta_ativo = serializers.BooleanField(read_only=True)
     valor_total_servicos = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True
@@ -120,8 +124,10 @@ class ContratoListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contrato
         fields = [
-            'id', 'numero', 'status', 'status_display',
+            'id', 'tipo', 'numero', 'status', 'status_display',
             'empresa_contratante', 'empresa_contratante_nome',
+            'empresa_contratada', 'empresa_contratada_nome',
+            'prazo_faturamento',
             'data_inicio', 'data_fim', 'esta_ativo',
             'valor_total_servicos', 'qtd_servicos', 'qtd_ordens_servico',
             'data_criacao'
@@ -140,10 +146,25 @@ class ContratoCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contrato
         fields = [
-            'id', 'numero', 'status', 'empresa_contratante',
-            'data_inicio', 'data_fim', 'observacao'
+            'id', 'tipo', 'numero', 'status', 'empresa_contratante', 'empresa_contratada',
+            'prazo_faturamento', 'data_inicio', 'data_fim', 'observacao'
         ]
         read_only_fields = ['id']
+    
+    def validate_numero(self, value):
+        """Valida unicidade do número do contrato."""
+        if not value:
+            return value
+        
+        # Verifica unicidade (excluindo o registro atual em caso de update)
+        queryset = Contrato.objects.filter(numero=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        
+        if queryset.exists():
+            raise serializers.ValidationError('Já existe um contrato com este número.')
+        
+        return value
     
     def validate_status(self, value):
         """Valida transições de status."""
@@ -153,12 +174,24 @@ class ContratoCreateUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, data):
-        """Valida datas do contrato."""
-        data_inicio = data.get('data_inicio')
-        data_fim = data.get('data_fim')
+        """Validação geral do contrato."""
+        # Tipo e número
+        tipo = data.get('tipo', self.instance.tipo if self.instance else 'CONTRATO')
+        numero = data.get('numero', self.instance.numero if self.instance else None)
+        
+        # Se for CONTRATO, número é obrigatório
+        if tipo == 'CONTRATO' and not numero:
+            raise serializers.ValidationError({
+                'numero': 'Número é obrigatório para contratos.'
+            })
+        
+        # Validação de datas
+        data_inicio = data.get('data_inicio', self.instance.data_inicio if self.instance else None)
+        data_fim = data.get('data_fim', self.instance.data_fim if self.instance else None)
         
         if data_inicio and data_fim and data_fim < data_inicio:
             raise serializers.ValidationError({
-                'data_fim': 'A data de término deve ser posterior à data de início.'
+                'data_fim': 'A data de término não pode ser anterior à data de início.'
             })
+        
         return data

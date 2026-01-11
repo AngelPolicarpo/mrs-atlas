@@ -4,6 +4,7 @@ import Pagination from '../components/Pagination'
 import ResultsHeader from '../components/ResultsHeader'
 import { usePermissions } from '../context/PermissionContext'
 import { ModelPermissionGuard } from '../components/PermissionGuard'
+import exportOSToPDF from '../utils/osPdfExport'
 
 /**
  * Formata valor em reais
@@ -52,6 +53,18 @@ function OrdemServicoList() {
   } = useOrdemServicoList()
   
   const { canEditModel, canDeleteModel } = usePermissions()
+  
+  /**
+   * Exporta a OS para PDF no formato de orçamento
+   */
+  const handleExportPDF = async (os) => {
+    try {
+      await exportOSToPDF(os)
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error)
+      alert('Erro ao gerar o PDF. Tente novamente.')
+    }
+  }
   
   return (
     <div className="page">
@@ -108,6 +121,7 @@ function OrdemServicoList() {
                   <th>Contrato</th>
                   <th>Status</th>
                   <th>Solicitante</th>
+                  <th>Colaborador</th>
                   <th>Total</th>
                   <th>Ações</th>
                 </tr>
@@ -138,7 +152,8 @@ function OrdemServicoList() {
                       <td>
                         <StatusBadge status={os.status} statusDisplay={os.status_display} />
                       </td>
-                      <td>{os.empresa_solicitante_nome || '-'}</td>
+                      <td>{os.solicitante_nome || '-'}</td>
+                      <td>{os.colaborador_nome || '-'}</td>
                       <td><strong>{formatCurrency(os.valor_total)}</strong></td>
                       <td>
                         <div className="btn-group">
@@ -159,6 +174,13 @@ function OrdemServicoList() {
                               👁️
                             </Link>
                           )}
+                          <button
+                            onClick={() => handleExportPDF(os)}
+                            className="btn btn-sm btn-outline"
+                            title="Exportar PDF"
+                          >
+                            📑
+                          </button>
                           <ModelPermissionGuard app="ordem_servico" model="ordemservico" action="delete">
                             <button
                               onClick={() => handleDelete(os.id, os.numero)}

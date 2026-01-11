@@ -7,6 +7,7 @@ import usePagination from '../hooks/usePagination'
 import { useDebounce } from '../hooks/useDebounce'
 import Pagination from '../components/Pagination'
 import { AdminPage } from '../components/ProtectedPage'
+import { getErrorMessage } from '../utils/errorHandler'
 
 function ConfiguracoesContent() {
   const [activeTab, setActiveTab] = useState('amparos')
@@ -117,15 +118,7 @@ function ConfiguracoesContent() {
       setFormData({})
       loadItems(pagination.page, pagination.pageSize, debouncedSearch)
     } catch (err) {
-      const errorData = err.response?.data
-      if (errorData) {
-        const messages = Object.entries(errorData)
-          .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
-          .join('\n')
-        setError(messages)
-      } else {
-        setError('Erro ao salvar')
-      }
+      setError(getErrorMessage(err, 'Erro ao salvar'))
       console.error(err)
     }
   }
