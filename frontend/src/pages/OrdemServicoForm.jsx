@@ -7,6 +7,7 @@ import { searchEmpresas } from '../services/empresas'
 import { searchEmpresasPrestadoras, searchTiposDespesa } from '../services/ordemServico'
 import { searchTitulares, searchDependentes } from '../services/titulares'
 import { searchUsers } from '../services/users'
+import { scrollToMensagens } from '../utils/errorHandler'
 
 /**
  * Formata valor em reais
@@ -214,10 +215,10 @@ function OrdemServicoForm() {
   const handleSubmit = async (e) => {
     const result = await handleSubmitForm(e)
     if (result?.success) {
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
       setTimeout(() => navigate('/ordens-servico'), 1500)
     } else if (error) {
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
     }
   }
 

@@ -15,6 +15,8 @@ function OSPesquisaFilters({
   centroCustosAutocomplete,
   titularesAutocomplete,
   dependentesAutocomplete,
+  solicitanteAutocomplete,
+  colaboradorAutocomplete,
   onSearch,
   onKeyPress,
 }) {
@@ -107,7 +109,7 @@ function OSPesquisaFilters({
             <div className="form-group">
               <SearchAutocomplete
                 id="filter-empresa-solicitante"
-                label="Solicitante"
+                label="Empresa Solicitante"
                 value={filters.filters.empresaSolicitante}
                 displayValue={filters.filters.empresaSolicitanteText || ''}
                 onChange={({ id, text }) => {
@@ -126,11 +128,11 @@ function OSPesquisaFilters({
               />
             </div>
 
-            {/* Centro de Custos */}
+            {/* Empresa Contratada */}
             <div className="form-group">
               <SearchAutocomplete
-                id="filter-centro-custos"
-                label="Centro de Custos"
+                id="filter-empresa-contratada"
+                label="Empresa Contratada"
                 value={filters.filters.centroCustos}
                 displayValue={filters.filters.centroCustosText || ''}
                 onChange={({ id, text }) => {
@@ -146,6 +148,52 @@ function OSPesquisaFilters({
                 getDisplayText={(cc) => cc?.nome_fantasia || cc?.nome_juridico || ''}
                 getSubText={(cc) => cc?.cnpj || ''}
                 getId={(cc) => cc?.id}
+              />
+            </div>
+
+            {/* Solicitante (Usuário) */}
+            <div className="form-group">
+              <SearchAutocomplete
+                id="filter-solicitante"
+                label="Solicitante"
+                value={filters.filters.solicitante}
+                displayValue={filters.filters.solicitanteText || ''}
+                onChange={({ id, text }) => {
+                  filters.handleTextChange('solicitanteText', text)
+                  if (id) {
+                    filters.handleItemSelect('solicitante', text, id)
+                  }
+                }}
+                suggestions={solicitanteAutocomplete.suggestions}
+                onSearch={solicitanteAutocomplete.search}
+                loading={solicitanteAutocomplete.loading}
+                placeholder="Digite nome do usuário..."
+                getDisplayText={(u) => u?.nome || ''}
+                getSubText={(u) => u?.email || ''}
+                getId={(u) => u?.id}
+              />
+            </div>
+
+            {/* Colaborador (Usuário) */}
+            <div className="form-group">
+              <SearchAutocomplete
+                id="filter-colaborador"
+                label="Colaborador"
+                value={filters.filters.colaborador}
+                displayValue={filters.filters.colaboradorText || ''}
+                onChange={({ id, text }) => {
+                  filters.handleTextChange('colaboradorText', text)
+                  if (id) {
+                    filters.handleItemSelect('colaborador', text, id)
+                  }
+                }}
+                suggestions={colaboradorAutocomplete.suggestions}
+                onSearch={colaboradorAutocomplete.search}
+                loading={colaboradorAutocomplete.loading}
+                placeholder="Digite nome do colaborador..."
+                getDisplayText={(u) => u?.nome || ''}
+                getSubText={(u) => u?.email || ''}
+                getId={(u) => u?.id}
               />
             </div>
 

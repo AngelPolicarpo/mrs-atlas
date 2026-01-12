@@ -43,8 +43,8 @@ function OSPesquisaTable({
             <th>Abertura</th>
             <th>Status</th>
             <th>Contrato</th>
-            <th>Solicitante</th>
-            <th>Faturamento</th>
+            <th>Empresa Solicitante</th>
+            <th>Empresa Contratada</th>
             <th>Valor</th>
             <th>Ações</th>
           </tr>
@@ -82,7 +82,7 @@ function OSPesquisaTable({
                 </td>
                 <td>{os.contrato_numero || '-'}</td>
                 <td>{os.empresa_solicitante_nome || '-'}</td>
-                <td>{os.centro_custos_nome || '-'}</td>
+                <td>{os.empresa_contratada_nome || '-'}</td>
                 <td>
                   <strong>{formatCurrency(os.valor_total)}</strong>
                 </td>
@@ -126,7 +126,10 @@ function OSPesquisaTable({
                             <strong>Data Fechamento:</strong> {formatDate(os.data_fechamento)}
                           </p>
                           <p>
-                            <strong>Responsável:</strong> {os.responsavel_nome || '-'}
+                            <strong>Solicitante:</strong> {os.solicitante_nome || '-'}
+                          </p>
+                          <p>
+                            <strong>Colaborador:</strong> {os.colaborador_nome || '-'}
                           </p>
                           <p>
                             <strong>Observação:</strong> {os.observacao || '-'}
@@ -146,7 +149,7 @@ function OSPesquisaTable({
                             <strong>Faturamento:</strong> {os.empresa_pagadora_nome || '-'}
                           </p>
                           <p>
-                            <strong>Centro de Custos:</strong> {os.centro_custos_nome || '-'}
+                            <strong>Empresa Contratada:</strong> {os.empresa_contratada_nome || '-'}
                           </p>
                         </div>
 
@@ -186,7 +189,7 @@ function OSPesquisaTable({
                       {((os.titulares_vinculados && os.titulares_vinculados.length > 0) || 
                         (os.dependentes_vinculados && os.dependentes_vinculados.length > 0)) && (
                         <div className="details-subsection">
-                          <h5>👥  ({(os.titulares_vinculados?.length || 0) + (os.dependentes_vinculados?.length || 0)})</h5>
+                          <h5>👥 Beneficiários ({(os.titulares_vinculados?.length || 0) + (os.dependentes_vinculados?.length || 0)})</h5>
                           <table className="table-inline">
                             <thead>
                               <tr>

@@ -50,6 +50,8 @@ class OrdemServicoFilter(django_filters.FilterSet):
     empresa_pagadora = django_filters.UUIDFilter(field_name='empresa_pagadora__id')
     centro_custos = django_filters.UUIDFilter(field_name='centro_custos__id')
     responsavel = django_filters.UUIDFilter(field_name='responsavel__id')
+    solicitante = django_filters.UUIDFilter(field_name='solicitante__id')
+    colaborador = django_filters.UUIDFilter(field_name='colaborador__id')
     titular = django_filters.UUIDFilter(method='filter_by_titular')
     dependente = django_filters.UUIDFilter(method='filter_by_dependente')
     
@@ -69,7 +71,7 @@ class OrdemServicoFilter(django_filters.FilterSet):
         model = OrdemServico
         fields = [
             'numero', 'status', 'contrato', 'empresa_solicitante', 'empresa_pagadora',
-            'centro_custos', 'responsavel'
+            'centro_custos', 'responsavel', 'solicitante', 'colaborador'
         ]
     
     def filter_by_titular(self, queryset, name, value):

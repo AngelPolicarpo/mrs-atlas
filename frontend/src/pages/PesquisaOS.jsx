@@ -9,6 +9,7 @@ import { getEmpresas } from '../services/empresas'
 import { searchContratos } from '../services/contratos'
 import { searchTitulares, searchDependentes } from '../services/titulares'
 import { searchEmpresasPrestadoras } from '../services/ordemServico'
+import { searchUsers } from '../services/users'
 import {
   buildOSSearchParams,
   formatDate,
@@ -59,6 +60,14 @@ function PesquisaOS() {
 
   const dependentesAutocomplete = useAutoComplete(
     (searchText) => searchDependentes(searchText)
+  )
+
+  const solicitanteAutocomplete = useAutoComplete(
+    (searchText) => searchUsers(searchText)
+  )
+
+  const colaboradorAutocomplete = useAutoComplete(
+    (searchText) => searchUsers(searchText)
   )
 
   // Validação de filtros
@@ -249,6 +258,8 @@ function PesquisaOS() {
         centroCustosAutocomplete={centroCustosAutocomplete}
         titularesAutocomplete={titularesAutocomplete}
         dependentesAutocomplete={dependentesAutocomplete}
+        solicitanteAutocomplete={solicitanteAutocomplete}
+        colaboradorAutocomplete={colaboradorAutocomplete}
         onSearch={handleSearch}
         onKeyPress={handleKeyPress}
       />

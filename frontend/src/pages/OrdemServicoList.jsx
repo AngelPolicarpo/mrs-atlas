@@ -118,7 +118,6 @@ function OrdemServicoList() {
                 <tr>
                   <th>Número</th>
                   <th>Abertura</th>
-                  <th>Contrato</th>
                   <th>Status</th>
                   <th>Solicitante</th>
                   <th>Colaborador</th>
@@ -138,17 +137,6 @@ function OrdemServicoList() {
                     <tr key={os.id}>
                       <td><strong>#{os.numero}</strong></td>
                       <td>{os.data_abertura ? new Date(os.data_abertura).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}</td>
-                      <td>
-                        {os.contrato_numero ? (
-                          <Link 
-                            to={`/empresas/${os.empresa_contratante}#contrato-${os.contrato}`} 
-                            className="link"
-                            title={`Ver contrato na empresa ${os.empresa_contratante_nome || ''}`}
-                          >
-                            {os.contrato_numero}
-                          </Link>
-                        ) : '-'}
-                      </td>
                       <td>
                         <StatusBadge status={os.status} statusDisplay={os.status_display} />
                       </td>

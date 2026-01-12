@@ -150,6 +150,8 @@ class PageInfo:
         self.url_validacao = ''
         self.logo_path = ''
         self.is_first_page = True
+        self.data_emissao = ''  # Para dados invisíveis
+        self.valor_total = ''   # Para dados invisíveis
 
 
 def draw_header(canvas, doc, page_info):
@@ -254,10 +256,21 @@ def draw_footer(canvas, doc, page_info):
     canvas.setFillColor(COLOR_DARK_GRAY)
     page_num = doc.page
     canvas.drawCentredString(
-    PAGE_WIDTH / 2,
-    footer_bottom + 6 * mm,
-    f"Página {page_num}"
-)
+        PAGE_WIDTH / 2,
+        footer_bottom + 6 * mm,
+        f"Página {page_num}"
+    )
+    
+    # Dados invisíveis para rastreabilidade (1px branco)
+    # Data de emissão e valor total ficam no PDF mas invisíveis
+    if hasattr(page_info, 'data_emissao') and hasattr(page_info, 'valor_total'):
+        canvas.setFont('Helvetica', 1)  # 1pt = praticamente invisível
+        canvas.setFillColor(colors.white)  # Texto branco
+        canvas.drawString(
+            MARGIN_LEFT,
+            footer_bottom + 1 * mm,
+            f"EMISSAO:{page_info.data_emissao}|VALOR:{page_info.valor_total}"
+        )
     
     canvas.restoreState()
 
@@ -294,6 +307,10 @@ class OSPDFGenerator:
         self.page_info.codigo_documento = codigo_documento
         self.page_info.url_validacao = url_validacao
         self.page_info.logo_path = get_logo_path()
+        
+        # Dados invisíveis para rastreabilidade
+        self.page_info.data_emissao = format_datetime(datetime.now())
+        self.page_info.valor_total = format_currency(ordem_servico.valor_total)
     
     def _setup_styles(self):
         """Configura estilos customizados para o documento."""
@@ -331,23 +348,14 @@ class OSPDFGenerator:
         elements = []
         
         # Dados
-        data_emissao = format_datetime(datetime.now())
         data_abertura = format_date(self.os.data_abertura)
         status_display = get_status_display(self.os.status)
-        
-        colaborador = '-'
-        if self.os.colaborador:
-            colaborador = getattr(self.os.colaborador, 'nome', None) or '-'
         
         # Informações em duas colunas
         info_data = [
             [
-                Paragraph(f"<b>Colaborador:</b> {colaborador}", self.styles['OSBodyText']),
-                Paragraph(f"<b>Status:</b> {status_display}", self.styles['OSBodyText']),
-            ],
-            [
-                Paragraph(f"<b>Data de Emissão:</b> {data_emissao}", self.styles['OSBodyText']),
                 Paragraph(f"<b>Data de Abertura:</b> {data_abertura}", self.styles['OSBodyText']),
+                Paragraph(f"<b>Status:</b> {status_display}", self.styles['OSBodyText']),
             ],
         ]
         
@@ -369,11 +377,9 @@ class OSPDFGenerator:
         section.append(Paragraph("<b>INFORMAÇÕES GERAIS</b>", self.styles['OSSectionTitle']))
         
         # Dados
-        contrato_numero = self.os.contrato.numero if self.os.contrato else '-'
-        
-        contratante = '-'
-        if self.os.contrato and self.os.contrato.empresa_contratante:
-            contratante = getattr(self.os.contrato.empresa_contratante, 'nome', None) or '-'
+        empresa_contratada = '-'
+        if self.os.contrato and self.os.contrato.empresa_contratada:
+            empresa_contratada = getattr(self.os.contrato.empresa_contratada, 'nome_fantasia', None) or getattr(self.os.contrato.empresa_contratada, 'nome_juridico', None) or '-'
         
         empresa_solicitante = '-'
         if self.os.empresa_solicitante:
@@ -387,19 +393,22 @@ class OSPDFGenerator:
         if self.os.solicitante:
             solicitante_user = getattr(self.os.solicitante, 'nome', None) or '-'
         
+        colaborador_user = '-'
+        if self.os.colaborador:
+            colaborador_user = getattr(self.os.colaborador, 'nome', None) or '-'
+        
         # Tabela 2 colunas
         info_data = [
             [
-                Paragraph(f"<b>Contrato:</b> {contrato_numero}", self.styles['OSBodyText']),
+                Paragraph(f"<b>Empresa Contratada:</b> {empresa_contratada}", self.styles['OSBodyText']),
                 Paragraph(f"<b>Solicitante:</b> {solicitante_user}", self.styles['OSBodyText']),
             ],
             [
-                Paragraph(f"<b>Contratante:</b> {contratante}", self.styles['OSBodyText']),
                 Paragraph(f"<b>Empresa Solicitante:</b> {empresa_solicitante}", self.styles['OSBodyText']),
+                Paragraph(f"<b>Colaborador:</b> {colaborador_user}", self.styles['OSBodyText']),
             ],
             [
                 Paragraph(f"<b>Faturamento:</b> {pagadora}", self.styles['OSBodyText']),
-                Paragraph("", self.styles['OSBodyText']),
             ],
         ]
         

@@ -306,6 +306,7 @@ class OrdemServicoListSerializer(serializers.ModelSerializer):
     empresa_solicitante_nome = serializers.CharField(source='empresa_solicitante.nome', read_only=True)
     empresa_pagadora_nome = serializers.CharField(source='empresa_pagadora.nome', read_only=True)
     empresa_contratante_nome = serializers.CharField(source='contrato.empresa_contratante.nome', read_only=True)
+    empresa_contratada_nome = serializers.SerializerMethodField()
     solicitante_nome = serializers.CharField(source='solicitante.nome', read_only=True)
     colaborador_nome = serializers.CharField(source='colaborador.nome', read_only=True)
     qtd_titulares = serializers.SerializerMethodField()
@@ -326,13 +327,19 @@ class OrdemServicoListSerializer(serializers.ModelSerializer):
             'contrato', 'contrato_numero', 'empresa_contratante',
             'empresa_solicitante', 'empresa_solicitante_nome',
             'empresa_pagadora', 'empresa_pagadora_nome',
-            'empresa_contratante_nome',
+            'empresa_contratante_nome', 'empresa_contratada_nome',
             'solicitante', 'solicitante_nome',
             'colaborador', 'colaborador_nome',
             'valor_servicos', 'valor_despesas', 'valor_total', 'data_criacao',
             'qtd_titulares', 'qtd_dependentes', 'qtd_itens',
             'itens', 'despesas', 'titulares_vinculados', 'dependentes_vinculados'
         ]
+    
+    def get_empresa_contratada_nome(self, obj):
+        """Retorna o nome da empresa contratada (do contrato)."""
+        if obj.contrato and obj.contrato.empresa_contratada:
+            return obj.contrato.empresa_contratada.nome_fantasia or obj.contrato.empresa_contratada.nome_juridico
+        return None
     
     def get_qtd_titulares(self, obj):
         return obj.titulares_vinculados.count()

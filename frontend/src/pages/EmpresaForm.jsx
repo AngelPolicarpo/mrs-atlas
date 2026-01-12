@@ -5,7 +5,7 @@ import { getContratosSilent, createContrato, updateContrato, getContratoServicos
 import { getServicosAtivos, getEmpresasPrestadorasSilent } from '../services/ordemServico'
 import useAutoComplete from '../hooks/useAutoComplete'
 import { formatNomeInput, normalizeNome, formatCNPJ, validateCNPJ, removeFormatting } from '../utils/validation'
-import { getErrorMessage } from '../utils/errorHandler'
+import { getErrorMessage, scrollToMensagens } from '../utils/errorHandler'
 
 /**
  * EmpresaForm com arquitetura:
@@ -106,7 +106,7 @@ function EmpresaForm() {
       } catch (err) {
         // Se não conseguir carregar a empresa, mostra erro
         setError('Erro ao carregar dados da empresa. Verifique suas permissões.')
-        window.location.hash = 'mensagens'
+        scrollToMensagens()
         console.error('Erro ao carregar empresa:', err)
         setLoading(false)
         return
@@ -170,7 +170,7 @@ function EmpresaForm() {
 
     } catch (err) {
       setError('Erro inesperado ao carregar dados')
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
       console.error(err)
     } finally {
       setLoading(false)
@@ -320,7 +320,7 @@ function EmpresaForm() {
     const showError = (msg) => {
       setError(msg)
       setSaving(false)
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
     }
 
     try {
@@ -462,7 +462,7 @@ function EmpresaForm() {
       }
 
       setSuccess('Empresa, contratos e serviços salvos com sucesso!')
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
       
       // Recarregar dados
       setTimeout(() => {
@@ -475,7 +475,7 @@ function EmpresaForm() {
     } catch (err) {
       console.error('Erro ao salvar:', err)
       setError(getErrorMessage(err, 'Erro ao salvar'))
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
     } finally {
       setSaving(false)
     }
@@ -742,7 +742,7 @@ function ContratoAccordion({
   async function handleCancelarContrato() {
     if (!contrato.id || contrato._isNew) {
       setError('Salve o contrato antes de cancelá-lo')
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
       return
     }
     if (!window.confirm('Tem certeza que deseja CANCELAR este contrato? Esta ação não pode ser desfeita.')) {
@@ -757,7 +757,7 @@ function ContratoAccordion({
     } catch (err) {
       console.error('Erro ao cancelar contrato:', err)
       setError(getErrorMessage(err, 'Erro ao cancelar contrato'))
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
     } finally {
       setActionLoading(false)
     }
@@ -767,7 +767,7 @@ function ContratoAccordion({
   async function handleFinalizarContrato() {
     if (!contrato.id || contrato._isNew) {
       setError('Salve o contrato antes de finalizá-lo')
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
       return
     }
     if (!window.confirm('Tem certeza que deseja FINALIZAR este contrato?')) {
@@ -782,7 +782,7 @@ function ContratoAccordion({
     } catch (err) {
       console.error('Erro ao finalizar contrato:', err)
       setError(getErrorMessage(err, 'Erro ao finalizar contrato'))
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
     } finally {
       setActionLoading(false)
     }

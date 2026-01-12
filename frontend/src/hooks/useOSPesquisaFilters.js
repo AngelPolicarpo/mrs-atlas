@@ -18,6 +18,12 @@ const initialFilters = {
   centroCustos: '',
   centroCustosText: '',
   
+  // Usuários (Solicitante e Colaborador)
+  solicitante: '',
+  solicitanteText: '',
+  colaborador: '',
+  colaboradorText: '',
+  
   // Titular/Dependente vinculado
   titular: '',
   titularText: '',

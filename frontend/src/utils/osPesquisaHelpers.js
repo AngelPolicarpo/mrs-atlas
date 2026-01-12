@@ -95,9 +95,19 @@ export function buildOSSearchParams(filters, page = 1, pageSize = 10) {
     params.empresa_pagadora = filters.empresaPagadora
   }
 
-  // Centro de Custos
+  // Centro de Custos (Empresa Contratada)
   if (filters.centroCustos) {
     params.centro_custos = filters.centroCustos
+  }
+
+  // Solicitante (usuário)
+  if (filters.solicitante) {
+    params.solicitante = filters.solicitante
+  }
+
+  // Colaborador (usuário)
+  if (filters.colaborador) {
+    params.colaborador = filters.colaborador
   }
 
   // Titular vinculado (requer endpoint customizado ou filtro no backend)
@@ -150,8 +160,9 @@ export function prepareOSExportData(data) {
     'Empresa Contratante': os.empresa_contratante_nome || '',
     'Empresa Solicitante': os.empresa_solicitante_nome || '',
     'Empresa Pagadora': os.empresa_pagadora_nome || '',
-    'Centro de Custos': os.centro_custos_nome || '',
-    'Responsável': os.responsavel_nome || '',
+    'Empresa Contratada': os.empresa_contratada_nome || '',
+    'Solicitante': os.solicitante_nome || '',
+    'Colaborador': os.colaborador_nome || '',
     'Valor Serviços': formatCurrency(os.valor_servicos),
     'Valor Despesas': formatCurrency(os.valor_despesas),
     'Valor Total': formatCurrency(os.valor_total),

@@ -5,6 +5,7 @@ import useAutoComplete from '../hooks/useAutoComplete'
 import { getEmpresas } from '../services/empresas'
 import { getAmparosLegais } from '../services/core'
 import { formatters, validators } from '../utils/validation'
+import { scrollToMensagens } from '../utils/errorHandler'
 import VinculoCard from '../components/VinculoCard'
 import PhoneInput, { isValidPhoneNumber } from '../components/PhoneInput'
 import CountryAutocomplete from '../components/CountryAutocomplete'
@@ -91,10 +92,10 @@ function TitularForm() {
   const handleSubmit = async (e) => {
     const result = await handleSubmitForm(e)
     if (result?.success) {
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
       setTimeout(() => navigate('/titulares'), 1500)
     } else if (error) {
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
     }
   }
 

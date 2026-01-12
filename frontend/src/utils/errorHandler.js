@@ -381,8 +381,22 @@ export function getErrorMessage(err, fallbackMessage = 'Erro ao processar a requ
   }
 }
 
+/**
+ * Faz scroll suave até a seção de mensagens.
+ * Usa requestAnimationFrame para garantir que o DOM foi atualizado antes do scroll.
+ */
+export function scrollToMensagens() {
+  requestAnimationFrame(() => {
+    const el = document.getElementById('mensagens')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  })
+}
+
 export default {
   fieldLabels,
   formatBackendErrors,
   getErrorMessage,
+  scrollToMensagens,
 }

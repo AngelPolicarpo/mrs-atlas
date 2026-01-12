@@ -11,7 +11,7 @@ import {
 import { getAmparosLegais, getTiposAtualizacao } from '../services/core'
 import useAutoComplete from './useAutoComplete'
 import { cleanDataForSubmit, formatters, validateDocuments, validators } from '../utils/validation'
-import { getErrorMessage } from '../utils/errorHandler'
+import { getErrorMessage, scrollToMensagens } from '../utils/errorHandler'
 
 const emptyVinculo = {
   id: null,
@@ -295,7 +295,7 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
         .map((field) => fieldLabels[field] || field)
         .join(', ')
       setError(`Por favor, corrija os erros nos campos: ${camposComErro}`)
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
       return
     }
 
@@ -345,7 +345,7 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
 
       const successMessage = isEditing ? 'Dependente atualizado com sucesso!' : 'Dependente cadastrado com sucesso!'
       setSuccess(successMessage)
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
 
       if (onSaved) {
         onSaved({ dependenteId: dependenteIdRef, titular: formData.titular })
@@ -354,7 +354,7 @@ function useDependenteForm({ dependenteId, titularIdFromUrl, onSaved }) {
       // Usa o utilitário centralizado para formatar erros
       setError(getErrorMessage(err, 'Erro ao salvar dependente'))
       console.error(err)
-      window.location.hash = 'mensagens'
+      scrollToMensagens()
     } finally {
       setSaving(false)
     }
