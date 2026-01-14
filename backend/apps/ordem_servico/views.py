@@ -48,6 +48,8 @@ class OrdemServicoFilter(django_filters.FilterSet):
     contrato = django_filters.UUIDFilter(field_name='contrato__id')
     empresa_solicitante = django_filters.UUIDFilter(field_name='empresa_solicitante__id')
     empresa_pagadora = django_filters.UUIDFilter(field_name='empresa_pagadora__id')
+    titular_solicitante = django_filters.UUIDFilter(field_name='titular_solicitante__id')
+    titular_pagador = django_filters.UUIDFilter(field_name='titular_pagador__id')
     centro_custos = django_filters.UUIDFilter(field_name='centro_custos__id')
     responsavel = django_filters.UUIDFilter(field_name='responsavel__id')
     solicitante = django_filters.UUIDFilter(field_name='solicitante__id')
@@ -71,6 +73,7 @@ class OrdemServicoFilter(django_filters.FilterSet):
         model = OrdemServico
         fields = [
             'numero', 'status', 'contrato', 'empresa_solicitante', 'empresa_pagadora',
+            'titular_solicitante', 'titular_pagador',
             'centro_custos', 'responsavel', 'solicitante', 'colaborador'
         ]
     

@@ -381,13 +381,21 @@ class OSPDFGenerator:
         if self.os.contrato and self.os.contrato.empresa_contratada:
             empresa_contratada = getattr(self.os.contrato.empresa_contratada, 'nome_fantasia', None) or getattr(self.os.contrato.empresa_contratada, 'nome_juridico', None) or '-'
         
-        empresa_solicitante = '-'
+        # Solicitante da OS (pode ser empresa ou titular)
+        solicitante_os = '-'
         if self.os.empresa_solicitante:
-            empresa_solicitante = getattr(self.os.empresa_solicitante, 'nome', None) or '-'
+            solicitante_os = getattr(self.os.empresa_solicitante, 'nome', None) or '-'
+        elif self.os.titular_solicitante:
+            solicitante_os = getattr(self.os.titular_solicitante, 'nome', None) or '-'
+            solicitante_os = f"{solicitante_os} (Particular)"
         
-        pagadora = '-'
+        # Pagador/Faturamento (pode ser empresa ou titular)
+        pagador = '-'
         if self.os.empresa_pagadora:
-            pagadora = getattr(self.os.empresa_pagadora, 'nome', None) or '-'
+            pagador = getattr(self.os.empresa_pagadora, 'nome', None) or '-'
+        elif self.os.titular_pagador:
+            pagador = getattr(self.os.titular_pagador, 'nome', None) or '-'
+            pagador = f"{pagador} (Particular)"
         
         solicitante_user = '-'
         if self.os.solicitante:
@@ -404,11 +412,11 @@ class OSPDFGenerator:
                 Paragraph(f"<b>Solicitante:</b> {solicitante_user}", self.styles['OSBodyText']),
             ],
             [
-                Paragraph(f"<b>Empresa Solicitante:</b> {empresa_solicitante}", self.styles['OSBodyText']),
+                Paragraph(f"<b>Solicitou OS:</b> {solicitante_os}", self.styles['OSBodyText']),
                 Paragraph(f"<b>Colaborador:</b> {colaborador_user}", self.styles['OSBodyText']),
             ],
             [
-                Paragraph(f"<b>Faturamento:</b> {pagadora}", self.styles['OSBodyText']),
+                Paragraph(f"<b>Faturamento:</b> {pagador}", self.styles['OSBodyText']),
             ],
         ]
         

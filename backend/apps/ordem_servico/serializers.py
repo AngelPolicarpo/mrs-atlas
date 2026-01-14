@@ -255,7 +255,17 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
     empresa_pagadora_nome = serializers.CharField(source='empresa_pagadora.nome', read_only=True)
     empresa_contratante_nome = serializers.CharField(source='contrato.empresa_contratante.nome', read_only=True)
     
-    # Solicitante e Colaborador
+    # Titular como solicitante/pagador (particular)
+    titular_solicitante_nome = serializers.CharField(source='titular_solicitante.nome', read_only=True)
+    titular_pagador_nome = serializers.CharField(source='titular_pagador.nome', read_only=True)
+    
+    # Nome unificado do solicitante/pagador (empresa ou titular)
+    solicitante_os_nome = serializers.CharField(source='solicitante_nome_display', read_only=True)
+    pagador_os_nome = serializers.CharField(source='pagador_nome_display', read_only=True)
+    solicitante_os_tipo = serializers.CharField(source='solicitante_tipo', read_only=True)
+    pagador_os_tipo = serializers.CharField(source='pagador_tipo', read_only=True)
+    
+    # Solicitante e Colaborador (usuários)
     solicitante_nome = serializers.CharField(source='solicitante.nome', read_only=True)
     colaborador_nome = serializers.CharField(source='colaborador.nome', read_only=True)
     
@@ -280,7 +290,13 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
             'empresa_solicitante', 'empresa_solicitante_nome',
             'empresa_pagadora', 'empresa_pagadora_nome',
             'empresa_contratante_nome',
-            # Solicitante e Colaborador
+            # Titular como solicitante/pagador
+            'titular_solicitante', 'titular_solicitante_nome',
+            'titular_pagador', 'titular_pagador_nome',
+            # Nome unificado (empresa ou titular)
+            'solicitante_os_nome', 'pagador_os_nome',
+            'solicitante_os_tipo', 'pagador_os_tipo',
+            # Solicitante e Colaborador (usuários)
             'solicitante', 'solicitante_nome',
             'colaborador', 'colaborador_nome',
             # Valores
@@ -307,6 +323,18 @@ class OrdemServicoListSerializer(serializers.ModelSerializer):
     empresa_pagadora_nome = serializers.CharField(source='empresa_pagadora.nome', read_only=True)
     empresa_contratante_nome = serializers.CharField(source='contrato.empresa_contratante.nome', read_only=True)
     empresa_contratada_nome = serializers.SerializerMethodField()
+    
+    # Titular como solicitante/pagador
+    titular_solicitante_nome = serializers.CharField(source='titular_solicitante.nome', read_only=True)
+    titular_pagador_nome = serializers.CharField(source='titular_pagador.nome', read_only=True)
+    
+    # Nome unificado (empresa ou titular)
+    solicitante_os_nome = serializers.CharField(source='solicitante_nome_display', read_only=True)
+    pagador_os_nome = serializers.CharField(source='pagador_nome_display', read_only=True)
+    solicitante_os_tipo = serializers.CharField(source='solicitante_tipo', read_only=True)
+    pagador_os_tipo = serializers.CharField(source='pagador_tipo', read_only=True)
+    
+    # Usuários
     solicitante_nome = serializers.CharField(source='solicitante.nome', read_only=True)
     colaborador_nome = serializers.CharField(source='colaborador.nome', read_only=True)
     qtd_titulares = serializers.SerializerMethodField()
@@ -328,6 +356,13 @@ class OrdemServicoListSerializer(serializers.ModelSerializer):
             'empresa_solicitante', 'empresa_solicitante_nome',
             'empresa_pagadora', 'empresa_pagadora_nome',
             'empresa_contratante_nome', 'empresa_contratada_nome',
+            # Titular como solicitante/pagador
+            'titular_solicitante', 'titular_solicitante_nome',
+            'titular_pagador', 'titular_pagador_nome',
+            # Nome unificado
+            'solicitante_os_nome', 'pagador_os_nome',
+            'solicitante_os_tipo', 'pagador_os_tipo',
+            # Usuários
             'solicitante', 'solicitante_nome',
             'colaborador', 'colaborador_nome',
             'valor_servicos', 'valor_despesas', 'valor_total', 'data_criacao',
@@ -359,6 +394,7 @@ class OrdemServicoCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'contrato', 'data_abertura', 'data_fechamento', 'status', 'observacao',
             'empresa_solicitante', 'empresa_pagadora',
+            'titular_solicitante', 'titular_pagador',
             'solicitante', 'colaborador'
         ]
         read_only_fields = ['id']
@@ -386,8 +422,49 @@ class OrdemServicoCreateUpdateSerializer(serializers.ModelSerializer):
         """Validações gerais."""
         contrato = data.get('contrato') or (self.instance.contrato if self.instance else None)
         
-        # Validar que empresa_solicitante pertence ao contrato (ou é relacionada)
-        # Esta validação pode ser flexibilizada conforme regras de negócio
+        # Validar solicitante: deve ter empresa_solicitante OU titular_solicitante (não ambos)
+        empresa_solicitante = data.get('empresa_solicitante')
+        titular_solicitante = data.get('titular_solicitante')
+        
+        # Se estiver editando, considerar valores existentes se não fornecidos
+        if self.instance:
+            if 'empresa_solicitante' not in data:
+                empresa_solicitante = self.instance.empresa_solicitante
+            if 'titular_solicitante' not in data:
+                titular_solicitante = self.instance.titular_solicitante
+        
+        if empresa_solicitante and titular_solicitante:
+            raise serializers.ValidationError({
+                'empresa_solicitante': 'Não é possível ter empresa e titular como solicitante ao mesmo tempo.',
+                'titular_solicitante': 'Não é possível ter empresa e titular como solicitante ao mesmo tempo.'
+            })
+        
+        # Validar pagador: deve ter empresa_pagadora OU titular_pagador (não ambos)
+        empresa_pagadora = data.get('empresa_pagadora')
+        titular_pagador = data.get('titular_pagador')
+        
+        if self.instance:
+            if 'empresa_pagadora' not in data:
+                empresa_pagadora = self.instance.empresa_pagadora
+            if 'titular_pagador' not in data:
+                titular_pagador = self.instance.titular_pagador
+        
+        if empresa_pagadora and titular_pagador:
+            raise serializers.ValidationError({
+                'empresa_pagadora': 'Não é possível ter empresa e titular como pagador ao mesmo tempo.',
+                'titular_pagador': 'Não é possível ter empresa e titular como pagador ao mesmo tempo.'
+            })
+        
+        # Limpar campos mutuamente exclusivos
+        if empresa_solicitante:
+            data['titular_solicitante'] = None
+        elif titular_solicitante:
+            data['empresa_solicitante'] = None
+            
+        if empresa_pagadora:
+            data['titular_pagador'] = None
+        elif titular_pagador:
+            data['empresa_pagadora'] = None
         
         return data
 

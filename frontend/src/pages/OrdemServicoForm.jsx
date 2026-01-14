@@ -160,6 +160,8 @@ function OrdemServicoForm() {
   const [contratoDisplay, setContratoDisplay] = useState('')
   const [empresaSolicitanteDisplay, setEmpresaSolicitanteDisplay] = useState('')
   const [empresaPagadoraDisplay, setEmpresaPagadoraDisplay] = useState('')
+  const [titularSolicitanteDisplay, setTitularSolicitanteDisplay] = useState('')
+  const [titularPagadorDisplay, setTitularPagadorDisplay] = useState('')
   const [solicitanteDisplay, setSolicitanteDisplay] = useState('')
   const [colaboradorDisplay, setColaboradorDisplay] = useState('')
 
@@ -167,6 +169,8 @@ function OrdemServicoForm() {
   const contratoAC = useAutoComplete(searchContratos, { minLength: 1 })
   const empresaSolicitanteAC = useAutoComplete(searchEmpresas, { minLength: 2 })
   const empresaPagadoraAC = useAutoComplete(searchEmpresas, { minLength: 2 })
+  const titularSolicitanteAC = useAutoComplete(searchTitulares, { minLength: 2 })
+  const titularPagadorAC = useAutoComplete(searchTitulares, { minLength: 2 })
   const solicitanteAC = useAutoComplete(searchUsers, { minLength: 2 })
   const colaboradorAC = useAutoComplete(searchUsers, { minLength: 2 })
   const titularAC = useAutoComplete(searchTitulares, { minLength: 2 })
@@ -184,6 +188,8 @@ function OrdemServicoForm() {
       setContratoDisplay(ordemServico.contrato_numero || '')
       setEmpresaSolicitanteDisplay(ordemServico.empresa_solicitante_nome || '')
       setEmpresaPagadoraDisplay(ordemServico.empresa_pagadora_nome || '')
+      setTitularSolicitanteDisplay(ordemServico.titular_solicitante_nome || '')
+      setTitularPagadorDisplay(ordemServico.titular_pagador_nome || '')
       setSolicitanteDisplay(ordemServico.solicitante_nome || '')
       setColaboradorDisplay(ordemServico.colaborador_nome || '')
     }
@@ -396,10 +402,6 @@ function OrdemServicoForm() {
                 hint="Usuário solicitante da OS"
               />
             </div>
-          </div>
-
-          {/* Pessoas e Empresas - na mesma seção */}
-          <div className="form-grid-3" style={{ marginTop: '1.5rem' }}>
             <div className="form-field">
               <label htmlFor="colaborador" className="form-label">
                 Colaborador
@@ -422,53 +424,162 @@ function OrdemServicoForm() {
                 hint="Usuário colaborador responsável pelo atendimento"
               />
             </div>
+          </div>
+
+          {/* Pessoas e Empresas - na mesma seção */}
+          <div className="form-grid-3" style={{ marginTop: '1.5rem' }}>
+
 
             <div className="form-field">
-              <label htmlFor="empresa_solicitante" className="form-label">
-                Solicitante <span className="required">*</span>
+              <label className="form-label">
+                Solicitou OS
               </label>
-              <AutoCompleteInput
-                id="empresa_solicitante"
-                name="empresa_solicitante"
-                value={formData.empresa_solicitante}
-                displayValue={empresaSolicitanteDisplay}
-                onChange={handleChange}
-                onSelect={(emp) => {
-                  handleChange({ target: { name: 'empresa_solicitante', value: emp.id } })
-                  setEmpresaSolicitanteDisplay(emp.nome)
-                }}
-                suggestions={empresaSolicitanteAC.suggestions}
-                onSearch={empresaSolicitanteAC.search}
-                onClear={empresaSolicitanteAC.clear}
-                placeholder="Digite o nome da empresa..."
-                required
-                renderSuggestion={(emp) => emp.nome}
-                hint="Empresa que solicitou a OS"
-              />
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="solicitante_tipo"
+                    value="empresa"
+                    checked={formData.solicitante_tipo === 'empresa'}
+                    onChange={(e) => {
+                      handleChange(e)
+                      // Limpar campo do outro tipo
+                      handleChange({ target: { name: 'titular_solicitante', value: '' } })
+                      setTitularSolicitanteDisplay('')
+                    }}
+                  />
+                  Empresa
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="solicitante_tipo"
+                    value="titular"
+                    checked={formData.solicitante_tipo === 'titular'}
+                    onChange={(e) => {
+                      handleChange(e)
+                      // Limpar campo do outro tipo
+                      handleChange({ target: { name: 'empresa_solicitante', value: '' } })
+                      setEmpresaSolicitanteDisplay('')
+                    }}
+                  />
+                  Titular (Particular)
+                </label>
+              </div>
+              
+              {formData.solicitante_tipo === 'empresa' ? (
+                <AutoCompleteInput
+                  id="empresa_solicitante"
+                  name="empresa_solicitante"
+                  value={formData.empresa_solicitante}
+                  displayValue={empresaSolicitanteDisplay}
+                  onChange={handleChange}
+                  onSelect={(emp) => {
+                    handleChange({ target: { name: 'empresa_solicitante', value: emp.id } })
+                    setEmpresaSolicitanteDisplay(emp.nome)
+                  }}
+                  suggestions={empresaSolicitanteAC.suggestions}
+                  onSearch={empresaSolicitanteAC.search}
+                  onClear={empresaSolicitanteAC.clear}
+                  placeholder="Digite o nome da empresa..."
+                  renderSuggestion={(emp) => emp.nome}
+                  hint="Empresa que solicitou a OS"
+                />
+              ) : (
+                <AutoCompleteInput
+                  id="titular_solicitante"
+                  name="titular_solicitante"
+                  value={formData.titular_solicitante}
+                  displayValue={titularSolicitanteDisplay}
+                  onChange={handleChange}
+                  onSelect={(t) => {
+                    handleChange({ target: { name: 'titular_solicitante', value: t.id } })
+                    setTitularSolicitanteDisplay(t.nome)
+                  }}
+                  suggestions={titularSolicitanteAC.suggestions}
+                  onSearch={titularSolicitanteAC.search}
+                  onClear={titularSolicitanteAC.clear}
+                  placeholder="Digite o nome do titular..."
+                  renderSuggestion={(t) => `${t.nome} ${t.cpf ? `(${t.cpf})` : ''}`}
+                  hint="Titular que solicitou a OS como particular"
+                />
+              )}
             </div>
 
             <div className="form-field">
-              <label htmlFor="empresa_pagadora" className="form-label">
-                Faturamento <span className="required">*</span>
+              <label className="form-label">
+                Faturamento
               </label>
-              <AutoCompleteInput
-                id="empresa_pagadora"
-                name="empresa_pagadora"
-                value={formData.empresa_pagadora}
-                displayValue={empresaPagadoraDisplay}
-                onChange={handleChange}
-                onSelect={(emp) => {
-                  handleChange({ target: { name: 'empresa_pagadora', value: emp.id } })
-                  setEmpresaPagadoraDisplay(emp.nome)
-                }}
-                suggestions={empresaPagadoraAC.suggestions}
-                onSearch={empresaPagadoraAC.search}
-                onClear={empresaPagadoraAC.clear}
-                placeholder="Digite o nome da empresa..."
-                required
-                renderSuggestion={(emp) => emp.nome}
-                hint="Empresa responsável pelo pagamento"
-              />
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="pagador_tipo"
+                    value="empresa"
+                    checked={formData.pagador_tipo === 'empresa'}
+                    onChange={(e) => {
+                      handleChange(e)
+                      // Limpar campo do outro tipo
+                      handleChange({ target: { name: 'titular_pagador', value: '' } })
+                      setTitularPagadorDisplay('')
+                    }}
+                  />
+                  Empresa
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="pagador_tipo"
+                    value="titular"
+                    checked={formData.pagador_tipo === 'titular'}
+                    onChange={(e) => {
+                      handleChange(e)
+                      // Limpar campo do outro tipo
+                      handleChange({ target: { name: 'empresa_pagadora', value: '' } })
+                      setEmpresaPagadoraDisplay('')
+                    }}
+                  />
+                  Titular (Particular)
+                </label>
+              </div>
+              
+              {formData.pagador_tipo === 'empresa' ? (
+                <AutoCompleteInput
+                  id="empresa_pagadora"
+                  name="empresa_pagadora"
+                  value={formData.empresa_pagadora}
+                  displayValue={empresaPagadoraDisplay}
+                  onChange={handleChange}
+                  onSelect={(emp) => {
+                    handleChange({ target: { name: 'empresa_pagadora', value: emp.id } })
+                    setEmpresaPagadoraDisplay(emp.nome)
+                  }}
+                  suggestions={empresaPagadoraAC.suggestions}
+                  onSearch={empresaPagadoraAC.search}
+                  onClear={empresaPagadoraAC.clear}
+                  placeholder="Digite o nome da empresa..."
+                  renderSuggestion={(emp) => emp.nome}
+                  hint="Empresa responsável pelo pagamento"
+                />
+              ) : (
+                <AutoCompleteInput
+                  id="titular_pagador"
+                  name="titular_pagador"
+                  value={formData.titular_pagador}
+                  displayValue={titularPagadorDisplay}
+                  onChange={handleChange}
+                  onSelect={(t) => {
+                    handleChange({ target: { name: 'titular_pagador', value: t.id } })
+                    setTitularPagadorDisplay(t.nome)
+                  }}
+                  suggestions={titularPagadorAC.suggestions}
+                  onSearch={titularPagadorAC.search}
+                  onClear={titularPagadorAC.clear}
+                  placeholder="Digite o nome do titular..."
+                  renderSuggestion={(t) => `${t.nome} ${t.cpf ? `(${t.cpf})` : ''}`}
+                  hint="Titular responsável pelo pagamento (particular)"
+                />
+              )}
             </div>
           </div>
 

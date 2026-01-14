@@ -164,21 +164,48 @@ class OrdemServico(models.Model):
     observacao = models.TextField('Observação', blank=True, null=True)
     
     # Empresas (herdadas do contrato mas podem ser diferentes)
+    # Solicitante pode ser Empresa OU Titular (particular)
     empresa_solicitante = models.ForeignKey(
         'empresa.Empresa',
         on_delete=models.PROTECT,
         related_name='ordens_solicitadas',
         verbose_name='Empresa Solicitante',
         db_column='id_empresa_solicitante',
-        help_text='Empresa que solicita o serviço (pode ser diferente da contratante)'
+        help_text='Empresa que solicita o serviço (pode ser diferente da contratante)',
+        null=True,
+        blank=True
     )
+    titular_solicitante = models.ForeignKey(
+        'titulares.Titular',
+        on_delete=models.PROTECT,
+        related_name='ordens_solicitadas_particular',
+        verbose_name='Titular Solicitante',
+        db_column='id_titular_solicitante',
+        help_text='Titular que solicita o serviço como particular',
+        null=True,
+        blank=True
+    )
+    
+    # Pagador pode ser Empresa OU Titular (particular)
     empresa_pagadora = models.ForeignKey(
         'empresa.Empresa',
         on_delete=models.PROTECT,
         related_name='ordens_pagas',
         verbose_name='Empresa Pagadora',
         db_column='id_empresa_pagadora',
-        help_text='Empresa responsável pelo pagamento'
+        help_text='Empresa responsável pelo pagamento',
+        null=True,
+        blank=True
+    )
+    titular_pagador = models.ForeignKey(
+        'titulares.Titular',
+        on_delete=models.PROTECT,
+        related_name='ordens_pagas_particular',
+        verbose_name='Titular Pagador',
+        db_column='id_titular_pagador',
+        help_text='Titular responsável pelo pagamento (particular)',
+        null=True,
+        blank=True
     )
     
     # Solicitante e Colaborador
@@ -296,6 +323,42 @@ class OrdemServico(models.Model):
         self.valor_despesas = despesas_total
         self.valor_total = servicos_total + despesas_total
         self.save(update_fields=['valor_servicos', 'valor_despesas', 'valor_total'])
+    
+    @property
+    def solicitante_nome_display(self):
+        """Retorna o nome do solicitante (empresa ou titular)."""
+        if self.empresa_solicitante:
+            return self.empresa_solicitante.nome
+        elif self.titular_solicitante:
+            return self.titular_solicitante.nome
+        return None
+    
+    @property
+    def pagador_nome_display(self):
+        """Retorna o nome do pagador (empresa ou titular)."""
+        if self.empresa_pagadora:
+            return self.empresa_pagadora.nome
+        elif self.titular_pagador:
+            return self.titular_pagador.nome
+        return None
+    
+    @property
+    def solicitante_tipo(self):
+        """Retorna o tipo do solicitante ('empresa', 'titular' ou None)."""
+        if self.empresa_solicitante:
+            return 'empresa'
+        elif self.titular_solicitante:
+            return 'titular'
+        return None
+    
+    @property
+    def pagador_tipo(self):
+        """Retorna o tipo do pagador ('empresa', 'titular' ou None)."""
+        if self.empresa_pagadora:
+            return 'empresa'
+        elif self.titular_pagador:
+            return 'titular'
+        return None
 
 
 class OrdemServicoItem(models.Model):

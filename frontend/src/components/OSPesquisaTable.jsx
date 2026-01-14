@@ -43,7 +43,7 @@ function OSPesquisaTable({
             <th>Abertura</th>
             <th>Status</th>
             <th>Contrato</th>
-            <th>Empresa Solicitante</th>
+            <th>Solicitou OS</th>
             <th>Empresa Contratada</th>
             <th>Valor</th>
             <th>Ações</th>
@@ -81,7 +81,10 @@ function OSPesquisaTable({
                   </span>
                 </td>
                 <td>{os.contrato_numero || '-'}</td>
-                <td>{os.empresa_solicitante_nome || '-'}</td>
+                <td>
+                  {os.solicitante_os_nome || '-'}
+                  {os.solicitante_os_tipo === 'titular' && <span className="badge badge-info" style={{ marginLeft: '0.25rem', fontSize: '0.65rem' }}>P</span>}
+                </td>
                 <td>{os.empresa_contratada_nome || '-'}</td>
                 <td>
                   <strong>{formatCurrency(os.valor_total)}</strong>
@@ -143,10 +146,12 @@ function OSPesquisaTable({
                             <strong>Contrato:</strong> {os.empresa_contratante_nome || '-'}
                           </p>
                           <p>
-                            <strong>Solicitante:</strong> {os.empresa_solicitante_nome || '-'}
+                            <strong>Solicitou OS:</strong> {os.solicitante_os_nome || '-'}
+                            {os.solicitante_os_tipo === 'titular' && <span className="badge badge-info" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>Particular</span>}
                           </p>
                           <p>
-                            <strong>Faturamento:</strong> {os.empresa_pagadora_nome || '-'}
+                            <strong>Faturamento:</strong> {os.pagador_os_nome || '-'}
+                            {os.pagador_os_tipo === 'titular' && <span className="badge badge-info" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>Particular</span>}
                           </p>
                           <p>
                             <strong>Empresa Contratada:</strong> {os.empresa_contratada_nome || '-'}

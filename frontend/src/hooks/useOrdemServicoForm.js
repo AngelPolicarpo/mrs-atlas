@@ -34,8 +34,13 @@ const emptyFormData = {
   contrato: '',           // FK para contrato
   empresa_solicitante: '',
   empresa_pagadora: '',
+  titular_solicitante: '',  // Titular como solicitante (particular)
+  titular_pagador: '',      // Titular como pagador (particular)
   solicitante: '',
   colaborador: '',
+  // Tipo de solicitante/pagador (empresa ou titular)
+  solicitante_tipo: 'empresa',  // 'empresa' ou 'titular'
+  pagador_tipo: 'empresa',      // 'empresa' ou 'titular'
 }
 
 // Template para novo item de OS (serviço do contrato)
@@ -208,6 +213,10 @@ function useOrdemServicoForm(osId) {
         const os = osRes.data
         setOrdemServico(os)
         
+        // Determinar tipo de solicitante e pagador baseado nos dados existentes
+        const solicitanteTipo = os.titular_solicitante ? 'titular' : 'empresa'
+        const pagadorTipo = os.titular_pagador ? 'titular' : 'empresa'
+        
         setFormData({
           data_abertura: os.data_abertura || '',
           data_fechamento: os.data_fechamento || '',
@@ -216,8 +225,12 @@ function useOrdemServicoForm(osId) {
           contrato: os.contrato || '',
           empresa_solicitante: os.empresa_solicitante || '',
           empresa_pagadora: os.empresa_pagadora || '',
+          titular_solicitante: os.titular_solicitante || '',
+          titular_pagador: os.titular_pagador || '',
           solicitante: os.solicitante || '',
           colaborador: os.colaborador || '',
+          solicitante_tipo: solicitanteTipo,
+          pagador_tipo: pagadorTipo,
         })
         
         setTitulares(titRes.data || [])
@@ -446,16 +459,33 @@ function useOrdemServicoForm(osId) {
 
     try {
       // Prepara dados para envio
+      // Baseado no tipo selecionado, envia empresa ou titular
       const dataToSend = {
         data_abertura: formData.data_abertura,
         data_fechamento: formData.data_fechamento || null,
         status: formData.status,
         observacao: formData.observacao || null,
         contrato: formData.contrato,
-        empresa_solicitante: formData.empresa_solicitante || null,
-        empresa_pagadora: formData.empresa_pagadora || null,
         solicitante: formData.solicitante || null,
         colaborador: formData.colaborador || null,
+      }
+      
+      // Solicitante da OS: empresa ou titular
+      if (formData.solicitante_tipo === 'empresa') {
+        dataToSend.empresa_solicitante = formData.empresa_solicitante || null
+        dataToSend.titular_solicitante = null
+      } else {
+        dataToSend.empresa_solicitante = null
+        dataToSend.titular_solicitante = formData.titular_solicitante || null
+      }
+      
+      // Pagador/Faturamento: empresa ou titular
+      if (formData.pagador_tipo === 'empresa') {
+        dataToSend.empresa_pagadora = formData.empresa_pagadora || null
+        dataToSend.titular_pagador = null
+      } else {
+        dataToSend.empresa_pagadora = null
+        dataToSend.titular_pagador = formData.titular_pagador || null
       }
 
       // Remove campos vazios (exceto contrato que é obrigatório)

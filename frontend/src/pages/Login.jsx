@@ -30,8 +30,8 @@ function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-title"><img src={logo} alt="Atlas Logo" />Atlas</h1>
-        <p className="auth-subtitle">Sistema de Gestão de Clientes</p>
+        <h1 className="auth-title">Atlas</h1>
+        <p className="auth-subtitle" style={{ marginBottom: '8px' }}>Sistema de Gestão de Clientes</p>
         
         {error && <div className="alert alert-error">{error}</div>}
         
@@ -45,6 +45,7 @@ function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
+              style={{ marginBottom: '8px' }}
             />
           </div>
           
@@ -56,6 +57,7 @@ function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              style={{ marginBottom: '8px' }}
             />
           </div>
           
