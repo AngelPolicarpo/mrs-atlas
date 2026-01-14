@@ -1,5 +1,126 @@
 # 🚀 Deploy do Atlas na Microsoft Azure
 
+---
+
+## ⚡ Deploy Rápido (Atualização de Versão)
+
+> **Última atualização de produção:** 14/01/2026 - Tag: `v20260114103501`
+
+### Informações do Ambiente de Produção
+
+| Recurso | Valor |
+|---------|-------|
+| **Resource Group** | `rg-atlas-prod` |
+| **ACR Name** | `atlascontainerreg0a1373a3` |
+| **ACR Server** | `atlascontainerreg0a1373a3.azurecr.io` |
+| **Backend URL** | https://atlas-backend.lemonbush-34de6857.brazilsouth.azurecontainerapps.io |
+| **Frontend URL** | https://atlas-frontend.lemonbush-34de6857.brazilsouth.azurecontainerapps.io |
+| **Location** | Brazil South |
+
+### Comandos de Deploy Rápido
+
+```bash
+# 1. Login no Azure e ACR
+az login
+az acr login --name atlascontainerreg0a1373a3
+
+# 2. Gerar tag de versão
+export DEPLOY_TAG="v$(date +%Y%m%d%H%M%S)"
+echo "🏷️ Deploy Tag: $DEPLOY_TAG"
+
+# 3. Build e Deploy do Backend
+cd /home/god/Projetos/Atlas
+docker build --no-cache \
+  -t atlascontainerreg0a1373a3.azurecr.io/atlas-backend:$DEPLOY_TAG \
+  -f backend/Dockerfile.prod \
+  ./backend
+
+docker push atlascontainerreg0a1373a3.azurecr.io/atlas-backend:$DEPLOY_TAG
+
+az containerapp update \
+  --name atlas-backend \
+  --resource-group rg-atlas-prod \
+  --image atlascontainerreg0a1373a3.azurecr.io/atlas-backend:$DEPLOY_TAG
+
+# 4. Executar Migrations (se houver)
+az containerapp exec \
+  --name atlas-backend \
+  --resource-group rg-atlas-prod \
+  --command "python manage.py migrate"
+
+# 5. Build e Deploy do Frontend
+docker build --no-cache \
+  -t atlascontainerreg0a1373a3.azurecr.io/atlas-frontend:$DEPLOY_TAG \
+  -f frontend/Dockerfile.prod \
+  --build-arg VITE_API_URL="https://atlas-backend.lemonbush-34de6857.brazilsouth.azurecontainerapps.io" \
+  ./frontend
+
+docker push atlascontainerreg0a1373a3.azurecr.io/atlas-frontend:$DEPLOY_TAG
+
+az containerapp update \
+  --name atlas-frontend \
+  --resource-group rg-atlas-prod \
+  --image atlascontainerreg0a1373a3.azurecr.io/atlas-frontend:$DEPLOY_TAG
+
+# 6. Verificar Status
+az containerapp revision list --name atlas-backend --resource-group rg-atlas-prod --output table | head -5
+az containerapp revision list --name atlas-frontend --resource-group rg-atlas-prod --output table | head -5
+```
+
+### Deploy em Uma Linha (Backend)
+
+```bash
+cd /home/god/Projetos/Atlas && \
+DEPLOY_TAG="v$(date +%Y%m%d%H%M%S)" && \
+echo "🏷️ Tag: $DEPLOY_TAG" && \
+docker build --no-cache -t atlascontainerreg0a1373a3.azurecr.io/atlas-backend:$DEPLOY_TAG -f backend/Dockerfile.prod ./backend && \
+docker push atlascontainerreg0a1373a3.azurecr.io/atlas-backend:$DEPLOY_TAG && \
+az containerapp update --name atlas-backend --resource-group rg-atlas-prod --image atlascontainerreg0a1373a3.azurecr.io/atlas-backend:$DEPLOY_TAG
+```
+
+### Deploy em Uma Linha (Frontend)
+
+```bash
+cd /home/god/Projetos/Atlas && \
+DEPLOY_TAG="v$(date +%Y%m%d%H%M%S)" && \
+echo "🏷️ Tag: $DEPLOY_TAG" && \
+docker build --no-cache -t atlascontainerreg0a1373a3.azurecr.io/atlas-frontend:$DEPLOY_TAG -f frontend/Dockerfile.prod --build-arg VITE_API_URL="https://atlas-backend.lemonbush-34de6857.brazilsouth.azurecontainerapps.io" ./frontend && \
+docker push atlascontainerreg0a1373a3.azurecr.io/atlas-frontend:$DEPLOY_TAG && \
+az containerapp update --name atlas-frontend --resource-group rg-atlas-prod --image atlascontainerreg0a1373a3.azurecr.io/atlas-frontend:$DEPLOY_TAG
+```
+
+### Comandos Úteis
+
+```bash
+# Ver logs do backend
+az containerapp logs show --name atlas-backend --resource-group rg-atlas-prod --tail 50
+
+# Ver logs do frontend
+az containerapp logs show --name atlas-frontend --resource-group rg-atlas-prod --tail 50
+
+# Executar comando no container backend
+az containerapp exec --name atlas-backend --resource-group rg-atlas-prod --command "python manage.py shell"
+
+# Reiniciar revisão
+az containerapp revision restart --name atlas-backend --resource-group rg-atlas-prod --revision REVISION_NAME
+
+# Listar todas as revisões
+az containerapp revision list --name atlas-backend --resource-group rg-atlas-prod --output table
+
+# Ver variáveis de ambiente
+az containerapp show --name atlas-backend --resource-group rg-atlas-prod --query properties.template.containers[0].env -o json
+```
+
+### Histórico de Deploys
+
+| Data | Tag | Descrição |
+|------|-----|-----------|
+| 14/01/2026 | `v20260114103501` | Titular como solicitante/pagador na OS, melhorias PDF e pesquisa |
+| 10/01/2026 | `v20260109231000` | Correções de migrations e campos |
+| 07/01/2026 | `v20260107165929` | Deploy inicial em produção |
+
+---
+
 ## 📊 Análise Arquitetural e Decisão de Serviços
 
 ### Visão Geral do Projeto
